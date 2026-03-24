@@ -3033,6 +3033,14 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
 
 
 
+            if (currentUserIdValue && targetId && currentUserIdValue.toString() === targetId.toString()) return true;
+
+
+
+
+
+
+
             const targetCreatedByEmail = (target as any)?.createdByEmail?.toString().trim().toLowerCase() || '';
 
 
@@ -3066,6 +3074,24 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
 
 
             }
+
+
+
+
+
+
+
+            if (r === 'super_admin' || r === 'admin' || r === 'ob_manager' || r === 'sbm' || r === 'rm' || r === 'am') return false;
+
+
+
+
+
+
+
+            const currentCompany = ((currentUser as any)?.companyName || (currentUser as any)?.company || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+            const targetCompany = ((target as any)?.companyName || (target as any)?.company || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+            if (currentCompany && targetCompany && currentCompany === targetCompany) return true;
 
 
 

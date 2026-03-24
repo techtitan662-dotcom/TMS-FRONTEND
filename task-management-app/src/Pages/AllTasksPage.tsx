@@ -642,7 +642,7 @@ const BulkImporter = memo(({
     const raw = (value == null ? '' : String(value)).trim();
     if (!raw) return '';
     const key = raw.toLowerCase().replace(/[\s-]+/g, ' ').trim();
-    if (key === 'troubleshoot' || key === 'trouble shoot' || key === 'trubbleshot' || key === 'trubble shoot') return 'Troubleshoot';
+    if (key === 'troubleshoot') return 'Troubleshoot';
     return raw;
   }, []);
 
@@ -701,7 +701,7 @@ const BulkImporter = memo(({
     };
 
     // For MD Manager bulk import: allow assigning to Managers/OB Managers in company + all MD Managers, including self.
-    if (role === 'md_manager') {
+    if (role === 'md_manager' || isMdImpexUser) {
       const requesterId = toId(currentUser);
       const myEmail = normalizeEmail((currentUser as any)?.email);
 
@@ -710,6 +710,18 @@ const BulkImporter = memo(({
         const email = normalizeEmail(u?.email);
         return (requesterId && id === requesterId) || (myEmail && email === myEmail);
       }) || (currentUser as any);
+
+      // If it's an MD Impex user, show all MD Impex members
+      if (isMdImpexUser) {
+        const mdImpexMembers = baseUsers.filter(u => {
+          const comp = String(u?.companyName || u?.company || '').trim().toLowerCase();
+          const target = MD_IMPEX_COMPANY_NAME.toLowerCase();
+          return comp === target || comp === target.replace(/\s+/g, '');
+        });
+        const candidates = [...mdImpexMembers, selfUser]
+          .filter((u: any) => Boolean(String(u?.email || '').trim()));
+        return Array.from(new Map(candidates.map((u: any) => [toId(u) || normalizeEmail(u?.email) || String(u?.email || ''), u])).values());
+      }
 
       const mdManagers = baseUsers.filter((u: any) => normalizeRole(u?.role) === 'md_manager');
       const managersAndObManagers = filterByCompany(baseUsers.filter((u: any) => {
@@ -6088,6 +6100,8 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
           submitting={bulkSubmitting}
           summary={bulkCreateSummary}
           getBrandsByCompany={getBrandsByCompanyInternal}
+          users={users}
+          currentUser={currentUser}
         />
       )}
 

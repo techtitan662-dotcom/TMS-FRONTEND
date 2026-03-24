@@ -1279,9 +1279,9 @@ const DashboardPage = () => {
                 const r = normalizeRole(u?.role);
                 return r === 'admin' || r === 'super_admin';
             });
-            const sbmUsers = role === 'sales_manager' 
-              ? baseUsers.filter((u: any) => normalizeRole(u?.role) === 'sbm') 
-              : [];
+            const sbmUsers = role === 'sales_manager'
+                ? baseUsers.filter((u: any) => normalizeRole(u?.role) === 'sbm')
+                : [];
             const scoped = filterByCompany(baseUsers);
             const merged = [...adminUsers, ...sbmUsers, ...scoped];
             return Array.from(new Map(merged.map((u: any) => [String((u as any)?.email || '').trim().toLowerCase(), u])).values());
@@ -5193,8 +5193,8 @@ const DashboardPage = () => {
         const defaultCompanyForRole = (role === 'md_manager' || role === 'ob_manager' || role === 'troubleshoot_manager')
             ? MD_IMPEX_COMPANY_NAME
             : (role === 'sales_manager' || role === 'sales_man')
-            ? (resolvedCompany || 'Speed Ecom')
-            : (resolvedCompany || MD_IMPEX_COMPANY_NAME);
+                ? (resolvedCompany || 'Speed Ecom')
+                : (resolvedCompany || MD_IMPEX_COMPANY_NAME);
         if (role === 'md_manager' || role === 'ob_manager' || role === 'manager' || role === 'marketer_manager' || role === 'assistant' || role === 'troubleshoot_manager' || role === 'sales_manager' || role === 'sales_man') {
             setNewTask(prev => {
                 const current = (prev?.companyName || '').toString().trim();
@@ -6821,7 +6821,7 @@ const DashboardPage = () => {
                                         try {
                                             navigate(routepath.brands);
                                         } catch {
-                                          // ignore
+                                            // ignore
                                         }
                                     }}
                                     tasks={tasks}
@@ -6985,32 +6985,32 @@ const DashboardPage = () => {
 
             {/* Mobile Bottom Navigation - "Beast" UX */}
             <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 px-6 py-2.5 flex items-center justify-between z-40 pb-safe">
-                <button 
+                <button
                     onClick={() => setCurrentView('dashboard')}
                     className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'dashboard' ? 'text-blue-600' : 'text-gray-400'}`}
                 >
                     <Home className="h-5 w-5" />
                     <span className="text-[10px] font-bold">Home</span>
                 </button>
-                <button 
+                <button
                     onClick={() => setCurrentView('all-tasks')}
                     className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'all-tasks' ? 'text-blue-600' : 'text-gray-400'}`}
                 >
                     <ListTodo className="h-5 w-5" />
                     <span className="text-[10px] font-bold">Tasks</span>
                 </button>
-                
+
                 {/* Space for FAB */}
                 <div className="w-12 h-10" />
 
-                <button 
+                <button
                     onClick={() => setCurrentView('analyze')}
                     className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'analyze' ? 'text-blue-600' : 'text-gray-400'}`}
                 >
                     <BarChart3 className="h-5 w-5" />
                     <span className="text-[10px] font-bold">Analyze</span>
                 </button>
-                <button 
+                <button
                     onClick={() => setCurrentView('profile')}
                     className={`flex flex-col items-center gap-1 transition-colors ${currentView === 'profile' ? 'text-blue-600' : 'text-gray-400'}`}
                 >
