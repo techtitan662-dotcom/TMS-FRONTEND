@@ -629,7 +629,7 @@ const BulkImporter = memo(({
 }) => {
   const [bulkTaskInput, setBulkTaskInput] = useState<string>('');
 
-    const isMdImpexUser = useMemo(() => {
+  const isMdImpexUser = useMemo(() => {
     const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
     if (roleKey === 'marketer_manager') return true;
     const normalizeCompanyKeyLocal = (v: unknown): string => String(v || '').trim().toLowerCase().replace(/\s+/g, '');

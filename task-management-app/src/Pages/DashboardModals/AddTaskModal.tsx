@@ -1,5 +1,6 @@
 import { useState, useEffect, memo, useMemo, useRef } from 'react';
 import { PlusCircle, X } from 'lucide-react';
+import { FixedSizeList as List } from 'react-window';
 
 
 
@@ -380,24 +381,34 @@ const AddTaskModal = ({
                       {filteredAssignUsers.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-gray-500">No results</div>
                       ) : (
-                        filteredAssignUsers.map((user) => {
-                          const name = String(user?.name || '').trim();
-                          const email = String(user?.email || '').trim();
-                          const label = name ? `${name} (${email})` : email;
-                          return (
-                            <button
-                              key={String(user.id || user.email)}
-                              type="button"
-                              onClick={() => {
-                                handleInternalChange('assignedTo', email);
-                                setAssignOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50"
-                            >
-                              {label}
-                            </button>
-                          );
-                        })
+                        <List
+                          height={Math.min(filteredAssignUsers.length * 40, 224)}
+                          itemCount={filteredAssignUsers.length}
+                          itemSize={40}
+                          width="100%"
+                        >
+                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                            const user = filteredAssignUsers[index];
+                            if (!user) return null;
+                            const name = String(user.name || '').trim();
+                            const email = String(user.email || '').trim();
+                            const label = name ? `${name} (${email})` : email;
+                            
+                            return (
+                              <button
+                                style={style}
+                                type="button"
+                                onClick={() => {
+                                  handleInternalChange('assignedTo', email);
+                                  setAssignOpen(false);
+                                }}
+                                className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
+                              >
+                                {label}
+                              </button>
+                            );
+                          }}
+                        </List>
                       )}
                     </div>
                   </div>
@@ -552,19 +563,31 @@ const AddTaskModal = ({
                       {filteredBrands.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-gray-500">No results</div>
                       ) : (
-                        filteredBrands.map((opt) => (
-                          <button
-                            key={String(opt.value)}
-                            type="button"
-                            onClick={() => {
-                              handleInternalChange('brand', String(opt.value || '').trim());
-                              setBrandOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50"
-                          >
-                            {opt.label}
-                          </button>
-                        ))
+                        <List
+                          height={Math.min(filteredBrands.length * 40, 224)}
+                          itemCount={filteredBrands.length}
+                          itemSize={40}
+                          width="100%"
+                        >
+                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                            const opt = filteredBrands[index];
+                            if (!opt) return null;
+                            
+                            return (
+                              <button
+                                style={style}
+                                type="button"
+                                onClick={() => {
+                                  handleInternalChange('brand', String(opt.value || '').trim());
+                                  setBrandOpen(false);
+                                }}
+                                className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          }}
+                        </List>
                       )}
                     </div>
                   </div>
@@ -794,4 +817,3 @@ const AddTaskModal = ({
 
 
 export default memo(AddTaskModal);
-

@@ -1,5 +1,6 @@
 import { PlusCircle, X } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { FixedSizeList as List } from 'react-window';
 import type { TaskPriority, UserType } from '../../Types/Types';
 import mdImpexAccessService from '../../Services/MdImpexAccess.services';
 import { taskTypeService } from '../../Services/TaskType.service';
@@ -491,28 +492,38 @@ const MdImpexAddTaskModal = ({
                         autoFocus
                       />
                     </div>
-                    <div className="max-h-56 overflow-auto">
+                    <div className="max-h-56">
                       {filteredEmailUsers.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-gray-500">No results</div>
                       ) : (
-                        filteredEmailUsers.map((user) => {
-                          const name = String(user?.name || '').trim();
-                          const email = String(user?.email || '').trim();
-                          const label = name ? `${name} (${email})` : email;
-                          return (
-                            <button
-                              key={String(user.id || user.email)}
-                              type="button"
-                              onClick={() => {
-                                onChange('assignedTo', email);
-                                setEmailOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50"
-                            >
-                              {label}
-                            </button>
-                          );
-                        })
+                        <List
+                          height={Math.min(filteredEmailUsers.length * 40, 224)}
+                          itemCount={filteredEmailUsers.length}
+                          itemSize={40}
+                          width="100%"
+                        >
+                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                            const user = filteredEmailUsers[index];
+                            if (!user) return null;
+                            const name = String(user.name || '').trim();
+                            const email = String(user.email || '').trim();
+                            const label = name ? `${name} (${email})` : email;
+                            
+                            return (
+                              <button
+                                style={style}
+                                type="button"
+                                onClick={() => {
+                                  onChange('assignedTo', email);
+                                  setEmailOpen(false);
+                                }}
+                                className="w-full text-left px-4 text-sm hover:bg-indigo-50 flex items-center"
+                              >
+                                {label}
+                              </button>
+                            );
+                          }}
+                        </List>
                       )}
                     </div>
                   </div>
@@ -578,23 +589,35 @@ const MdImpexAddTaskModal = ({
                         autoFocus
                       />
                     </div>
-                    <div className="max-h-56 overflow-auto">
+                    <div className="max-h-56">
                       {filteredBrandOptions.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-gray-500">No results</div>
                       ) : (
-                        filteredBrandOptions.map((opt) => (
-                          <button
-                            key={String(opt.value)}
-                            type="button"
-                            onClick={() => {
-                              onChange('brand', String(opt.value || '').trim());
-                              setBrandOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50"
-                          >
-                            {opt.label}
-                          </button>
-                        ))
+                        <List
+                          height={Math.min(filteredBrandOptions.length * 40, 224)}
+                          itemCount={filteredBrandOptions.length}
+                          itemSize={40}
+                          width="100%"
+                        >
+                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                            const opt = filteredBrandOptions[index];
+                            if (!opt) return null;
+                            
+                            return (
+                              <button
+                                style={style}
+                                type="button"
+                                onClick={() => {
+                                  onChange('brand', String(opt.value || '').trim());
+                                  setBrandOpen(false);
+                                }}
+                                className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          }}
+                        </List>
                       )}
                     </div>
                   </div>

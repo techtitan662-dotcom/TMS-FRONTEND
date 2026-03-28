@@ -409,7 +409,7 @@ const DashboardPage = () => {
         const monthRange = parseMonth(reviewsMonth);
         const currentUserCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim().toLowerCase();
         const isMdImpexUser = currentUserCompany.includes('mdimpex') || currentUserCompany.includes('md_impex');
-        
+
         let reviewedData = reviewedTasksForSummary || [];
         if (isMdImpexUser) {
             reviewedData = (tasks || []).filter((t) => {
@@ -6444,7 +6444,7 @@ const DashboardPage = () => {
                                                             {showListActionsColumn ? (
                                                                 <th className="px-6 py-4 text-right">Actions</th>
                                                             ) : null}
-                                                         </tr>
+                                                        </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100">
                                                         {paginatedTasks.map((task: Task) => (

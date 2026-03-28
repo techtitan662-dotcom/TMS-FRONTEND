@@ -721,7 +721,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     }, [filteredTasksByGlobalDates, globalSummary, globalCompany]);
 
     const userReportData = useMemo(() => {
-        const userMap: Record<string, { name: string; total: number; completed: number; pending: number; overdue: number }> = {};
+        const userMap: Record<string, { name: string; total: number; completed: number; pending: number; overdue: number; overdueCompleted: number }> = {};
         
         let reportTasks = filteredTasksByGlobalDates;
         if (reportFilterCompany !== 'all') {
@@ -734,7 +734,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         reportTasks.forEach(t => {
             const u = extractUserLabel(t.assignedTo, t.assignedToName) || 'Unassigned';
             if (!userMap[u]) {
-                userMap[u] = { name: u, total: 0, completed: 0, pending: 0, overdue: 0 };
+                userMap[u] = { name: u, total: 0, completed: 0, pending: 0, overdue: 0, overdueCompleted: 0 };
             }
             
             userMap[u].total++;
@@ -744,6 +744,18 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             
             if (getCompletionStatus(t) === 'Overdue') {
                 userMap[u].overdue++;
+            }
+
+            if (status === 'completed') {
+                const completedAtRaw = (t as any)?.completedAt || (t as any)?.updatedAt;
+                const dueDateRaw = (t as any)?.dueDate;
+                if (completedAtRaw && dueDateRaw) {
+                    const completedAt = new Date(normalizeText(completedAtRaw));
+                    const dueDate = new Date(normalizeText(dueDateRaw));
+                    if (!isNaN(completedAt.getTime()) && !isNaN(dueDate.getTime()) && completedAt.getTime() > dueDate.getTime()) {
+                        userMap[u].overdueCompleted++;
+                    }
+                }
             }
         });
         
@@ -758,13 +770,14 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const handleExportReport = () => {
         if (!userReportData.length) return;
         
-        const headers = ['User', 'Total Tasks', 'Completed', 'Pending', 'Overdue', 'Success Rate (%)'];
+        const headers = ['User', 'Total Tasks', 'Completed', 'Pending', 'Overdue', 'Overdue Completed', 'Success Rate (%)'];
         const rows = userReportData.map(r => [
             r.name,
             r.total,
             r.completed,
             r.pending,
             r.overdue,
+            r.overdueCompleted,
             r.rate
         ]);
         
@@ -3286,13 +3299,14 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-emerald-600">Completed</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-amber-600">Pending</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-red-600">Overdue</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Success Rate</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-purple-600">Ovre due complete</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Success Rate</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {userReportData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400 italic">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 italic">
                                         No user data found for this selection
                                     </td>
                                 </tr>
@@ -3327,8 +3341,13 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 {row.overdue}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
-                                            <div className="flex items-center gap-3">
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 font-mono">
+                                                {row.overdueCompleted}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap min-w-[160px] text-right">
+                                            <div className="flex items-center justify-end gap-3">
                                                 <div className="flex-grow bg-gray-100 h-2 rounded-full overflow-hidden max-w-[100px]">
                                                     <div 
                                                         className={`h-full rounded-full transition-all duration-500 ${

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Megaphone, X, Calendar, Star, Bell } from 'lucide-react';
+import { X } from 'lucide-react';
 import { headlineService } from '../Services/Headline.service';
 import type { Headline } from '../Services/Headline.service';
 import { io } from "socket.io-client";
@@ -83,14 +83,6 @@ const HeadlineBanner: React.FC = () => {
 
   if (!headline || !isVisible) return null;
 
-  const getIcon = () => {
-    switch (headline.type) {
-      case 'holiday': return <Calendar className="h-5 w-5" />;
-      case 'festival': return <Star className="h-5 w-5" />;
-      case 'meeting': return <Bell className="h-5 w-5" />;
-      default: return <Megaphone className="h-5 w-5" />;
-    }
-  };
 
   const getBgStyle = () => {
     if (headline.bgColor) return { backgroundColor: headline.bgColor };
@@ -113,14 +105,7 @@ const HeadlineBanner: React.FC = () => {
       className="relative overflow-hidden shadow-lg animate-in slide-in-from-top duration-500 transition-colors"
       style={getBgStyle()}
     >
-      <div className="max-w-[100vw] mx-auto py-2 flex items-center gap-4">
-        {/* Fixed Icon Section */}
-        <div 
-          className="flex-shrink-0 bg-white/20 p-2 ml-4 rounded-lg backdrop-blur-md z-10"
-          style={getTextStyle()}
-        >
-          {getIcon()}
-        </div>
+      <div className="max-w-[100vw] mx-auto py-2 flex items-center gap-4 pl-2">
         
         {/* Scrolling Text Section */}
         <div className="flex-1 overflow-hidden relative">

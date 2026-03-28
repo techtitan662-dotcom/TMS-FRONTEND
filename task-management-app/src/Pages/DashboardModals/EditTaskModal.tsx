@@ -1,6 +1,7 @@
 import { Edit, X } from 'lucide-react';
 
 import * as React from 'react';
+import { FixedSizeList as List } from 'react-window';
 
 import type { Task, TaskPriority, TaskStatus, UserType } from '../../Types/Types';
 
@@ -57,6 +58,37 @@ const EditTaskModal = ({
   currentUserEmail,
   currentUser,
 }: Props) => {
+  const assignDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const brandDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const [assignOpen, setAssignOpen] = React.useState(false);
+  const [assignSearch, setAssignSearch] = React.useState('');
+  const [brandOpen, setBrandOpen] = React.useState(false);
+  const [brandSearch, setBrandSearch] = React.useState('');
+
+  React.useEffect(() => {
+    if (open) {
+      setAssignOpen(false);
+      setBrandOpen(false);
+      setAssignSearch('');
+      setBrandSearch('');
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!assignOpen && !brandOpen) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (assignOpen && assignDropdownRef.current && target && !assignDropdownRef.current.contains(target)) {
+        setAssignOpen(false);
+      }
+      if (brandOpen && brandDropdownRef.current && target && !brandDropdownRef.current.contains(target)) {
+        setBrandOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [assignOpen, brandOpen]);
+
   if (!open || !editingTask) return null;
 
   const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -92,7 +124,7 @@ const EditTaskModal = ({
     return ids;
   })();
 
-  const filteredUsers = React.useMemo(() => {
+  const baseFilteredUsers = React.useMemo(() => {
     const list = Array.isArray(users) ? users : [];
     const taskCompanyKey = normalizeCompanyKey(editingTask?.companyName || (editingTask as any)?.company);
 
@@ -115,6 +147,27 @@ const EditTaskModal = ({
 
     return list;
   }, [allowedPairIds, editingTask, myRoleKey, normalizeCompanyKey, normalizeRoleKey, users]);
+
+  const filteredUsers = React.useMemo(() => {
+    const q = assignSearch.trim().toLowerCase();
+    if (!q) return baseFilteredUsers;
+    return baseFilteredUsers.filter((u) => {
+      const name = String(u?.name || '').trim().toLowerCase();
+      const email = String(u?.email || '').trim().toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [baseFilteredUsers, assignSearch]);
+
+  const filteredBrands = React.useMemo(() => {
+    const opts = getEditFormBrandOptions() || [];
+    const q = brandSearch.trim().toLowerCase();
+    if (!q) return opts;
+    return opts.filter(opt => {
+      const v = String(opt?.value || '').trim().toLowerCase();
+      const l = String(opt?.label || '').trim().toLowerCase();
+      return v.includes(q) || l.includes(q);
+    });
+  }, [getEditFormBrandOptions, brandSearch]);
 
   // Only disable all fields for Speed E Com tasks when the user is the ASSIGNEE (not the assigner)
   const shouldDisableAllForSpeedEcom = isSpeedEcom && isAssignee && !isAssigner;
@@ -159,19 +212,76 @@ const EditTaskModal = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Assign To *</label>
-                <select
-                  value={editFormData.assignedTo}
-                  onChange={(e) => onChange('assignedTo', e.target.value)}
-                  className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 ${editFormErrors.assignedTo ? 'border-red-500' : 'border-gray-300'}`}
-                  disabled={shouldDisableAllForSpeedEcom}
-                >
-                  <option value="">Select team member</option>
-                  {filteredUsers.map((user) => (
-                    <option key={user.id} value={user.email}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-                </select>
+                <div ref={assignDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => !shouldDisableAllForSpeedEcom && setAssignOpen((v) => !v)}
+                    disabled={shouldDisableAllForSpeedEcom}
+                    className={`w-full px-4 py-3 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${editFormErrors.assignedTo ? 'border-red-500' : 'border-gray-300'} ${shouldDisableAllForSpeedEcom ? 'bg-gray-50 opacity-50 cursor-not-allowed' : 'bg-white'}`}
+                  >
+                    {editFormData.assignedTo
+                      ? (() => {
+                          const u = baseFilteredUsers.find((x) => String(x?.email || '') === String(editFormData.assignedTo || ''));
+                          if (!u) return String(editFormData.assignedTo || '').trim();
+                          const name = String(u?.name || '').trim();
+                          const email = String(u?.email || '').trim();
+                          return name ? `${name} (${email})` : email;
+                        })()
+                      : 'Select team member'}
+                  </button>
+
+                  {assignOpen && !shouldDisableAllForSpeedEcom && (
+                    <div className="absolute z-50 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                      <div className="p-2 border-b border-gray-100">
+                        <input
+                          type="text"
+                          value={assignSearch}
+                          onChange={(e) => {
+                            setAssignSearch(e.target.value);
+                            setAssignOpen(true);
+                          }}
+                          placeholder="Search email or name"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-56">
+                        {filteredUsers.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-gray-500">No results</div>
+                        ) : (
+                          <List
+                            height={Math.min(filteredUsers.length * 40, 224)}
+                            itemCount={filteredUsers.length}
+                            itemSize={40}
+                            width="100%"
+                          >
+                            {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                              const user = filteredUsers[index];
+                              if (!user) return null;
+                              const name = String(user.name || '').trim();
+                              const email = String(user.email || '').trim();
+                              const label = name ? `${name} (${email})` : email;
+                              
+                              return (
+                                <button
+                                  style={style}
+                                  type="button"
+                                  onClick={() => {
+                                    onChange('assignedTo', email);
+                                    setAssignOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
+                                >
+                                  {label}
+                                </button>
+                              );
+                            }}
+                          </List>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 {editFormErrors.assignedTo && <p className="mt-1 text-sm text-red-600">{editFormErrors.assignedTo}</p>}
               </div>
 
@@ -263,22 +373,70 @@ const EditTaskModal = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">Brand</label>
-                <select
-                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={editFormData?.brand}
-                  onChange={(e) => onChange('brand', e.target.value)}
-                  disabled={!editFormData.companyName || shouldDisableAllForSpeedEcom}
-                >
-                  <option value="">Select a brand</option>
-                  {(() => {
-                    const options = getEditFormBrandOptions();
-                    return Array.isArray(options) && options.map((opt) => (
-                      <option key={opt?.value} value={opt?.value}>
-                        {opt?.label}
-                      </option>
-                    ));
-                  })()}
-                </select>
+                <div ref={brandDropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!editFormData.companyName || shouldDisableAllForSpeedEcom) return;
+                      setBrandOpen((v) => !v);
+                    }}
+                    disabled={!editFormData.companyName || shouldDisableAllForSpeedEcom}
+                    className={`w-full px-4 py-3 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300 ${(!editFormData.companyName || shouldDisableAllForSpeedEcom) ? 'bg-gray-50 opacity-50 cursor-not-allowed text-gray-400' : 'bg-white'}`}
+                  >
+                    {editFormData.brand
+                      ? (getEditFormBrandOptions().find((x) => String(x?.value || '') === String(editFormData.brand || ''))?.label || String(editFormData.brand || '').trim())
+                      : 'Select a brand'}
+                  </button>
+
+                  {brandOpen && editFormData.companyName && !shouldDisableAllForSpeedEcom && (
+                    <div className="absolute z-50 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+                      <div className="p-2 border-b border-gray-100">
+                        <input
+                          type="text"
+                          value={brandSearch}
+                          onChange={(e) => {
+                            setBrandSearch(e.target.value);
+                            setBrandOpen(true);
+                          }}
+                          placeholder="Search brand"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-56">
+                        {filteredBrands.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-gray-500">No results</div>
+                        ) : (
+                          <List
+                            height={Math.min(filteredBrands.length * 40, 224)}
+                            itemCount={filteredBrands.length}
+                            itemSize={40}
+                            width="100%"
+                          >
+                            {({ index, style }: { index: number; style: React.CSSProperties }) => {
+                              const opt = filteredBrands[index];
+                              if (!opt) return null;
+                              
+                              return (
+                                <button
+                                  style={style}
+                                  type="button"
+                                  onClick={() => {
+                                    onChange('brand', String(opt.value || '').trim());
+                                    setBrandOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            }}
+                          </List>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 {!editFormData.companyName && (
                   <p className="mt-1 text-xs text-gray-500">Select a company first to see available brands</p>
                 )}
