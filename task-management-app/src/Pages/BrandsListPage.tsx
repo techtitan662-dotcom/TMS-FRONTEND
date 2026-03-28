@@ -2,7 +2,9 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
     Building,
+    ArrowRight,
     Search,
+    Star,
     Grid,
     List,
     Users,
@@ -24,6 +26,12 @@ import {
     Clock,
     AlertTriangle,
     History,
+    Upload,
+    ChevronLeft,
+    ChevronRight,
+    Layers,
+    Sparkles,
+    ArrowUpRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -36,6 +44,7 @@ import CreateBrandModal from './CreateBrandModal';
 import EditBrandModal from './EditBrandModal';
 import EditCompanyModal from './EditCompanyModal';
 import BulkBrandAddModal from './BulkBrandAddModal';
+import mdImpexAccessService from '../Services/MdImpexAccess.services';
 
 import { routepath } from '../Routes/route';
 
@@ -63,11 +72,21 @@ interface BrandStats {
 
 type TaskDisplayType = 'all' | 'total-brands' | 'active-brands' | 'total-tasks' | null;
 
-const DEFAULT_BRANDS_PER_PAGE = 20;
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 75, 100, 125, 150, 175, 200];
+const DEFAULT_BRANDS_PER_PAGE = 12;
+const PAGE_SIZE_OPTIONS = [12, 24, 36, 48];
+
+// Color theme variables
+const colors = {
+    primary: {
+        dark: '#0f2a6e',
+        main: '#1e3a8a',
+        light: '#3b82f6',
+        lighter: '#60a5fa',
+        ultralight: '#dbeafe'
+    }
+};
 
 const BrandsListPage: React.FC<BrandsListPageProps> = ({
-    isSidebarCollapsed = false,
     onSelectBrand,
     currentUser,
     tasks: propTasks = [],
@@ -155,6 +174,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const [brandsPerPage, setBrandsPerPage] = useState<number>(DEFAULT_BRANDS_PER_PAGE);
     const [brandsTotal, setBrandsTotal] = useState<number>(0);
     const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+    const [personAccess, setPersonAccess] = useState<any | null>(null);
 
     const [brandHistoryPage, setBrandHistoryPage] = useState(1);
     const [brandHistoryLimit] = useState(30);
@@ -233,23 +253,42 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
     const [filters, setFilters] = useState<FilterState>({
         status: 'all',
-        company: (roleKey === 'md_manager' || roleKey === 'marketer_manager') ? 'MD Impex' : 'all',
+        company: (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance') ? 'md impex' : 'all',
         category: 'all',
         search: '',
         brand: 'all',
     });
 
     const brands = useMemo(() => {
-        if (role === 'assistant') {
-            const assigned = (currentUser as any)?.assignedBrands;
-            if (Array.isArray(assigned) && assigned.length > 0) {
-                return assigned.map((b: any) => ({
-                    ...b,
-                    id: b?.id || b?._id || '',
-                    name: (b?.name || '').toString(),
-                    company: (b?.company || b?.companyName || '').toString(),
-                })) as any as Brand[];
-            }
+        const normalize = (v: any) => String(v || '').trim().toLowerCase();
+        const myEmail = normalize((currentUser as any)?.email);
+
+        const allowedBrandNames = new Set<string>();
+        if (personAccess?.allowedBrands && Array.isArray(personAccess.allowedBrands)) {
+            personAccess.allowedBrands.forEach((b: string) => {
+                if (b) allowedBrandNames.add(normalize(b));
+            });
+        }
+
+        if (role === 'assistant' || role === 'assistance' || roleKey === 'assistant' || roleKey === 'assistance') {
+            const myId = String((currentUser as any)?.id || (currentUser as any)?._id || '').trim();
+            const myEmail = normalize((currentUser as any)?.email);
+
+            return apiBrands.filter(b => {
+                const status = (b?.status || '').toString().toLowerCase();
+                if (status === 'deleted' || status === 'archived') return false;
+                
+                // Strictly brands created by the user
+                const creator = String(b?.createdBy || '').trim();
+                const owner = (b as any)?.owner;
+                const ownerId = (owner && typeof owner === 'object') ? (owner.id || owner._id) : owner;
+                const creatorId = String(ownerId || creator || '').trim();
+
+                if (creatorId && (creatorId === myId || creatorId === myEmail)) return true;
+                
+                // Fallback: check if the name matches the user's email prefix if creator is missing (some old data might have this)
+                return false;
+            });
         }
 
         if (role === 'manager' || role === 'marketer_manager') {
@@ -283,9 +322,14 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                 const brandKey = `${normalize(brand?.name)}|${normalize(brand?.company)}`;
                 if (taskBrandCompanyKeys.has(brandKey)) return true;
 
-                const owner = (brand?.owner && typeof brand.owner === 'object') ? (brand.owner.id || brand.owner._id) : brand?.owner;
-                const ownerId = String(owner || '').trim();
-                if (myId && ownerId && ownerId === myId) return true;
+                // From MD Impex Access config
+                if (allowedBrandNames.has(normalize(brand?.name))) return true;
+
+                const creator = String(brand?.createdBy || '').trim();
+                const owner = (brand as any)?.owner;
+                const ownerId = (owner && typeof owner === 'object') ? (owner.id || owner._id) : owner;
+                if (myId && ownerId && String(ownerId) === myId) return true;
+                if (creator === myId || creator === myEmail) return true;
 
                 return false;
             });
@@ -294,7 +338,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         return [...apiBrands].filter(brand =>
             brand.status !== 'deleted' && brand.status !== 'archived'
         );
-    }, [apiBrands, currentUser, role, reportTasks]);
+    }, [apiBrands, currentUser, role, reportTasks, personAccess]);
 
     const accessibleBrands = brands;
 
@@ -535,7 +579,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         const fromCompaniesApi = (companyDocs || []).map((c: any) => (c?.name || '').toString().trim()).filter(Boolean);
         const list = [...new Set([...fromBrands, ...fromCompaniesApi])].sort((a, b) => a.localeCompare(b));
 
-        if (roleKey === 'md_manager' || roleKey === 'marketer_manager') {
+        if (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance' || role === 'assistant' || role === 'assistance') {
             const rawKey = 'mdimpex';
             const match = list.find((c) => String(c || '').trim().replace(/\s+/g, '').toLowerCase() === rawKey);
             if (match) return [match];
@@ -598,7 +642,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         return map;
     }, [allUsers]);
 
-    const userRoleByEmail = useMemo(() => {
+    const _userRoleByEmail = useMemo(() => {
         const map = new Map<string, string>();
         (allUsers || []).forEach((u: any) => {
             const email = String(u?.email || '').trim().toLowerCase();
@@ -608,16 +652,31 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         return map;
     }, [allUsers]);
 
-    const userDisplayByEmail = useMemo(() => {
+    const _userDisplayByEmail = useMemo(() => {
         const map = new Map<string, string>();
         (allUsers || []).forEach((u: any) => {
             const email = String(u?.email || '').trim().toLowerCase();
-            if (!email) return;
-            const label = (u?.name || u?.email || email).toString();
-            map.set(email, label);
+            if (email) map.set(email, String(u?.name || u?.displayName || '').trim());
         });
         return map;
     }, [allUsers]);
+
+    void _userRoleByEmail;
+    void _userDisplayByEmail;
+
+    const fetchPersonAccess = useCallback(async () => {
+        if (!currentUser?.email) return;
+        try {
+            const res = await mdImpexAccessService.getAllPersonAccess();
+            if (res.success && Array.isArray(res.data)) {
+                const myEmail = String(currentUser.email).trim().toLowerCase();
+                const myAccess = res.data.find((a: any) => String(a.assignedToEmail).trim().toLowerCase() === myEmail);
+                setPersonAccess(myAccess || null);
+            }
+        } catch (error) {
+            console.error('Error fetching person access:', error);
+        }
+    }, [currentUser?.email]);
 
     const adminCreatedBrands = useMemo(() => {
         if (!canViewBrandsCompaniesReport) return [];
@@ -677,103 +736,6 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         })).sort((a, b) => a.managerLabel.localeCompare(b.managerLabel));
     }, [accessibleBrands, companyDocs, canViewBrandsCompaniesReport, currentUser, role, userDisplayById, userRoleById]);
 
-    const managerAssistantBrandAssignments = useMemo(() => {
-        if (!canViewBrandsCompaniesReport) return [] as Array<{
-            managerEmail: string;
-            managerLabel: string;
-            assistants: Array<{
-                assistantEmail: string;
-                assistantLabel: string;
-                items: Array<{ brand: string; company: string; count: number }>;
-            }>;
-        }>;
-
-        if (role !== 'admin' && role !== 'super_admin') return [];
-
-        const normalize = (v: any) => String(v || '').trim().toLowerCase();
-
-        const getEmail = (value: any) => {
-            if (!value) return '';
-            if (typeof value === 'string') return value;
-            if (typeof value === 'object') return value?.email || '';
-            return '';
-        };
-
-        const getBrandName = (task: any) => {
-            if (!task) return '';
-            if (typeof task.brand === 'string') return task.brand;
-            return task?.brand?.name || '';
-        };
-
-        const getCompanyName = (task: any) => {
-            if (!task) return '';
-            return task.companyName || task.company || '';
-        };
-
-        const groups = new Map<string, {
-            managerEmail: string;
-            managerLabel: string;
-            assistants: Map<string, {
-                assistantEmail: string;
-                assistantLabel: string;
-                items: Map<string, { brand: string; company: string; count: number }>;
-            }>;
-        }>();
-
-        (reportTasks || []).forEach((t: any) => {
-            const managerEmail = normalize(getEmail(t?.assignedBy));
-            if (!managerEmail) return;
-            if (userRoleByEmail.get(managerEmail) !== 'manager' && userRoleByEmail.get(managerEmail) !== 'marketer_manager') return;
-
-            const assistantEmail = normalize(getEmail(t?.assignedToUser?.email || t?.assignedTo));
-            if (!assistantEmail) return;
-            if (userRoleByEmail.get(assistantEmail) !== 'assistant') return;
-
-            const brand = String(getBrandName(t) || '').trim();
-            const company = String(getCompanyName(t) || '').trim();
-            if (!brand && !company) return;
-
-            const managerLabel = userDisplayByEmail.get(managerEmail) || managerEmail;
-            const assistantLabel = userDisplayByEmail.get(assistantEmail) || assistantEmail;
-
-            if (!groups.has(managerEmail)) {
-                groups.set(managerEmail, { managerEmail, managerLabel, assistants: new Map() });
-            }
-
-            const managerGroup = groups.get(managerEmail)!;
-
-            if (!managerGroup.assistants.has(assistantEmail)) {
-                managerGroup.assistants.set(assistantEmail, {
-                    assistantEmail,
-                    assistantLabel,
-                    items: new Map()
-                });
-            }
-
-            const assistantGroup = managerGroup.assistants.get(assistantEmail)!;
-            const key = `${brand.toLowerCase()}|${company.toLowerCase()}`;
-            const existing = assistantGroup.items.get(key);
-            if (existing) {
-                existing.count += 1;
-            } else {
-                assistantGroup.items.set(key, { brand, company, count: 1 });
-            }
-        });
-
-        return Array.from(groups.values())
-            .map(g => ({
-                managerEmail: g.managerEmail,
-                managerLabel: g.managerLabel,
-                assistants: Array.from(g.assistants.values())
-                    .map(a => ({
-                        assistantEmail: a.assistantEmail,
-                        assistantLabel: a.assistantLabel,
-                        items: Array.from(a.items.values()).sort((x, y) => (y.count || 0) - (x.count || 0))
-                    }))
-                    .sort((a, b) => a.assistantLabel.localeCompare(b.assistantLabel))
-            }))
-            .sort((a, b) => a.managerLabel.localeCompare(b.managerLabel));
-    }, [reportTasks, canViewBrandsCompaniesReport, role, userDisplayByEmail, userRoleByEmail]);
 
     const getBrandMongoId = useCallback((b: any): string => {
         const raw = String(b?._id || b?.id || '').trim();
@@ -1368,6 +1330,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                     fetchUsersForAdmin(),
                     fetchCompaniesForAdmin(),
                     fetchDeletedCompaniesForAdmin(),
+                    fetchPersonAccess(),
                 ]);
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -1378,7 +1341,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         };
 
         fetchData();
-    }, [fetchBrands, fetchTasks, fetchUsersForAdmin, fetchCompaniesForAdmin, fetchDeletedCompaniesForAdmin]);
+    }, [fetchBrands, fetchTasks, fetchUsersForAdmin, fetchCompaniesForAdmin, fetchDeletedCompaniesForAdmin, fetchPersonAccess]);
 
     useEffect(() => {
         const handler = () => {
@@ -1514,26 +1477,26 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const getStatusColor = useCallback((status: BrandStatus) => {
         switch (status) {
             case 'active':
-                return 'bg-green-100 text-green-800 border-green-200';
+                return 'bg-emerald-50 text-emerald-700 border-emerald-100';
             case 'inactive':
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-50 text-gray-600 border-gray-100';
             case 'archived':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                return 'bg-amber-50 text-amber-700 border-amber-100';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-50 text-gray-600 border-gray-100';
         }
     }, []);
 
     const getStatusIcon = useCallback((status: BrandStatus) => {
         switch (status) {
             case 'active':
-                return <Activity className="h-4 w-4" />;
+                return <Activity className="h-3.5 w-3.5" />;
             case 'inactive':
-                return <Calendar className="h-4 w-4" />;
+                return <Calendar className="h-3.5 w-3.5" />;
             case 'archived':
-                return <Package className="h-4 w-4" />;
+                return <Package className="h-3.5 w-3.5" />;
             default:
-                return <Building className="h-4 w-4" />;
+                return <Building className="h-3.5 w-3.5" />;
         }
     }, []);
 
@@ -1621,37 +1584,31 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
     const containerClasses = useMemo(() => {
         return `
-            w-full max-w-full mx-auto px-4 sm:px-6 md:px-8
+            max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
             transition-all duration-300 ease-in-out
-            ${isSidebarCollapsed ? 'lg:px-6' : 'lg:px-8'}
         `;
-    }, [isSidebarCollapsed]);
+    }, []);
 
     const LoadingSkeleton = () => (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header Skeleton */}
-            <div className="bg-white shadow border-b">
-                <div className={containerClasses}>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-6">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse"></div>
-                            </div>
-                            <div className="h-4 w-64 bg-gray-200 rounded animate-pulse"></div>
-                        </div>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className={containerClasses}>
+                <div className="py-8">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="h-10 w-48 bg-gray-200 rounded-lg animate-pulse mb-3"></div>
+                        <div className="h-5 w-80 bg-gray-200 rounded-lg animate-pulse"></div>
                     </div>
 
                     {/* Stats Cards Skeleton */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5">
+                            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                                 <div className="flex items-center justify-between">
                                     <div className="space-y-2">
                                         <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
                                         <div className="h-8 w-16 bg-gray-300 rounded animate-pulse"></div>
                                     </div>
-                                    <div className="h-12 w-12 bg-gray-200 rounded-lg animate-pulse"></div>
+                                    <div className="h-12 w-12 bg-gray-200 rounded-xl animate-pulse"></div>
                                 </div>
                                 <div className="h-3 w-32 bg-gray-200 rounded mt-3 animate-pulse"></div>
                             </div>
@@ -1659,7 +1616,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                     </div>
 
                     {/* Filters Skeleton */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse"></div>
                             <div className="h-10 w-64 bg-gray-200 rounded-lg animate-pulse"></div>
@@ -1671,30 +1628,27 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                     </div>
 
                     {/* Brands Grid Skeleton */}
-                    <div className="py-6">
-                        <div className="h-6 w-48 bg-gray-200 rounded mb-4 animate-pulse"></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {[1, 2, 3, 4, 5, 6].map((i) => (
-                                <div key={i} className="bg-white rounded-2xl border border-gray-200 p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="space-y-2 flex-1">
-                                            <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse"></div>
-                                            <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse"></div>
-                                        </div>
-                                        <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse"></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="space-y-2 flex-1">
+                                        <div className="h-5 w-3/4 bg-gray-200 rounded animate-pulse"></div>
+                                        <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse"></div>
                                     </div>
-                                    <div className="h-8 w-24 bg-gray-200 rounded-full mb-4 animate-pulse"></div>
-                                    <div className="space-y-3 mb-5">
-                                        <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
-                                        <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse"></div>
-                                    </div>
-                                    <div className="flex gap-2 pt-4">
-                                        <div className="h-10 flex-1 bg-gray-200 rounded-lg animate-pulse"></div>
-                                        <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                                    </div>
+                                    <div className="h-8 w-8 bg-gray-200 rounded-lg animate-pulse"></div>
                                 </div>
-                            ))}
-                        </div>
+                                <div className="h-8 w-24 bg-gray-200 rounded-full mb-4 animate-pulse"></div>
+                                <div className="space-y-3 mb-5">
+                                    <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
+                                    <div className="h-4 w-2/3 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                                <div className="flex gap-2 pt-4">
+                                    <div className="h-10 flex-1 bg-gray-200 rounded-lg animate-pulse"></div>
+                                    <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -1706,28 +1660,33 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="bg-white shadow border-b">
-                <div className={containerClasses}>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-6">
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <Building className="h-8 w-8 text-blue-600" />
-                                <h1 className="text-3xl font-bold text-gray-900">Brands</h1>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+            <div className={containerClasses}>
+                <div className="py-6 lg:py-8">
+                    {/* Header Section */}
+                    <div className="mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2.5 rounded-xl" style={{ backgroundColor: colors.primary.ultralight }}>
+                                        <Building className="h-6 w-6" style={{ color: colors.primary.main }} />
+                                    </div>
+                                    <h1 className="text-1xl lg:text-2xl font-bold text-gray-900">Brands</h1>
+                                </div>
+                                <p className="text-gray-500 text-sm">Manage and track all your brands in one place</p>
                             </div>
-                            <p className="text-gray-600">Manage and track all your brands in one place</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {canBulkAddBrands && (
-                                <button
-                                    onClick={() => setShowBulkAddModal(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-                                >
-                                    <Package className="h-4 w-4" />
-                                    Bulk Add Brands
-                                </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {canBulkAddBrands && (
+                                    <button
+                                        onClick={() => setShowBulkAddModal(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white shadow-sm hover:shadow-md transition-all duration-200"
+                                        style={{ backgroundColor: colors.primary.main }}
+                                    >
+                                        <Upload className="h-4 w-4" />
+                                        Bulk Add
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1735,61 +1694,61 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div
                             onClick={() => handleStatsCardClick('total-brands')}
-                            className={`bg-white rounded-xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer ${taskDisplayType === 'total-brands'
+                            className={`group bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${taskDisplayType === 'total-brands'
                                 ? 'border-blue-500 ring-2 ring-blue-100'
-                                : 'border-gray-200 hover:border-blue-300'
+                                : 'border-gray-100 hover:border-blue-200'
                                 }`}
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Total Brands</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Brands</p>
+                                    <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
                                         {getActiveFilterCount() > 0 || filters.search ? filteredBrands.length : stats.totalBrands}
                                     </p>
                                 </div>
-                                <div className={`p-3 rounded-lg ${taskDisplayType === 'total-brands'
+                                <div className={`p-2 rounded-lg transition-colors duration-200 ${taskDisplayType === 'total-brands'
                                     ? 'bg-blue-100'
-                                    : 'bg-blue-50'
+                                    : 'bg-gray-50 group-hover:bg-blue-50'
                                     }`}>
-                                    <Building className={`h-6 w-6 ${taskDisplayType === 'total-brands'
+                                    <Layers className={`h-5 w-5 ${taskDisplayType === 'total-brands'
                                         ? 'text-blue-600'
-                                        : 'text-blue-500'
+                                        : 'text-gray-400 group-hover:text-blue-500'
                                         }`} />
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 mt-3">
-                                <TrendingUp className="h-4 w-4 text-green-500" />
+                            <div className="flex items-center gap-1 mt-2">
+                                <TrendingUp className="h-3 w-3 text-emerald-500" />
                                 <span className="text-xs text-gray-500">+12% from last month</span>
                             </div>
                         </div>
 
                         <div
                             onClick={() => handleStatsCardClick('active-brands')}
-                            className={`bg-white rounded-xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer ${taskDisplayType === 'active-brands'
-                                ? 'border-green-500 ring-2 ring-green-100'
-                                : 'border-gray-200 hover:border-green-300'
+                            className={`group bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${taskDisplayType === 'active-brands'
+                                ? 'border-emerald-500 ring-2 ring-emerald-100'
+                                : 'border-gray-100 hover:border-emerald-200'
                                 }`}
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Active Brands</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Brands</p>
+                                    <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
                                         {getActiveFilterCount() > 0 || filters.search
                                             ? filteredBrands.filter(brand => brand.status === 'active').length
                                             : stats.activeBrands}
                                     </p>
                                 </div>
-                                <div className={`p-3 rounded-lg ${taskDisplayType === 'active-brands'
-                                    ? 'bg-green-100'
-                                    : 'bg-green-50'
+                                <div className={`p-2 rounded-lg transition-colors duration-200 ${taskDisplayType === 'active-brands'
+                                    ? 'bg-emerald-100'
+                                    : 'bg-gray-50 group-hover:bg-emerald-50'
                                     }`}>
-                                    <Activity className={`h-6 w-6 ${taskDisplayType === 'active-brands'
-                                        ? 'text-green-600'
-                                        : 'text-green-500'
+                                    <Sparkles className={`h-5 w-5 ${taskDisplayType === 'active-brands'
+                                        ? 'text-emerald-600'
+                                        : 'text-gray-400 group-hover:text-emerald-500'
                                         }`} />
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 mt-3">
+                            <div className="flex items-center gap-1 mt-2">
                                 <span className="text-xs text-gray-500">
                                     {getActiveFilterCount() > 0 || filters.search
                                         ? `${Math.round((filteredBrands.filter(b => b.status === 'active').length / Math.max(filteredBrands.length, 1)) * 100)}% of filtered`
@@ -1801,33 +1760,33 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
                         <div
                             onClick={() => handleStatsCardClick('total-tasks')}
-                            className={`bg-white rounded-xl border p-5 shadow-sm hover:shadow-md transition-all cursor-pointer ${taskDisplayType === 'total-tasks'
+                            className={`group bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${taskDisplayType === 'total-tasks'
                                 ? 'border-purple-500 ring-2 ring-purple-100'
-                                : 'border-gray-200 hover:border-purple-300'
+                                : 'border-gray-100 hover:border-purple-200'
                                 }`}
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-600">Total Tasks</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Tasks</p>
+                                    <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
                                         {displayedTasks.length > 0 && taskDisplayType === 'total-tasks'
                                             ? displayedTasks.length
                                             : stats.totalTasks
                                         }
                                     </p>
                                 </div>
-                                <div className={`p-3 rounded-lg ${taskDisplayType === 'total-tasks'
+                                <div className={`p-2 rounded-lg transition-colors duration-200 ${taskDisplayType === 'total-tasks'
                                     ? 'bg-purple-100'
-                                    : 'bg-purple-50'
+                                    : 'bg-gray-50 group-hover:bg-purple-50'
                                     }`}>
-                                    <BarChart3 className={`h-6 w-6 ${taskDisplayType === 'total-tasks'
+                                    <BarChart3 className={`h-5 w-5 ${taskDisplayType === 'total-tasks'
                                         ? 'text-purple-600'
-                                        : 'text-purple-500'
+                                        : 'text-gray-400 group-hover:text-purple-500'
                                         }`} />
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1 mt-3">
-                                <TrendingDown className="h-4 w-4 text-red-500" />
+                            <div className="flex items-center gap-1 mt-2">
+                                <TrendingDown className="h-3 w-3 text-rose-500" />
                                 <span className="text-xs text-gray-500">-5% from last week</span>
                             </div>
                         </div>
@@ -1835,58 +1794,46 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
                     {/* Deleted Brands Section */}
                     {canDeleteBrand && showDeletedBrands && (adminDeletedBrands?.length || 0) > 0 && (
-                        <div className="mb-6 bg-white rounded-2xl shadow-sm border border-red-200 p-6">
+                        <div className="mb-8 bg-white rounded-2xl shadow-sm border border-rose-200 p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                        <History className="h-5 w-5 text-red-500" />
-                                        Deleted Brands (Admin View Only)
+                                    <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                        <History className="h-5 w-5 text-rose-500" />
+                                        Deleted Brands
                                     </h2>
-                                    <p className="text-sm text-gray-600 mt-1">
+                                    <p className="text-sm text-gray-500 mt-1">
                                         These brands have been deleted and are only visible to admins
                                     </p>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setShowDeletedBrands(false)}
-                                        className="text-sm text-gray-500 hover:text-gray-700"
-                                    >
-                                        Hide Deleted
-                                    </button>
-                                    <button
-                                        onClick={() => setShowFilters(true)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                    >
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={() => setShowDeletedBrands(false)}
+                                    className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
                             </div>
 
-                            <div className="space-y-3">
+                            <div className="space-y-2">
                                 {adminDeletedBrands.map((brand) => (
-                                    <div key={String(brand.id)} className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3">
+                                    <div key={String(brand.id)} className="flex items-center justify-between rounded-xl border border-rose-100 bg-rose-50/30 px-4 py-3">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor('deleted')}`}>
+                                                <div className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusColor('deleted')}`}>
                                                     {getStatusIcon('deleted')}
                                                     <span className="ml-1.5">Deleted</span>
                                                 </div>
                                                 <div className="text-sm font-medium text-gray-900 truncate">{brand.name}</div>
                                             </div>
-                                            <div className="text-xs text-gray-600 truncate mt-1">
-                                                Company: {brand.company} |
-                                                Deleted by: {brand.deletedBy || 'Unknown'} |
-                                                Deleted on: {brand.deletedAt ? new Date(brand.deletedAt).toLocaleDateString() : 'Unknown'}
+                                            <div className="text-xs text-gray-500 truncate mt-1">
+                                                Company: {brand.company} | Deleted by: {brand.deletedBy || 'Unknown'} | Deleted on: {brand.deletedAt ? new Date(brand.deletedAt).toLocaleDateString() : 'Unknown'}
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
                                                 onClick={() => handleRestoreBrand(brand)}
-                                                className="px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 rounded-lg hover:bg-green-100 flex items-center gap-1"
+                                                className="px-3 py-1.5 text-xs font-medium bg-white text-emerald-700 rounded-lg hover:bg-emerald-50 border border-emerald-200 transition-colors flex items-center gap-1"
                                             >
-                                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                                                </svg>
+                                                <ArrowUpRight className="h-3 w-3" />
                                                 Restore
                                             </button>
                                             <button
@@ -1895,10 +1842,10 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                         handleDeleteBrand(brand);
                                                     }
                                                 }}
-                                                className="px-3 py-1.5 text-xs font-medium bg-red-50 text-red-700 rounded-lg hover:bg-red-100 flex items-center gap-1"
+                                                className="px-3 py-1.5 text-xs font-medium bg-white text-rose-700 rounded-lg hover:bg-rose-50 border border-rose-200 transition-colors flex items-center gap-1"
                                             >
                                                 <Trash2 className="h-3 w-3" />
-                                                Permanently Delete
+                                                Delete
                                             </button>
                                         </div>
                                     </div>
@@ -1907,94 +1854,92 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                         </div>
                     )}
 
-                    {/* Filters Header */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6">
-                        <div className="flex items-center gap-3">
+                    {/* Filters Bar */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
                             >
-                                <Filter className="mr-2 h-4 w-4" />
+                                <Filter className="h-3.5 w-3.5" />
                                 Filters
                                 {getActiveFilterCount() > 0 && (
-                                    <span className="ml-2 bg-blue-100 text-blue-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                                    <span className="ml-1 bg-blue-100 text-blue-600 text-xs font-semibold px-1.5 py-0.5 rounded-full">
                                         {getActiveFilterCount()}
                                     </span>
                                 )}
                             </button>
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                                 <input
                                     type="text"
-                                    id="search-brands"
-                                    name="search-brands"
                                     placeholder="Search brands..."
                                     value={filters.search}
                                     onChange={(e) => {
                                         setFilters(prev => ({ ...prev, search: e.target.value }));
                                         setTaskDisplayType(null);
                                     }}
-                                    className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="w-full md:w-64 pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white"
                                 />
                             </div>
                             {(taskDisplayType || displayedTasks.length > 0) && (
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg">
-                                    <span className="text-sm font-medium">
+                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg">
+                                    <span className="text-xs font-medium">
                                         {displayedTasks.length} tasks shown
                                     </span>
                                     <button
                                         onClick={() => setTaskDisplayType(null)}
                                         className="text-blue-500 hover:text-blue-700"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-3.5 w-3.5" />
                                     </button>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <div className="text-sm text-gray-500">
+                        <div className="flex items-center gap-2">
+                            <div className="text-xs text-gray-500">
                                 {filteredBrands.length === 0
                                     ? 'No brands to display'
                                     : `Showing ${startItemIndex}-${endItemIndex} of ${filteredBrands.length} brands`}
                             </div>
-                            <div className="inline-flex items-center bg-gray-100 rounded-lg p-1">
+                            <div className="inline-flex items-center bg-gray-100 rounded-lg p-0.5">
                                 <button
                                     onClick={() => setViewMode('grid')}
-                                    className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'grid'
+                                    className={`px-2.5 py-1 rounded-md transition-all duration-200 ${viewMode === 'grid'
                                         ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     title="Grid View"
                                 >
-                                    <Grid className="h-4 w-4" />
+                                    <Grid className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                     onClick={() => setViewMode('list')}
-                                    className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'list'
+                                    className={`px-2.5 py-1 rounded-md transition-all duration-200 ${viewMode === 'list'
                                         ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-600 hover:text-gray-900'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     title="List View"
                                 >
-                                    <List className="h-4 w-4" />
+                                    <List className="h-3.5 w-3.5" />
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Advanced Filters */}
+                    {/* Advanced Filters Panel */}
                     {showFilters && (
-                        <div className="mb-6 bg-white rounded-xl border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <Filter className="h-5 w-5 text-gray-600" />
-                                    <h3 className="text-lg font-semibold text-gray-900">Advanced Filters</h3>
+                        <div className="mb-6 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-5">
+                                <div className="flex items-center gap-2">
+                                    <Filter className="h-5 w-5 text-gray-500" />
+                                    <h3 className="text-base font-semibold text-gray-900">Advanced Filters</h3>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={resetFilters}
-                                        className="text-sm text-gray-500 hover:text-gray-700"
+                                        className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
                                     >
                                         Clear all
                                     </button>
@@ -2008,17 +1953,14 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                {/* Status Filter */}
                                 <div>
-                                    <label htmlFor="status-filter" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+                                    <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
                                         Status
                                     </label>
                                     <select
-                                        id="status-filter"
-                                        name="status-filter"
                                         value={filters.status}
                                         onChange={(e) => handleFilterChange('status', e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                                     >
                                         <option value="all">All Status</option>
                                         <option value="active">Active</option>
@@ -2027,17 +1969,14 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                     </select>
                                 </div>
 
-                                {/* Company Filter */}
                                 <div>
-                                    <label htmlFor="company-filter" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+                                    <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
                                         Company
                                     </label>
                                     <select
-                                        id="company-filter"
-                                        name="company-filter"
                                         value={filters.company}
                                         onChange={(e) => handleFilterChange('company', e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                                     >
                                         <option value="all">All Companies</option>
                                         {companies.map(company => (
@@ -2048,17 +1987,14 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                     </select>
                                 </div>
 
-                                {/* Brand Filter */}
                                 <div>
-                                    <label htmlFor="brand-filter" className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+                                    <label className="block text-xs font-medium text-gray-600 mb-2 uppercase tracking-wider">
                                         Brand
                                     </label>
                                     <select
-                                        id="brand-filter"
-                                        name="brand-filter"
                                         value={filters.brand}
                                         onChange={(e) => handleFilterChange('brand', e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
                                     >
                                         <option value="all">All Brands</option>
                                         {availableBrandsForFilter.map((brandName) => (
@@ -2073,24 +2009,23 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                     )}
 
                     {/* Brands Content */}
-                    <div className="py-6">
-                        {/* Brands Section */}
+                    <div className="mb-8">
                         <div className="mb-4">
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900">
                                 {getActiveFilterCount() > 0 || filters.search ? 'Filtered Brands' : 'All Brands'}
                             </h2>
                         </div>
 
                         {filteredBrands.length === 0 ? (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
                                 <div className="max-w-md mx-auto">
-                                    <div className="p-4 bg-gray-100 rounded-2xl inline-flex mb-4">
+                                    <div className="p-4 bg-gray-50 rounded-2xl inline-flex mb-4">
                                         <Building className="h-8 w-8 text-gray-400" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                                         No brands found
                                     </h3>
-                                    <p className="text-gray-500 mb-4">
+                                    <p className="text-gray-500 text-sm">
                                         {getActiveFilterCount() > 0 || filters.search
                                             ? 'Try adjusting your filters or search term'
                                             : 'No brands available. Create your first brand to get started.'
@@ -2105,32 +2040,32 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                     return (
                                         <div
                                             key={brand.id}
-                                            className="group bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer relative"
+                                            className="group bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer relative"
                                             onClick={() => handleBrandClick(String(brand.id))}
                                         >
                                             {/* Company Badge */}
                                             <div className="absolute top-4 right-4">
-                                                <div className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                                                <div className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg">
                                                     {brand.company}
                                                 </div>
                                             </div>
 
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-3">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-2 rounded-xl" style={{ backgroundColor: colors.primary.ultralight }}>
+                                                        <Building className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                    </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                                            <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                                                                 {brand.company == "speed Ecom" ? brand.groupNumber + " - " + brand.name : brand.name}
                                                             </h3>
                                                             {isNewBrand(brand) && (
-                                                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full animate-pulse">
+                                                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full animate-pulse">
                                                                     NEW
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-sm text-gray-600 truncate max-w-xs">
-                                                            {brand.company}
-                                                        </p>
                                                     </div>
                                                 </div>
                                                 {(canEditBrand || canDeleteBrand) && (
@@ -2140,25 +2075,25 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                             const brandIdStr = String(brand.id);
                                                             setOpenMenuId(openMenuId === brandIdStr ? null : brandIdStr);
                                                         }}
-                                                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg"
+                                                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
                                                     >
-                                                        <MoreVertical className="h-5 w-5" />
+                                                        <MoreVertical className="h-4 w-4" />
                                                     </button>
                                                 )}
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 mb-4">
-                                                <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${getStatusColor(brand.status)}`}>
+                                                <div className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusColor(brand.status)}`}>
                                                     {getStatusIcon(brand.status)}
                                                     <span className="ml-1.5 capitalize">{brand.status}</span>
                                                 </div>
                                             </div>
 
                                             {/* Stats Section */}
-                                            <div className="space-y-3 mb-5">
+                                            <div className="space-y-2 mb-4">
                                                 <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-500 flex items-center gap-2">
-                                                        <BarChart3 className="h-4 w-4" />
+                                                    <span className="text-gray-500 flex items-center gap-1.5">
+                                                        <BarChart3 className="h-3.5 w-3.5" />
                                                         Total Tasks
                                                     </span>
                                                     <span className="font-semibold text-gray-900">
@@ -2173,33 +2108,34 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                         e.stopPropagation();
                                                         handleBrandClick(String(brand.id));
                                                     }}
-                                                    className="flex-1 px-3 py-2 text-sm font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+                                                    className="flex-1 px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+                                                    style={{ backgroundColor: colors.primary.ultralight, color: colors.primary.main }}
                                                 >
-                                                    <Eye className="h-4 w-4" />
+                                                    <Eye className="h-3.5 w-3.5" />
                                                     View Details
                                                 </button>
                                                 {canEditBrand && (
                                                     <button
                                                         onClick={(e) => handleEditClick(brand, e)}
-                                                        className="px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                                        className="px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
                                                     >
-                                                        <Edit className="h-4 w-4" />
+                                                        <Edit className="h-3.5 w-3.5" />
                                                     </button>
                                                 )}
                                             </div>
 
                                             {/* Dropdown Menu */}
                                             {openMenuId === String(brand.id) && (canEditBrand || canDeleteBrand) && (
-                                                <div className="absolute right-6 top-14 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-10">
+                                                <div className="absolute right-5 top-16 mt-2 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-10">
                                                     {canEditBrand && (
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleEditClick(brand, e);
                                                             }}
-                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                                                         >
-                                                            <Edit className="h-4 w-4" />
+                                                            <Edit className="h-3.5 w-3.5" />
                                                             Edit Brand
                                                         </button>
                                                     )}
@@ -2210,9 +2146,9 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                                 handleDeleteBrand(brand);
                                                                 setOpenMenuId(null);
                                                             }}
-                                                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center gap-2"
+                                                            className="block w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            <Trash2 className="h-3.5 w-3.5" />
                                                             Delete Brand
                                                         </button>
                                                     )}
@@ -2223,29 +2159,29 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                 })}
                             </div>
                         ) : (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">
                                         <thead className="bg-gray-50">
                                             <tr>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Brand Details
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Company
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Status
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Tasks
                                                 </th>
-                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                     Actions
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
+                                        <tbody className="bg-white divide-y divide-gray-100">
                                             {paginatedBrands.map((brand) => {
                                                 const taskCount = brandTaskCounts.get(String(brand.id)) || 0;
                                                 return (
@@ -2256,51 +2192,36 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                     >
                                                         <td className="px-6 py-4">
                                                             <div className="flex items-center">
-                                                                {brand.logo ? (
-                                                                    <img
-                                                                        src={brand.logo}
-                                                                        alt={brand.name}
-                                                                        className="h-10 w-10 rounded-lg object-cover mr-3"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3">
-                                                                        <Building className="h-5 w-5 text-white" />
-                                                                    </div>
-                                                                )}
+                                                                <div className="p-2 rounded-xl mr-3" style={{ backgroundColor: colors.primary.ultralight }}>
+                                                                    <Building className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                                </div>
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-semibold text-gray-900">
+                                                                        <span className="text-sm font-medium text-gray-900">
                                                                             {brand.name}
                                                                         </span>
                                                                         {isNewBrand(brand) && (
-                                                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full animate-pulse">
+                                                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
                                                                                 NEW
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <p className="text-sm text-gray-600 truncate max-w-xs">
-                                                                        {brand.company}
-                                                                    </p>
                                                                 </div>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="text-sm font-medium text-gray-900">{brand.company}</div>
+                                                            <div className="text-sm text-gray-600">{brand.company}</div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${getStatusColor(brand.status)}`}>
+                                                            <div className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${getStatusColor(brand.status)}`}>
                                                                 {getStatusIcon(brand.status)}
                                                                 <span className="ml-1.5 capitalize">{brand.status}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-semibold text-gray-900">
-                                                                    {taskCount}
-                                                                </span>
-                                                                <span className="text-xs text-gray-500">
-                                                                    {taskCount === 1 ? 'task' : 'tasks'}
-                                                                </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-sm font-semibold text-gray-900">{taskCount}</span>
+                                                                <span className="text-xs text-gray-500">{taskCount === 1 ? 'task' : 'tasks'}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -2310,7 +2231,8 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                                         e.stopPropagation();
                                                                         handleBrandClick(String(brand.id));
                                                                     }}
-                                                                    className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1"
+                                                                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
+                                                                    style={{ backgroundColor: colors.primary.ultralight, color: colors.primary.main }}
                                                                 >
                                                                     <Eye className="h-3 w-3" />
                                                                     View
@@ -2335,13 +2257,13 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                             </div>
                         )}
 
-                        {/* Pagination Controls for Brands */}
+                        {/* Pagination */}
                         {filteredBrands.length > 0 && (
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-4">
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 mt-4">
                                 <div className="text-sm text-gray-500">
-                                    {`Showing ${startItemIndex}-${endItemIndex} of ${filteredBrands.length} brands`}
+                                    Showing {startItemIndex}-{endItemIndex} of {filteredBrands.length} brands
                                 </div>
-                                <div className="inline-flex items-center gap-2">
+                                <div className="flex items-center gap-3">
                                     <select
                                         value={String(brandsPerPage)}
                                         onChange={(e) => {
@@ -2350,222 +2272,340 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                             setBrandsPerPage(next);
                                             setCurrentPage(1);
                                         }}
-                                        className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                                        className="px-3 py-2 text-sm rounded-xl border border-gray-200 bg-white hover:bg-gray-50 cursor-pointer"
                                     >
                                         {PAGE_SIZE_OPTIONS.map((n) => (
                                             <option key={n} value={String(n)}>
-                                                {n}
+                                                {n} per page
                                             </option>
                                         ))}
                                     </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                        disabled={currentPageSafe === 1}
-                                        className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Previous
-                                    </button>
-                                    <span className="text-sm text-gray-600">
-                                        Page {currentPageSafe} of {totalPages}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                        disabled={currentPageSafe === totalPages}
-                                        className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        Next
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                            disabled={currentPageSafe === 1}
+                                            className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </button>
+                                        <span className="text-sm text-gray-600 px-3">
+                                            Page {currentPageSafe} of {totalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                            disabled={currentPageSafe === totalPages}
+                                            className="p-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
+                    </div>
 
-                        {/* Admin Reports Section - Moved after brands */}
-                        {canViewBrandsCompaniesReport && (
-                            <div className="mt-8">
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h2 className="text-xl font-bold text-gray-900">Brands & Companies Report</h2>
-                                            <p className="text-sm text-gray-600 mt-1">
-                                                Admin-created brands on the left, manager-created brands and companies on the right
-                                            </p>
+                    {/* Admin Reports Section */}
+                    {/* Admin Reports Section */}
+                    {canViewBrandsCompaniesReport && (
+                        <div className="mt-8">
+                            {/* Main Container with Gradient Border */}
+                            <div className="relative bg-white rounded-2xl shadow-lg border overflow-hidden" style={{ borderColor: 'rgba(30, 58, 138, 0.1)' }}>
+                                {/* Decorative Top Bar */}
+                                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${colors.primary.main}, ${colors.primary.light})` }}></div>
+
+                                {/* Header */}
+                                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-white">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-xl" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                <BarChart3 className="h-5 w-5" style={{ color: colors.primary.main }} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-bold text-gray-900">Brands & Companies Report</h2>
+                                                <p className="text-sm text-gray-500 mt-0.5">
+                                                    Admin-created brands on the left, manager-created brands and companies on the right
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                <Building className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                            </div>
                                         </div>
                                     </div>
+                                </div>
 
+                                <div className="p-6">
+                                    {/* Two Column Layout */}
                                     <div className={`grid grid-cols-1 ${role === 'admin' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-6`}>
+
+                                        {/* Admin Brands Card */}
                                         {role === 'admin' && (
-                                            <div className="rounded-xl border border-gray-200 p-5">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <h3 className="text-lg font-semibold text-gray-900">Admin Brands</h3>
-                                                    <span className="text-sm text-gray-500">{adminCreatedBrands.length}</span>
+                                            <div className="rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md" style={{ borderColor: `${colors.primary.main}20` }}>
+                                                <div className="px-5 py-4 border-b" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}10` }}>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                                <Star className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                            </div>
+                                                            <h3 className="text-base font-semibold text-gray-900">Admin Brands</h3>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                            <span className="text-sm font-bold" style={{ color: colors.primary.main }}>{adminCreatedBrands.length}</span>
+                                                            <span className="text-xs text-gray-500">brands</span>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                {adminCreatedBrands.length === 0 ? (
-                                                    <div className="text-sm text-gray-500">No admin-created brands found.</div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        {adminCreatedBrands.map((b) => (
-                                                            <div key={String(b.id)} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                                                                <div className="min-w-0">
-                                                                    <div className="text-sm font-medium text-gray-900 truncate">{b.name}</div>
-                                                                    <div className="text-xs text-gray-500 truncate">{b.company}</div>
+                                                <div className="p-5">
+                                                    {adminCreatedBrands.length === 0 ? (
+                                                        <div className="text-center py-8">
+                                                            <div className="inline-flex p-3 rounded-full bg-gray-50 mb-2">
+                                                                <Building className="h-5 w-5 text-gray-400" />
+                                                            </div>
+                                                            <p className="text-sm text-gray-500">No admin-created brands found.</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+                                                            {adminCreatedBrands.map((b, idx) => (
+                                                                <div
+                                                                    key={String(b.id)}
+                                                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 border border-transparent hover:border-gray-100"
+                                                                >
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xs font-medium text-gray-400">#{idx + 1}</span>
+                                                                            <div className="text-sm font-medium text-gray-900 truncate">{b.name}</div>
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-500 mt-0.5">{b.company}</div>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1.5 ml-3">
+                                                                        {canEditBrand && (
+                                                                            <button
+                                                                                onClick={(e) => handleEditClick(b, e)}
+                                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                                                title="Edit"
+                                                                            >
+                                                                                <Edit className="h-3.5 w-3.5" />
+                                                                            </button>
+                                                                        )}
+                                                                        {canDeleteBrand && (
+                                                                            <button
+                                                                                onClick={() => handleDeleteBrand(b)}
+                                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {canEditBrand && (
-                                                                        <button
-                                                                            onClick={(e) => handleEditClick(b, e)}
-                                                                            className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                                                                        >
-                                                                            Edit
-                                                                        </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Manager Brands & Companies Card */}
+                                        <div className="rounded-xl border overflow-hidden transition-all duration-200 hover:shadow-md" style={{ borderColor: `${colors.primary.main}20` }}>
+                                            <div className="px-5 py-4 border-b" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}10` }}>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                            <Users className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                        </div>
+                                                        <h3 className="text-base font-semibold text-gray-900">Manager Portfolios</h3>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                        <span className="text-sm font-bold" style={{ color: colors.primary.main }}>{managerBrandGroups.length}</span>
+                                                        <span className="text-xs text-gray-500">managers</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-5">
+                                                {managerBrandGroups.length === 0 ? (
+                                                    <div className="text-center py-8">
+                                                        <div className="inline-flex p-3 rounded-full bg-gray-50 mb-2">
+                                                            <Users className="h-5 w-5 text-gray-400" />
+                                                        </div>
+                                                        <p className="text-sm text-gray-500">No manager-created brands/companies found.</p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar">
+                                                        {managerBrandGroups.map((group) => (
+                                                            <div key={group.managerId} className="rounded-lg border overflow-hidden" style={{ borderColor: `${colors.primary.main}15` }}>
+                                                                <div className="px-4 py-3" style={{ backgroundColor: `${colors.primary.main}05` }}>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="h-7 w-7 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colors.primary.main}15` }}>
+                                                                                <span className="text-xs font-bold" style={{ color: colors.primary.main }}>
+                                                                                    {group.managerLabel.charAt(0).toUpperCase()}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span className="text-sm font-semibold text-gray-900">{group.managerLabel}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}>
+                                                                                {group.brands.length} brands
+                                                                            </span>
+                                                                            {group.companies.length > 0 && (
+                                                                                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                                                                    {group.companies.length} companies
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="p-4 space-y-3">
+                                                                    {group.companies.length > 0 && (
+                                                                        <div>
+                                                                            <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                                                                                <Building className="h-3 w-3" />
+                                                                                Companies
+                                                                            </div>
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {group.companies.map((c) => (
+                                                                                    <span key={c} className="text-xs px-2 py-1 bg-gray-50 rounded-lg text-gray-600 border border-gray-100">
+                                                                                        {c}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
                                                                     )}
-                                                                    {canDeleteBrand && (
-                                                                        <button
-                                                                            onClick={() => handleDeleteBrand(b)}
-                                                                            className="px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-lg hover:bg-red-100"
-                                                                        >
-                                                                            Delete
-                                                                        </button>
-                                                                    )}
+
+                                                                    <div>
+                                                                        <div className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">
+                                                                            <Layers className="h-3 w-3" />
+                                                                            Brands
+                                                                        </div>
+                                                                        <div className="space-y-1.5">
+                                                                            {group.brands.map((b) => (
+                                                                                <div key={String(b.id)} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                                                                    <div className="min-w-0 flex-1">
+                                                                                        <div className="text-sm font-medium text-gray-800 truncate">{b.name}</div>
+                                                                                        <div className="text-xs text-gray-500">{b.company}</div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-1 ml-2">
+                                                                                        {canEditBrand && (
+                                                                                            <button
+                                                                                                onClick={(e) => handleEditClick(b, e)}
+                                                                                                className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                                                                            >
+                                                                                                <Edit className="h-3 w-3" />
+                                                                                            </button>
+                                                                                        )}
+                                                                                        {canDeleteBrand && (
+                                                                                            <button
+                                                                                                onClick={() => handleDeleteBrand(b)}
+                                                                                                className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50"
+                                                                                            >
+                                                                                                <Trash2 className="h-3 w-3" />
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 )}
                                             </div>
-                                        )}
-
-                                        <div className="rounded-xl border border-gray-200 p-5">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <h3 className="text-lg font-semibold text-gray-900">Manager Brands & Companies</h3>
-                                                <span className="text-sm text-gray-500">{managerBrandGroups.length} managers</span>
-                                            </div>
-
-                                            {managerBrandGroups.length === 0 ? (
-                                                <div className="text-sm text-gray-500">No manager-created brands/companies found.</div>
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    {managerBrandGroups.map((group) => (
-                                                        <div key={group.managerId} className="rounded-lg border border-gray-100 p-4">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <div className="text-sm font-semibold text-gray-900 truncate">{group.managerLabel}</div>
-                                                                <div className="text-xs text-gray-500">{group.brands.length} brands</div>
-                                                            </div>
-
-                                                            {group.companies.length > 0 && (
-                                                                <div className="mb-3">
-                                                                    <div className="text-xs font-medium text-gray-600 mb-1">Companies</div>
-                                                                    <div className="flex flex-wrap gap-2">
-                                                                        {group.companies.map((c) => (
-                                                                            <span key={c} className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-700">
-                                                                                {c}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            <div className="text-xs font-medium text-gray-600 mb-2">Brands</div>
-                                                            {group.brands.length === 0 ? (
-                                                                <div className="text-sm text-gray-500">No brands.</div>
-                                                            ) : (
-                                                                <div className="space-y-2">
-                                                                    {group.brands.map((b) => (
-                                                                        <div key={String(b.id)} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                                                                            <div className="min-w-0">
-                                                                                <div className="text-sm font-medium text-gray-900 truncate">{b.name}</div>
-                                                                                <div className="text-xs text-gray-500 truncate">{b.company}</div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                {canEditBrand && (
-                                                                                    <button
-                                                                                        onClick={(e) => handleEditClick(b, e)}
-                                                                                        className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                                                                                    >
-                                                                                        Edit
-                                                                                    </button>
-                                                                                )}
-                                                                                {canDeleteBrand && (
-                                                                                    <button
-                                                                                        onClick={() => handleDeleteBrand(b)}
-                                                                                        className="px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-lg hover:bg-red-100"
-                                                                                    >
-                                                                                        Delete
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
 
-                                    <div className="mt-6 rounded-xl border border-gray-200 p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h2 className="text-xl font-bold text-gray-900">Companies</h2>
-                                                <p className="text-sm text-gray-600 mt-1">All companies</p>
+                                    {/* Companies Table - Modern Design */}
+                                    <div className="mt-6 rounded-xl border overflow-hidden" style={{ borderColor: `${colors.primary.main}20` }}>
+                                        <div className="px-5 py-4 border-b" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}10` }}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                        <Building className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                    </div>
+                                                    <div>
+                                                        <h2 className="text-base font-semibold text-gray-900">Company Directory</h2>
+                                                        <p className="text-xs text-gray-500 mt-0.5">Complete list of all companies</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                    <span className="text-sm font-bold" style={{ color: colors.primary.main }}>{companiesForReport.length}</span>
+                                                    <span className="text-xs text-gray-500">total</span>
+                                                </div>
                                             </div>
-                                            <span className="text-sm text-gray-500">{companiesForReport.length}</span>
                                         </div>
 
                                         {companiesForReport.length === 0 ? (
-                                            <div className="text-sm text-gray-500">No companies found.</div>
+                                            <div className="text-center py-12">
+                                                <div className="inline-flex p-4 rounded-full bg-gray-50 mb-3">
+                                                    <Building className="h-6 w-6 text-gray-400" />
+                                                </div>
+                                                <p className="text-sm text-gray-500">No companies found.</p>
+                                            </div>
                                         ) : (
                                             <div className="overflow-x-auto">
-                                                <table className="min-w-full divide-y divide-gray-200">
+                                                <table className="min-w-full divide-y divide-gray-100">
                                                     <thead className="bg-gray-50">
                                                         <tr>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
-                                                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Company Name</th>
+                                                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created By</th>
+                                                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
+                                                            <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Updated</th>
+                                                            <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="bg-white divide-y divide-gray-100">
+                                                    <tbody className="bg-white divide-y divide-gray-50">
                                                         {companiesForReport.map((c: any) => {
                                                             const companyId = String(c?.id || c?._id || '');
                                                             const creatorId = String(c?.createdBy || '');
                                                             const creatorLabel = creatorId ? (userDisplayById.get(creatorId) || creatorId) : '-';
 
                                                             return (
-                                                                <tr key={companyId || String(c?.name || '')}>
-                                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                                        <div className="text-sm font-medium text-gray-900">{String(c?.name || '')}</div>
+                                                                <tr key={companyId || String(c?.name || '')} className="hover:bg-gray-50/50 transition-colors">
+                                                                    <td className="px-5 py-3 whitespace-nowrap">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                                                <Building className="h-3.5 w-3.5" style={{ color: colors.primary.main }} />
+                                                                            </div>
+                                                                            <div className="text-sm font-medium text-gray-900">{String(c?.name || '')}</div>
+                                                                        </div>
                                                                     </td>
-                                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                                        <div className="text-sm text-gray-700">{creatorLabel}</div>
+                                                                    <td className="px-5 py-3 whitespace-nowrap">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="h-5 w-5 rounded-full flex items-center justify-center" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                                                <span className="text-xs font-medium" style={{ color: colors.primary.main }}>{creatorLabel.charAt(0).toUpperCase()}</span>
+                                                                            </div>
+                                                                            <span className="text-sm text-gray-600">{creatorLabel}</span>
+                                                                        </div>
                                                                     </td>
-                                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                                        <div className="text-sm text-gray-600">{formatDateTime(c?.createdAt)}</div>
+                                                                    <td className="px-5 py-3 whitespace-nowrap">
+                                                                        <span className="text-sm text-gray-500">{formatDateTime(c?.createdAt)}</span>
                                                                     </td>
-                                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                                        <div className="text-sm text-gray-600">{formatDateTime(c?.updatedAt)}</div>
+                                                                    <td className="px-5 py-3 whitespace-nowrap">
+                                                                        <span className="text-sm text-gray-500">{formatDateTime(c?.updatedAt)}</span>
                                                                     </td>
-                                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                                                                        <div className="flex items-center justify-end gap-2">
+                                                                    <td className="px-5 py-3 whitespace-nowrap text-right">
+                                                                        <div className="flex items-center justify-end gap-1.5">
                                                                             {canEditCompany && (
                                                                                 <button
                                                                                     onClick={() => handleEditCompany(c)}
-                                                                                    className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                                                    title="Edit"
                                                                                 >
-                                                                                    Edit
+                                                                                    <Edit className="h-3.5 w-3.5" />
                                                                                 </button>
                                                                             )}
                                                                             {canDeleteCompany && (
                                                                                 <button
                                                                                     onClick={() => handleDeleteCompany(c)}
-                                                                                    className="px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors"
+                                                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                                                                    title="Delete"
                                                                                 >
-                                                                                    Delete
+                                                                                    <Trash2 className="h-3.5 w-3.5" />
                                                                                 </button>
                                                                             )}
                                                                         </div>
@@ -2579,212 +2619,190 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                         )}
                                     </div>
 
-                                    <div className="mt-6 rounded-xl border border-gray-200 p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h2 className="text-xl font-bold text-gray-900">Manager Task Assignments (Brand / Company)</h2>
-                                                <p className="text-sm text-gray-600 mt-1">Manager-to-assistant brand assignments</p>
+
+
+                                    {/* Activity Timeline - Company & Brand History */}
+                                    <div className="mt-6 rounded-xl border overflow-hidden" style={{ borderColor: `${colors.primary.main}20` }}>
+                                        <div className="px-5 py-4 border-b" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}10` }}>
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                    <History className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-base font-semibold text-gray-900">Activity Timeline</h2>
+                                                    <p className="text-xs text-gray-500 mt-0.5">Recent brand and company activity</p>
+                                                </div>
                                             </div>
-                                            <span className="text-sm text-gray-500">{managerAssistantBrandAssignments.length} managers</span>
                                         </div>
 
-                                        {managerAssistantBrandAssignments.length === 0 ? (
-                                            <div className="text-sm text-gray-500">No manager-to-assistant brand assignments found.</div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {managerAssistantBrandAssignments.map((m) => (
-                                                    <div key={m.managerEmail} className="rounded-lg border border-gray-100 p-4">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <div className="text-sm font-semibold text-gray-900 truncate">{m.managerLabel}</div>
-                                                            <div className="text-xs text-gray-500">{m.assistants.length} assistants</div>
-                                                        </div>
-
-                                                        {m.assistants.length === 0 ? (
-                                                            <div className="text-sm text-gray-500">No assistant assignments.</div>
-                                                        ) : (
-                                                            <div className="space-y-3">
-                                                                {m.assistants.map((a) => (
-                                                                    <div key={a.assistantEmail} className="rounded-lg border border-gray-100 px-3 py-3">
-                                                                        <div className="flex items-center justify-between mb-2">
-                                                                            <div className="text-sm font-medium text-gray-900 truncate">{a.assistantLabel}</div>
-                                                                            <div className="text-xs text-gray-500">{a.items.length} brands</div>
-                                                                        </div>
-
-                                                                        {a.items.length === 0 ? (
-                                                                            <div className="text-sm text-gray-500">No brands assigned.</div>
-                                                                        ) : (
-                                                                            <div className="flex flex-wrap gap-2">
-                                                                                {a.items.map((it) => (
-                                                                                    <span
-                                                                                        key={`${it.brand}|${it.company}`}
-                                                                                        className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-700"
-                                                                                    >
-                                                                                        {(it.brand || 'No brand')}{it.company ? ` (${it.company})` : ''} • {it.count}
-                                                                                    </span>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                        <div className="p-5 space-y-6">
+                                            {/* Company History */}
+                                            {recentCompanyActivity.length > 0 && (
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Building className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Company Activity</h3>
+                                                        <span className="text-xs text-gray-400">({recentCompanyActivity.length} total)</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                                    <div className="space-y-2">
+                                                        {recentCompanyActivity.slice(0, 5).map((h: any, idx: number) => {
+                                                            const action = String(h?.action || '').toLowerCase();
+                                                            const actor = (h?.userName || h?.userEmail || 'Unknown').toString();
+                                                            const when = h?.timestamp;
+                                                            const field = h?.field;
+                                                            const oldValue = h?.oldValue;
+                                                            const newValue = h?.newValue;
 
-                                    <div className="mt-6 rounded-xl border border-gray-200 p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h2 className="text-xl font-bold text-gray-900">Company History</h2>
-                                                <p className="text-sm text-gray-600 mt-1">Recent company activity</p>
-                                            </div>
-                                            <span className="text-sm text-gray-500">{recentCompanyActivity.length} recent activities</span>
-                                        </div>
-
-                                        {recentCompanyActivity.length === 0 ? (
-                                            <div className="text-sm text-gray-500">No company activity found.</div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {recentCompanyActivity.map((h: any, idx: number) => {
-                                                    const action = String(h?.action || '').toLowerCase();
-                                                    const actor = (h?.userName || h?.userEmail || 'Unknown').toString();
-                                                    const when = h?.timestamp;
-                                                    const field = h?.field;
-                                                    const oldValue = h?.oldValue;
-                                                    const newValue = h?.newValue;
-
-                                                    return (
-                                                        <div key={`${h?._companyId}-${idx}`} className="rounded-lg border border-gray-100 p-3">
-                                                            <div className="flex items-start justify-between gap-3">
-                                                                <div className="flex items-start gap-3 min-w-0">
-                                                                    <div className="mt-0.5">{getHistoryIcon(action)}</div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-sm font-medium text-gray-900 truncate">
-                                                                            {h?._companyName || 'Company'}
-                                                                        </div>
-                                                                        <div className="text-xs text-gray-600 mt-0.5">
-                                                                            {(h?.message || '').toString() || action}
-                                                                        </div>
-                                                                        {field !== undefined && (oldValue !== undefined || newValue !== undefined) && (
-                                                                            <div className="text-xs text-gray-500 mt-1">
-                                                                                <span className="font-medium">{String(field)}:</span>{' '}
-                                                                                <span className="text-gray-700">{formatHistoryValue(oldValue)}</span>
-                                                                                <span className="mx-1">→</span>
-                                                                                <span className="text-gray-700">{formatHistoryValue(newValue)}</span>
+                                                            return (
+                                                                <div key={`company-${h?._companyId}-${idx}`} className="group relative pl-4 before:absolute before:left-0 before:top-3 before:bottom-3 before:w-px">
+                                                                    <div className="flex items-start justify-between gap-3">
+                                                                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                                                                            <div className="mt-0.5">{getHistoryIcon(action)}</div>
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="text-sm font-medium text-gray-900">
+                                                                                    {h?._companyName || 'Company'}
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                                                    {(h?.message || '').toString() || action}
+                                                                                </div>
+                                                                                {field !== undefined && (oldValue !== undefined || newValue !== undefined) && (
+                                                                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                                                        <span className="font-medium text-gray-600">{String(field)}:</span>
+                                                                                        <span className="text-gray-400 line-through">{formatHistoryValue(oldValue)}</span>
+                                                                                        <ArrowRight className="h-2.5 w-2.5 text-gray-400" />
+                                                                                        <span className="text-gray-600">{formatHistoryValue(newValue)}</span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
-                                                                        )}
+                                                                        </div>
+                                                                        <div className="text-right shrink-0">
+                                                                            <div className="text-xs text-gray-500">{actor}</div>
+                                                                            <div className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(when)}</div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                                                <div className="text-right shrink-0">
-                                                                    <div className="text-xs text-gray-600">{actor}</div>
-                                                                    <div className="text-xs text-gray-500 mt-0.5">{formatDateTime(when)}</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                            {/* Brand History */}
+                                            {brandHistoryItems.length > 0 && (
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Layers className="h-3.5 w-3.5" style={{ color: colors.primary.main }} />
+                                                        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Brand Activity</h3>
+                                                        <span className="text-xs text-gray-400 p-4 ">({brandHistoryTotal} total)</span>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {brandHistoryItems.slice(0, 5).map((h: any, idx: number) => {
+                                                            const action = String((h as any)?.action || '').toLowerCase();
+                                                            const actor = (h?.userName || h?.userEmail || 'Unknown').toString();
+                                                            const when = (h as any)?.timestamp;
+                                                            const field = (h as any)?.field;
+                                                            const oldValue = (h as any)?.oldValue;
+                                                            const newValue = (h as any)?.newValue;
 
-                                    </div>
-
-                                    <div className="mt-6 rounded-xl border border-gray-200 p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h2 className="text-xl font-bold text-gray-900">Brand History</h2>
-                                                <p className="text-sm text-gray-600 mt-1">Recent brand activity</p>
-                                            </div>
-                                            <span className="text-sm text-gray-500">{brandHistoryTotal} activities</span>
-                                        </div>
-
-                                        {brandHistoryItems.length === 0 ? (
-                                            <div className="text-sm text-gray-500">No brand activity found.</div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {brandHistoryItems.map((h: any, idx: number) => {
-                                                    const action = String((h as any)?.action || '').toLowerCase();
-                                                    const actor = (h?.userName || h?.userEmail || 'Unknown').toString();
-                                                    const when = (h as any)?.timestamp;
-                                                    const field = (h as any)?.field;
-                                                    const oldValue = (h as any)?.oldValue;
-                                                    const newValue = (h as any)?.newValue;
-
-                                                    return (
-                                                        <div key={`${String(h?._brandId || '')}-${idx}`} className="rounded-lg border border-gray-100 p-3">
-                                                            <div className="flex items-start justify-between gap-3">
-                                                                <div className="flex items-start gap-3 min-w-0">
-                                                                    <div className="mt-0.5">{getHistoryIcon(action)}</div>
-                                                                    <div className="min-w-0">
-                                                                        <div className="text-sm font-medium text-gray-900 truncate">
-                                                                            {(h?._brandGroupNumber ? `${h._brandGroupNumber} - ` : '')}{h?._brandName || 'Brand'}{h?._brandCompany ? ` (${h._brandCompany})` : ''}
-                                                                        </div>
-                                                                        <div className="text-xs text-gray-600 mt-0.5">
-                                                                            {(h?.message || '').toString() || action}
-                                                                        </div>
-                                                                        {field !== undefined && (oldValue !== undefined || newValue !== undefined) && (
-                                                                            <div className="text-xs text-gray-500 mt-1">
-                                                                                <span className="font-medium">{String(field)}:</span>{' '}
-                                                                                <span className="text-gray-700">{formatHistoryValue(oldValue)}</span>
-                                                                                <span className="mx-1">→</span>
-                                                                                <span className="text-gray-700">{formatHistoryValue(newValue)}</span>
+                                                            return (
+                                                                <div key={`brand-${String(h?._brandId || '')}-${idx}`} className="group relative pl-4 before:absolute before:left-0 before:top-3 before:bottom-3 before:w-px">
+                                                                    <div className="flex items-start justify-between gap-3">
+                                                                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                                                                            <div className="mt-0.5">{getHistoryIcon(action)}</div>
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <div className="text-sm font-medium text-gray-900">
+                                                                                    {(h?._brandGroupNumber ? `${h._brandGroupNumber} - ` : '')}{h?._brandName || 'Brand'}
+                                                                                    {h?._brandCompany && <span className="text-xs text-gray-400 ml-1">({h._brandCompany})</span>}
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                                                    {(h?.message || '').toString() || action}
+                                                                                </div>
+                                                                                {field !== undefined && (oldValue !== undefined || newValue !== undefined) && (
+                                                                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                                                        <span className="font-medium text-gray-600">{String(field)}:</span>
+                                                                                        <span className="text-gray-400 line-through">{formatHistoryValue(oldValue)}</span>
+                                                                                        <ArrowUpRight className="h-2.5 w-2.5 text-gray-400" />
+                                                                                        <span className="text-gray-600">{formatHistoryValue(newValue)}</span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
-                                                                        )}
+                                                                        </div>
+                                                                        <div className="text-right shrink-0">
+                                                                            <div className="text-xs text-gray-500">{actor}</div>
+                                                                            <div className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(when)}</div>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                                                <div className="text-right shrink-0">
-                                                                    <div className="text-xs text-gray-600">{actor}</div>
-                                                                    <div className="text-xs text-gray-500 mt-0.5">{formatDateTime(when)}</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                        {/* Brand History Pagination */}
+                                        {brandHistoryTotal > 0 && (
+                                            <div className="px-5 py-4 border-t" style={{ borderColor: `${colors.primary.main}10` }}>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => setBrandHistoryPage((p) => Math.max(1, p - 1))}
+                                                        disabled={brandHistoryPage <= 1}
+                                                        className="p-2 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        style={{ borderColor: `${colors.primary.main}20`, backgroundColor: 'white', color: colors.primary.main }}
+                                                    >
+                                                        <ChevronLeft className="h-4 w-4" />
+                                                    </button>
+                                                    <span className="text-sm text-gray-600">
+                                                        Page {brandHistoryPage} of {Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => setBrandHistoryPage((p) => p + 1)}
+                                                        disabled={brandHistoryPage >= Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
+                                                        className="p-2 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        style={{ borderColor: `${colors.primary.main}20`, backgroundColor: 'white', color: colors.primary.main }}
+                                                    >
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
-
-                                        <div className="mt-4 flex items-center justify-end gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setBrandHistoryPage((p) => Math.max(1, p - 1))}
-                                                disabled={brandHistoryPage <= 1}
-                                                className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Previous
-                                            </button>
-                                            <span className="text-sm text-gray-600">
-                                                Page {brandHistoryPage} of {Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => setBrandHistoryPage((p) => p + 1)}
-                                                disabled={brandHistoryPage >= Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
-                                                className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Next
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {!canViewBrandsCompaniesReport && canViewBrandHistory && (
-                            <div className="mt-8">
-                                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h2 className="text-xl font-bold text-gray-900">Brand History</h2>
-                                            <p className="text-sm text-gray-600 mt-1">Recent brand activity</p>
+                    {!canViewBrandsCompaniesReport && canViewBrandHistory && (
+                        <div className="mt-8">
+                            <div className="relative bg-white rounded-2xl shadow-lg border overflow-hidden" style={{ borderColor: `${colors.primary.main}20` }}>
+                                <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${colors.primary.main}, ${colors.primary.light})` }}></div>
+
+                                <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-white">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-xl" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                <History className="h-5 w-5" style={{ color: colors.primary.main }} />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-xl font-bold text-gray-900">Brand Activity Timeline</h2>
+                                                <p className="text-sm text-gray-500 mt-0.5">Recent brand updates and changes</p>
+                                            </div>
                                         </div>
-                                        <span className="text-sm text-gray-500">{brandHistoryTotal} activities</span>
+                                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-full" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                            <span className="text-sm font-bold" style={{ color: colors.primary.main }}>{brandHistoryTotal}</span>
+                                            <span className="text-xs text-gray-500">activities</span>
+                                        </div>
                                     </div>
+                                </div>
 
+                                <div className="p-6">
                                     {brandHistoryItems.length === 0 ? (
-                                        <div className="text-sm text-gray-500">No brand activity found.</div>
+                                        <div className="text-center py-12">
+                                            <div className="inline-flex p-4 rounded-full bg-gray-50 mb-3">
+                                                <History className="h-6 w-6 text-gray-400" />
+                                            </div>
+                                            <p className="text-sm text-gray-500">No brand activity found.</p>
+                                        </div>
                                     ) : (
                                         <div className="space-y-3">
                                             {brandHistoryItems.map((h: any, idx: number) => {
@@ -2796,31 +2814,40 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                                 const newValue = (h as any)?.newValue;
 
                                                 return (
-                                                    <div key={`${String(h?._brandId || '')}-${idx}`} className="rounded-lg border border-gray-100 p-3">
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div className="flex items-start gap-3 min-w-0">
-                                                                <div className="mt-0.5">{getHistoryIcon(action)}</div>
-                                                                <div className="min-w-0">
-                                                                    <div className="text-sm font-medium text-gray-900 truncate">
-                                                                        {(h?._brandGroupNumber ? `${h._brandGroupNumber} - ` : '')}{h?._brandName || 'Brand'}{h?._brandCompany ? ` (${h._brandCompany})` : ''}
+                                                    <div key={`${String(h?._brandId || '')}-${idx}`} className="group relative pl-5 before:absolute before:left-0 before:top-4 before:bottom-4 before:w-px">
+                                                        <div className="flex items-start justify-between gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200">
+                                                            <div className="flex items-start gap-3 min-w-0 flex-1">
+                                                                <div className="mt-0.5 p-1.5 rounded-lg bg-white shadow-sm">
+                                                                    {getHistoryIcon(action)}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                                        <span className="text-sm font-semibold text-gray-900">
+                                                                            {(h?._brandGroupNumber ? `${h._brandGroupNumber} - ` : '')}{h?._brandName || 'Brand'}
+                                                                        </span>
+                                                                        {h?._brandCompany && (
+                                                                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}>
+                                                                                {h._brandCompany}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
-                                                                    <div className="text-xs text-gray-600 mt-0.5">
+                                                                    <div className="text-xs text-gray-600 mt-1">
                                                                         {(h?.message || '').toString() || action}
                                                                     </div>
                                                                     {field !== undefined && (oldValue !== undefined || newValue !== undefined) && (
-                                                                        <div className="text-xs text-gray-500 mt-1">
-                                                                            <span className="font-medium">{String(field)}:</span>{' '}
-                                                                            <span className="text-gray-700">{formatHistoryValue(oldValue)}</span>
-                                                                            <span className="mx-1">→</span>
-                                                                            <span className="text-gray-700">{formatHistoryValue(newValue)}</span>
+                                                                        <div className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5 bg-gray-50 inline-flex px-2 py-1 rounded-lg">
+                                                                            <span className="font-medium text-gray-600">{String(field)}:</span>
+                                                                            <span className="text-gray-400 line-through">{formatHistoryValue(oldValue)}</span>
+                                                                            <ArrowRight className="h-2.5 w-2.5 text-gray-400" />
+                                                                            <span className="text-gray-600">{formatHistoryValue(newValue)}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             </div>
 
                                                             <div className="text-right shrink-0">
-                                                                <div className="text-xs text-gray-600">{actor}</div>
-                                                                <div className="text-xs text-gray-500 mt-0.5">{formatDateTime(when)}</div>
+                                                                <div className="text-xs font-medium text-gray-700">{actor}</div>
+                                                                <div className="text-[10px] text-gray-400 mt-0.5">{formatDateTime(when)}</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2829,126 +2856,126 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                         </div>
                                     )}
 
-                                    <div className="mt-4 flex items-center justify-end gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setBrandHistoryPage((p) => Math.max(1, p - 1))}
-                                            disabled={brandHistoryPage <= 1}
-                                            className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
-                                        <span className="text-sm text-gray-600">
-                                            Page {brandHistoryPage} of {Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setBrandHistoryPage((p) => p + 1)}
-                                            disabled={brandHistoryPage >= Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
-                                            className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
+                                    {brandHistoryTotal > brandHistoryLimit && (
+                                        <div className="mt-6 flex items-center justify-center gap-3">
+                                            <button
+                                                onClick={() => setBrandHistoryPage((p) => Math.max(1, p - 1))}
+                                                disabled={brandHistoryPage <= 1}
+                                                className="p-2 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                style={{ borderColor: `${colors.primary.main}20`, backgroundColor: 'white', color: colors.primary.main }}
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </button>
+                                            <span className="text-sm text-gray-600">
+                                                Page {brandHistoryPage} of {Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
+                                            </span>
+                                            <button
+                                                onClick={() => setBrandHistoryPage((p) => p + 1)}
+                                                disabled={brandHistoryPage >= Math.max(1, Math.ceil(brandHistoryTotal / brandHistoryLimit))}
+                                                className="p-2 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                style={{ borderColor: `${colors.primary.main}20`, backgroundColor: 'white', color: colors.primary.main }}
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Tasks Section - Moved after Admin Reports */}
-                        {(taskDisplayType || displayedTasks.length > 0) && (
-                            <div className="mt-8">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-gray-900">{getTaskDisplayTitle()}</h2>
-                                        <p className="text-gray-600 text-sm mt-1">
-                                            {displayedTasks.length} tasks found
-                                            {taskDisplayType === 'total-brands' && getActiveFilterCount() > 0 && ' for filtered brands'}
-                                            {taskDisplayType === 'active-brands' && ' for active brands'}
+                    {/* Tasks Section */}
+                    {(taskDisplayType || displayedTasks.length > 0) && (
+                        <div className="mt-8">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">{getTaskDisplayTitle()}</h2>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        {displayedTasks.length} tasks found
+                                        {taskDisplayType === 'total-brands' && getActiveFilterCount() > 0 && ' for filtered brands'}
+                                        {taskDisplayType === 'active-brands' && ' for active brands'}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setTaskDisplayType(null)}
+                                    className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                                >
+                                    <X className="h-4 w-4" />
+                                    Hide tasks
+                                </button>
+                            </div>
+                            {displayedTasks.length === 0 ? (
+                                <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                                    <div className="max-w-md mx-auto">
+                                        <div className="p-4 bg-gray-50 rounded-2xl inline-flex mb-4">
+                                            <BarChart3 className="h-8 w-8 text-gray-400" />
+                                        </div>
+                                        <h3 className="text-base font-semibold text-gray-900 mb-2">
+                                            No tasks found
+                                        </h3>
+                                        <p className="text-sm text-gray-500">
+                                            {taskDisplayType === 'active-brands'
+                                                ? 'No tasks found for active brands'
+                                                : 'Try adjusting your filters or select a different stat card'
+                                            }
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setTaskDisplayType(null)}
-                                            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                                        >
-                                            <X className="h-4 w-4" />
-                                            Hide tasks
-                                        </button>
-                                    </div>
                                 </div>
-                                {displayedTasks.length === 0 ? (
-                                    <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                                        <div className="max-w-md mx-auto">
-                                            <div className="p-4 bg-gray-100 rounded-2xl inline-flex mb-4">
-                                                <BarChart3 className="h-8 w-8 text-gray-400" />
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {displayedTasks.map((task) => (
+                                        <div
+                                            key={task.id}
+                                            className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <h3 className="font-medium text-gray-900 text-sm mb-1 line-clamp-1">
+                                                        {task.title}
+                                                    </h3>
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                                                        <Building className="h-3 w-3" />
+                                                        <span>{task.companyName || 'No company'}</span>
+                                                        <span>•</span>
+                                                        <span>{typeof task.brand === 'string' ? task.brand : (task.brand as any)?.name || 'No brand'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className={`px-2 py-1 rounded-lg text-xs font-medium ${getTaskStatusColor(task.status)}`}>
+                                                        {getTaskStatusIcon(task.status)}
+                                                        <span className="ml-1">{task.status}</span>
+                                                    </div>
+                                                    {task.priority && (
+                                                        <div className={`px-2 py-1 rounded-lg text-xs font-medium ${getTaskPriorityColor(task.priority)}`}>
+                                                            {getTaskPriorityIcon(task.priority)}
+                                                            <span className="ml-1">{task.priority}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                                No tasks found
-                                            </h3>
-                                            <p className="text-gray-500">
-                                                {taskDisplayType === 'active-brands'
-                                                    ? 'No tasks found for active brands'
-                                                    : 'Try adjusting your filters or select a different stat card'
-                                                }
-                                            </p>
+                                            <div className="flex items-center justify-between text-xs text-gray-500">
+                                                <div className="flex items-center gap-1.5">
+                                                    <CalendarDays className="h-3 w-3" />
+                                                    <span>
+                                                        Due: {task.dueDate ? formatDate(task.dueDate) : 'No due date'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Users className="h-3 w-3" />
+                                                    <span>
+                                                        {(typeof task.assignedTo === 'string'
+                                                            ? (task.assignedToName || task.assignedTo)
+                                                            : (task.assignedTo?.name || task.assignedToName)
+                                                        ) || 'Unassigned'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {displayedTasks.map((task) => (
-                                            <div
-                                                key={task.id}
-                                                className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow"
-                                            >
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div>
-                                                        <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-1">
-                                                            {task.title}
-                                                        </h3>
-                                                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                                                            <Building className="h-3 w-3" />
-                                                            <span>{task.companyName || 'No company'}</span>
-                                                            <span>•</span>
-                                                            <span>{typeof task.brand === 'string' ? task.brand : (task.brand as any)?.name || 'No brand'}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`px-2 py-1 rounded text-xs font-medium ${getTaskStatusColor(task.status)}`}>
-                                                            {getTaskStatusIcon(task.status)}
-                                                            <span className="ml-1">{task.status}</span>
-                                                        </div>
-                                                        {task.priority && (
-                                                            <div className={`px-2 py-1 rounded text-xs font-medium ${getTaskPriorityColor(task.priority)}`}>
-                                                                {getTaskPriorityIcon(task.priority)}
-                                                                <span className="ml-1">{task.priority}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                                    <div className="flex items-center gap-2">
-                                                        <CalendarDays className="h-3 w-3" />
-                                                        <span>
-                                                            Due: {task.dueDate ? formatDate(task.dueDate) : 'No due date'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <Users className="h-3 w-3" />
-                                                        <span>
-                                                            {(typeof task.assignedTo === 'string'
-                                                                ? (task.assignedToName || task.assignedTo)
-                                                                : (task.assignedTo?.name || task.assignedToName)
-                                                            ) || 'Unassigned'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 

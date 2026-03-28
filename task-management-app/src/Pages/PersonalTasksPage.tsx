@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Calendar, Clock, ListTodo, Pencil, Plus, Trash2, User, X } from 'lucide-react';
+import { Calendar, Clock, ListTodo, Pencil, Plus, Trash2, User, X, CheckCircle, Circle, Loader2, Bell, Flag, Sparkles } from 'lucide-react';
 import type { UserType } from '../Types/Types';
 import { personalTaskService, type PersonalTask, type PersonalTaskPriority, type PersonalTaskReminderStyle, type PersonalTaskStatus } from '../Services/PersonalTask.service';
+
 interface PersonalTasksPageProps {
   currentUser: UserType;
 }
@@ -28,6 +29,7 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [tasks, setTasks] = useState<PersonalTask[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'in-progress' | 'completed'>('all');
 
   const [title, setTitle] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -38,9 +40,13 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
   const [status, setStatus] = useState<PersonalTaskStatus>('pending');
 
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [reminderPopupTask, setReminderPopupTask] = useState<PersonalTask | null>(null);
   const timersRef = useRef<Record<string, number>>({});
+
+  const filteredTasks = useMemo(() => {
+    if (activeFilter === 'all') return tasks;
+    return tasks.filter(t => t.status === activeFilter);
+  }, [tasks, activeFilter]);
 
   const canSubmit = useMemo(() => {
     if (!normalizeText(title)) return false;
@@ -67,7 +73,6 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
 
   useEffect(() => {
     clearAllReminderTimers();
-
     const now = Date.now();
     const nextTimers: Record<string, number> = {};
 
@@ -79,20 +84,13 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
       const target = new Date(t.reminderAt).getTime();
       if (!Number.isFinite(target)) return;
       const delay = target - now;
-      if (delay <= 0) return;
+      if (delay <= 0 || delay > 2147483000) return;
 
-      if (delay > 2147483000) return;
-
-      nextTimers[t.id] = window.setTimeout(() => {
-        setReminderPopupTask(t);
-      }, delay);
+      nextTimers[t.id] = window.setTimeout(() => setReminderPopupTask(t), delay);
     });
 
     timersRef.current = nextTimers;
-
-    return () => {
-      clearAllReminderTimers();
-    };
+    return () => clearAllReminderTimers();
   }, [tasks, clearAllReminderTimers]);
 
   const fetchMine = useCallback(async () => {
@@ -243,293 +241,313 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
     await fetchMine();
   }, [fetchMine]);
 
-  const reminderStyleHelp = useMemo(() => {
-    if (reminderStyle === 'none') return 'No reminder will be scheduled.';
-    if (reminderStyle === 'once') return 'You must pick a reminder date & time.';
-    if (reminderStyle === 'daily') return 'Daily reminder style (schedule handling can be added later).';
-    if (reminderStyle === 'weekly') return 'Weekly reminder style (schedule handling can be added later).';
-    return '';
-  }, [reminderStyle]);
+  const getPriorityConfig = (priority: string) => {
+    switch(priority) {
+      case 'high': return { label: 'High', icon: Flag, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200' };
+      case 'medium': return { label: 'Medium', icon: Flag, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' };
+      default: return { label: 'Low', icon: Flag, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+    }
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch(status) {
+      case 'completed': return { label: 'Done', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' };
+      case 'in-progress': return { label: 'In Progress', icon: Loader2, color: 'text-blue-600', bg: 'bg-blue-50' };
+      default: return { label: 'Pending', icon: Circle, color: 'text-gray-500', bg: 'bg-gray-50' };
+    }
+  };
+
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <ListTodo className="h-5 w-5" />
-              Personal Tasks
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Create tasks for yourself. Only you can see them.
-            </p>
+    <div className="space-y-5">
+      
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Create Form - Modern Design */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-gradient-to-r from-[#3b82f6]/5 to-transparent px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-[#3b82f6]/10 rounded-lg">
+                {editingId ? <Pencil className="h-4 w-4 text-[#3b82f6]" /> : <Sparkles className="h-4 w-4 text-[#3b82f6]" />}
+              </div>
+              <h3 className="text-sm font-semibold text-black">{editingId ? 'Edit Task' : 'Create New Task'}</h3>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="border border-gray-200 rounded-xl p-5">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Create Personal Task
-            </h3>
+          <div className="p-4 space-y-3">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What do you want to achieve?"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none placeholder:text-gray-400"
+            />
 
-            <div className="space-y-4">
+            <textarea
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              rows={2}
+              placeholder="Why is this important? (optional)"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] outline-none resize-none placeholder:text-gray-400"
+            />
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="Enter task title"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
-                <textarea
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
-                  placeholder="Why are you creating this task?"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as PersonalTaskPriority)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  >
-                    <option value="high">High</option>
-                    <option value="medium">Medium</option>
-                    <option value="low">Low</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Style</label>
-                  <select
-                    value={reminderStyle}
-                    onChange={(e) => setReminderStyle(e.target.value as PersonalTaskReminderStyle)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  >
-                    <option value="none">None</option>
-                    <option value="once">Once</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                  </select>
-                  <div className="text-xs text-gray-500 mt-1">{reminderStyleHelp}</div>
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Priority</label>
+                <div className="flex gap-2">
+                  {['high', 'medium', 'low'].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPriority(p as PersonalTaskPriority)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-all ${priority === p
+                        ? p === 'high' ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : p === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-[11px] font-medium text-gray-500 mb-1">Status</label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as PersonalTaskStatus)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#3b82f6] outline-none"
                 >
                   <option value="pending">Pending</option>
                   <option value="in-progress">In Progress</option>
                   <option value="completed">Completed</option>
                 </select>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Date & Time</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-medium text-gray-500 mb-1">
+                <Bell className="h-3 w-3 inline mr-1" />
+                Reminder
+              </label>
+              <select
+                value={reminderStyle}
+                onChange={(e) => setReminderStyle(e.target.value as PersonalTaskReminderStyle)}
+                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#3b82f6] outline-none mb-2"
+              >
+                <option value="none">None</option>
+                <option value="once">Once</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+
+              {reminderStyle === 'once' && (
+                <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
                     <input
                       type="date"
                       value={reminderDate}
                       onChange={(e) => setReminderDate(e.target.value)}
-                      disabled={reminderStyle === 'none'}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] outline-none"
                     />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
                   </div>
-
                   <div className="relative">
                     <input
                       type="time"
                       value={reminderTime}
                       onChange={(e) => setReminderTime(e.target.value)}
-                      disabled={reminderStyle === 'none'}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:bg-gray-50"
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] outline-none"
                     />
-                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Clock className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
                   </div>
                 </div>
+              )}
+            </div>
 
-                {reminderStyle === 'once' && !normalizeText(reminderDate) && (
-                  <div className="text-xs text-red-600 mt-1">Reminder date is required for "Once"</div>
-                )}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-1.5">
+                <User className="h-3 w-3 text-gray-400" />
+                <span className="text-[10px] text-gray-500 truncate max-w-[150px]">{creatorEmail}</span>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                  <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-800">
-                    {companyName || '—'}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Created By</label>
-                  <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm text-gray-800 flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <span className="truncate">{creatorEmail || '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                {editingId ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      onClick={onSaveEdit}
-                      disabled={!canSubmit || creating}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      {creating ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      disabled={creating}
-                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg disabled:opacity-50"
-                    >
-                      <X className="h-4 w-4" />
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
+              {editingId ? (
+                <div className="flex gap-2">
                   <button
-                    onClick={onCreate}
-                    disabled={!canSubmit || creating}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
+                    onClick={cancelEdit}
+                    className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
                   >
-                    <Plus className="h-4 w-4" />
-                    {creating ? 'Creating...' : 'Create Personal Task'}
+                    Cancel
                   </button>
-                )}
+                  <button
+                    onClick={onSaveEdit}
+                    disabled={!canSubmit || creating}
+                    className="px-3 py-1.5 text-xs font-medium bg-[#3b82f6] hover:bg-[#1e3a8a] text-white rounded-lg disabled:opacity-50"
+                  >
+                    {creating ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={onCreate}
+                  disabled={!canSubmit || creating}
+                  className="px-4 py-1.5 text-xs font-medium bg-[#3b82f6] hover:bg-[#1e3a8a] text-white rounded-lg disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Plus className="h-3 w-3" />
+                  {creating ? 'Creating...' : 'Create Task'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tasks List - Modern Design */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-[#3b82f6]" />
+                <h3 className="text-sm font-semibold text-black">Your Tasks</h3>
+              </div>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                {['all', 'pending', 'in-progress', 'completed'].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter as any)}
+                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${activeFilter === filter
+                      ? 'bg-white text-[#3b82f6] shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {filter === 'all' ? 'All' : filter === 'in-progress' ? 'In Prog' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-xl p-5">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Your Personal Tasks</h3>
-              <span className="text-sm text-gray-500">{tasks.length} total</span>
-            </div>
-
+          <div className="p-3 max-h-[480px] overflow-auto space-y-2">
             {loading ? (
-              <div className="text-center py-10 text-sm text-gray-500">Loading...</div>
-            ) : tasks.length === 0 ? (
-              <div className="text-center py-10 text-sm text-gray-500">
-                No personal tasks yet.
+              <div className="text-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-[#3b82f6] mx-auto" />
+                <p className="text-xs text-gray-500 mt-2">Loading...</p>
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="text-center py-8">
+                <Sparkles className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-xs text-gray-400">No tasks found</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
-                {tasks.map((t: PersonalTask) => (
-                  <div key={t.id} className="border border-gray-200 rounded-xl p-4 bg-white">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">{t.title}</div>
-                        {normalizeText(t.purpose) && (
-                          <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{t.purpose}</div>
+              filteredTasks.map((t) => {
+                const priorityConfig = getPriorityConfig(t.priority);
+                const statusConfig = getStatusConfig(t.status || 'pending');
+                const PriorityIcon = priorityConfig.icon;
+                const StatusIcon = statusConfig.icon;
+
+                return (
+                  <div key={t.id} className="group bg-white border border-gray-100 rounded-lg p-3 hover:shadow-md hover:border-[#3b82f6]/20 transition-all duration-200">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`p-0.5 rounded ${priorityConfig.bg}`}>
+                            <PriorityIcon className={`h-3 w-3 ${priorityConfig.color}`} />
+                          </div>
+                          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${priorityConfig.bg} ${priorityConfig.color}`}>
+                            {priorityConfig.label}
+                          </span>
+                          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium ${statusConfig.bg} ${statusConfig.color}`}>
+                            <StatusIcon className={`h-2.5 w-2.5 ${t.status === 'in-progress' ? 'animate-spin' : ''}`} />
+                            {statusConfig.label}
+                          </div>
+                        </div>
+                        <h4 className="font-medium text-sm text-black truncate">{t.title}</h4>
+                        {t.purpose && (
+                          <p className="text-[10px] text-gray-500 mt-1 line-clamp-2">{t.purpose}</p>
                         )}
                       </div>
-                      <div className="shrink-0 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-                        {t.priority}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                        {(t as any).status || 'pending'}
-                      </span>
-                      <button
-                        onClick={() => onQuickStatusChange(t, 'in-progress')}
-                        className="text-xs px-2 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200"
-                      >
-                        In Progress
-                      </button>
-                      <button
-                        onClick={() => onQuickStatusChange(t, 'completed')}
-                        className="text-xs px-2 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200"
-                      >
-                        Completed
-                      </button>
-                      <div className="ml-auto flex items-center gap-2">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => startEdit(t)}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200"
+                          className="p-1 rounded text-gray-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
+                          title="Edit"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                          <Pencil className="h-3 w-3" />
                         </button>
                         <button
                           onClick={() => onDelete(t.id)}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
+                          className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Delete"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete
+                          <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
-                      <div className="inline-flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                        <span>Created: {formatDateTimeSafe(t.createdAt)}</span>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => onQuickStatusChange(t, 'in-progress')}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-gray-50 hover:bg-blue-50 text-gray-500 hover:text-blue-600 transition-colors"
+                        >
+                          In Progress
+                        </button>
+                        <button
+                          onClick={() => onQuickStatusChange(t, 'completed')}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-gray-50 hover:bg-emerald-50 text-gray-500 hover:text-emerald-600 transition-colors"
+                        >
+                          Complete
+                        </button>
                       </div>
-                      <div className="inline-flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 text-gray-400" />
-                        <span>Reminder: {t.reminderStyle}{t.reminderAt ? ` (${formatDateTimeSafe(t.reminderAt)})` : ''}</span>
+                      <div className="flex items-center gap-1.5 text-[9px] text-gray-400">
+                        <Calendar className="h-2.5 w-2.5" />
+                        <span>{formatDateTimeSafe(t.createdAt).split(',')[0]}</span>
+                        {t.reminderStyle !== 'none' && (
+                          <>
+                            <Clock className="h-2.5 w-2.5 ml-1" />
+                            <span>{t.reminderStyle}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
         </div>
       </div>
 
+      {/* Reminder Popup */}
       {reminderPopupTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setReminderPopupTask(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 flex items-center justify-between">
-              <div className="text-white font-semibold">Reminder</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setReminderPopupTask(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-r from-[#3b82f6] to-[#1e3a8a] px-4 py-3 flex items-center gap-2">
+              <Bell className="h-4 w-4 text-white" />
+              <div className="flex-1 text-white font-semibold text-sm">Reminder</div>
               <button
                 onClick={() => setReminderPopupTask(null)}
-                className="p-1.5 text-white hover:bg-white/20 rounded-lg"
+                className="p-1 text-white hover:bg-white/20 rounded-lg transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-6">
-              <div className="text-lg font-bold text-gray-900">{reminderPopupTask.title}</div>
-              {normalizeText(reminderPopupTask.purpose) && (
-                <div className="text-sm text-gray-600 mt-2 whitespace-pre-wrap">{reminderPopupTask.purpose}</div>
+            <div className="p-4">
+              <div className="text-base font-semibold text-black">{reminderPopupTask.title}</div>
+              {reminderPopupTask.purpose && (
+                <div className="text-xs text-gray-600 mt-2">{reminderPopupTask.purpose}</div>
               )}
-              <div className="mt-4 text-sm text-gray-700">
-                <div><span className="font-medium">Scheduled:</span> {formatDateTimeSafe(reminderPopupTask.reminderAt)}</div>
+              <div className="mt-3 flex items-center gap-1.5 text-[10px] text-gray-500 bg-gray-50 p-2 rounded-lg">
+                <Calendar className="h-3 w-3" />
+                <span>{formatDateTimeSafe(reminderPopupTask.reminderAt)}</span>
               </div>
-              <div className="mt-6">
-                <button
-                  onClick={() => setReminderPopupTask(null)}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                >
-                  OK
-                </button>
-              </div>
+              <button
+                onClick={() => setReminderPopupTask(null)}
+                className="w-full mt-4 py-1.5 text-xs font-medium bg-[#3b82f6] hover:bg-[#1e3a8a] text-white rounded-lg transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         </div>

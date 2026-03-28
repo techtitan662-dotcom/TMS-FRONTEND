@@ -25,6 +25,7 @@ import {
   Building,
   Layers,
   FileClock,
+  Tag,
 } from 'lucide-react';
 
 import type { Task, UserType, CommentType, TaskHistory, Brand } from '../Types/Types';
@@ -629,7 +630,7 @@ const BulkImporter = memo(({
 }) => {
   const [bulkTaskInput, setBulkTaskInput] = useState<string>('');
 
-    const isMdImpexUser = useMemo(() => {
+  const isMdImpexUser = useMemo(() => {
     const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
     if (roleKey === 'marketer_manager') return true;
     const normalizeCompanyKeyLocal = (v: unknown): string => String(v || '').trim().toLowerCase().replace(/\s+/g, '');
@@ -1027,38 +1028,41 @@ const BulkImporter = memo(({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}></div>
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-100">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-[#1e3a8a]/5 to-transparent">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Bulk Task Creator</h2>
-            <p className="text-sm text-gray-500 mt-1">Add tasks with selected filters</p>
+            <h2 className="text-xl font-bold text-[#1e3a8a] flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Bulk Task Creator
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Streamline your workflow by adding multiple tasks at once</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Top Controls - All Dropdowns */}
-        <div className="px-6 py-4 border-b bg-gray-50">
-          {/* Filter Dropdowns Grid - Updated to 6 columns (no description in defaults) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
+        <div className="px-6 py-5 border-b bg-gray-50/50">
+          {/* Filter Dropdowns Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
             {/* Default Assigner */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Assigner *</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Assigner *</label>
                 <button
                   onClick={handleApplyAssignerToAll}
                   disabled={!defaults.assigner || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <select
                 value={defaults.assigner}
                 onChange={(e) => onDefaultsChange({ assigner: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
               >
                 <option value="">Select assigner</option>
                 {assignerUsers.map((user: any) => (
@@ -1070,21 +1074,21 @@ const BulkImporter = memo(({
             </div>
 
             {/* Default Company */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Company *</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Company *</label>
                 <button
                   onClick={handleApplyCompanyToAll}
                   disabled={!defaults.companyName || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <select
                 value={companySelectValue}
                 onChange={(e) => handleCompanyChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all disabled:bg-gray-50"
                 disabled={isMdImpexUser || availableCompanyOptions.length === 1 || String((currentUser as any)?.role || '').trim().toLowerCase() === 'troubleshoot_manager'}
               >
                 <option value="">Select company</option>
@@ -1096,23 +1100,23 @@ const BulkImporter = memo(({
               </select>
             </div>
 
-            {/* Default Brand (filtered by company) */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Brand</label>
+            {/* Default Brand */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Brand</label>
                 <button
                   onClick={handleApplyBrandToAll}
                   disabled={!defaults.brand || !defaults.companyName || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <select
                 value={defaults.brand}
                 onChange={(e) => onDefaultsChange({ brand: e.target.value })}
                 disabled={!defaults.companyName}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${!defaults.companyName ? 'bg-gray-100 text-gray-500' : ''}`}
+                className={`w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all ${!defaults.companyName ? 'bg-gray-50 text-gray-400' : ''}`}
               >
                 <option value="">Select brand</option>
                 {filteredBrands.map(brand => (
@@ -1124,15 +1128,15 @@ const BulkImporter = memo(({
             </div>
 
             {/* Default Due Date */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Due Date</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Due Date</label>
                 <button
                   onClick={handleApplyDueDateToAll}
                   disabled={!defaults.dueDate || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <input
@@ -1140,26 +1144,26 @@ const BulkImporter = memo(({
                 value={defaults.dueDate}
                 onChange={(e) => handleDueDateChange(e.target.value)}
                 min={today}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
               />
             </div>
 
             {/* Default Priority */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Priority</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Priority</label>
                 <button
                   onClick={handleApplyPriorityToAll}
                   disabled={!defaults.priority || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <select
                 value={defaults.priority}
                 onChange={(e) => onDefaultsChange({ priority: e.target.value as BulkPriority })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
               >
                 <option value="">Select priority</option>
                 <option value="low">Low</option>
@@ -1169,25 +1173,25 @@ const BulkImporter = memo(({
             </div>
 
             {/* Default Task Type */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-gray-700">Task Type</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider">Task Type</label>
                 <button
                   onClick={handleApplyTaskTypeToAll}
                   disabled={!defaults.taskType || draftTasks.length === 0}
-                  className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 disabled:text-gray-300 uppercase"
                 >
-                  Apply to all
+                  Apply All
                 </button>
               </div>
               <select
                 value={defaults.taskType}
                 onChange={(e) => onDefaultsChange({ taskType: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
                 disabled={availableTaskTypes.length === 0}
               >
                 {availableTaskTypes.length === 0 ? (
-                  <option value="">No task types available</option>
+                  <option value="">No types</option>
                 ) : (
                   <>
                     <option value="">Select type</option>
@@ -1203,30 +1207,30 @@ const BulkImporter = memo(({
           </div>
 
           {/* Bulk Input Section */}
-          <div className="mt-4 pt-4">
-            <div className="flex gap-3">
-              <textarea
-                value={bulkTaskInput}
-                onChange={(e) => setBulkTaskInput(e.target.value)}
-                placeholder="Enter multiple task titles (one per line):
-Fix login issue
-Update documentation
-Test mobile responsiveness
-Add user notifications
-..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm min-h-[80px]"
-                rows={3}
-              />
-              <div className="flex flex-col gap-2">
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <textarea
+                  value={bulkTaskInput}
+                  onChange={(e) => setBulkTaskInput(e.target.value)}
+                  placeholder="Enter multiple task titles (one per line)..."
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm min-h-[100px] resize-none transition-all placeholder:text-gray-400"
+                />
+                <div className="absolute bottom-3 right-3 text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                  {bulkTaskInput.split('\n').filter(t => t.trim()).length} Tasks Detected
+                </div>
+              </div>
+              <div className="md:w-48 flex flex-col justify-end">
                 <button
                   onClick={handleParseBulkInput}
                   disabled={!bulkTaskInput.trim() || !defaults.assigner || !defaults.companyName}
-                  className={`px-6 py-3 rounded-lg font-medium ${!bulkTaskInput.trim() || !defaults.assigner || !defaults.companyName
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
+                  className={`w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 ${!bulkTaskInput.trim() || !defaults.assigner || !defaults.companyName
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-[#1e3a8a] text-white hover:bg-[#1e3a8a]/90 active:scale-[0.98]'
                     }`}
                 >
-                  Add Bulk Tasks
+                  <Plus className="h-4 w-4" />
+                  Add to List
                 </button>
               </div>
             </div>
@@ -1585,7 +1589,7 @@ const MobileTaskItem = memo(({
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <h3 className="font-semibold text-gray-900 break-words">{task.title}</h3>
+                  <h3 className="font-semibold text-gray-900 break-words leading-relaxed">{task.title}</h3>
                   {isOverdueTask && !isCompleted && (
                     <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
                       Overdue
@@ -1729,7 +1733,6 @@ const DesktopTaskItem = memo(({
   currentUser,
   formatDate,
   isOverdue,
-  getTaskBorderColor,
   getTaskStatusIcon,
   getUserInfoForDisplay,
   brandLabel,
@@ -1842,20 +1845,28 @@ const DesktopTaskItem = memo(({
   }, [brandLabel, brands, task]);
 
   return (
-    <div className={`relative bg-white rounded-lg border-l-4 ${getTaskBorderColor(task)} border shadow-sm hover:shadow-md transition-all duration-200 mb-3`}>
-      <div className="grid grid-cols-12 gap-1 p-3 items-start"> {/* Changed: gap-1 और p-3 */}
-        {/* Index Column - Fixed width */}
+    <div className={`relative bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 mb-2 overflow-hidden`}>
+      {/* Left colored border indicator */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${isCompleted ? 'bg-green-500' :
+        isOverdueTask ? 'bg-red-500' :
+          isInProgressTask ? 'bg-orange-500' :
+            'bg-primary-light'
+        }`} />
+
+      <div className="grid grid-cols-12 gap-1.5 p-2.5 items-center pl-3.5">
+        {/* Index Column */}
         <div className="col-span-1 flex justify-center items-center">
-          <span className="text-sm font-medium text-gray-500 tabular-nums min-w-[20px] text-center">
+          <span className="text-xs font-semibold text-primary-dark tabular-nums">
             {index}
           </span>
         </div>
 
-        {/* Status Column - Fixed width */}
+        {/* Status Column */}
         <div className="col-span-1 flex justify-center items-center">
           {disableStatusToggle ? (
             <div
-              className={`p-1.5 rounded-lg ${isCompleted ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-600'}`}
+              className={`w-6 h-6 rounded-md flex items-center justify-center ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
+                }`}
               title={isCompleted ? 'Completed' : 'Pending'}
             >
               {getTaskStatusIcon(task.id, isCompleted)}
@@ -1864,7 +1875,10 @@ const DesktopTaskItem = memo(({
             <button
               onClick={() => onToggleStatus(task.id, task)}
               disabled={isToggling}
-              className={`p-1.5 rounded-lg transition-all ${isCompleted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${isCompleted
+                ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-500 hover:bg-primary-ultralight hover:text-primary-main'
+                } disabled:opacity-50`}
               title={isCompleted ? 'Mark as pending' : 'Mark as completed'}
             >
               {getTaskStatusIcon(task.id, isCompleted)}
@@ -1872,187 +1886,215 @@ const DesktopTaskItem = memo(({
           )}
         </div>
 
-        {/* Brand Column - FIXED WIDTH */}
-        <div className="col-span-1 min-w-0 flex items-center justify-center">
-          <div className="w-full max-w-[100px]">
-            <span className="text-xs text-blue-700 px-2 py-1 bg-blue-50 rounded-md truncate block w-full text-center" title={brandLabelText}>
-              {brandLabelText || "—"}
+        {/* Brand Column */}
+        <div className="col-span-1 flex items-center justify-center">
+          <span className="text-[10px] font-medium text-primary-main px-2 py-0.5 bg-primary-ultralight rounded-md truncate max-w-[85px] text-center border border-primary-light/20" title={brandLabelText}>
+            {brandLabelText || "—"}
+          </span>
+        </div>
+
+        {/* Task Title Column */}
+        <div className={hideAssignBy ? "col-span-3 min-w-0" : "col-span-2 min-w-0"}>
+          <div className="flex flex-col gap-0.5">
+            <h3 className="font-semibold text-gray-900 text-xs leading-tight break-words" title={task.title}>
+              {task.title}
+            </h3>
+            <div className="flex items-center gap-1">
+              {isOverdueTask && !isCompleted && (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                  <Clock className="h-2.5 w-2.5" />
+                  Overdue
+                </span>
+              )}
+              {isReassignedTask && !isCompleted && (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200">
+                  <UserPlus className="h-2.5 w-2.5" />
+                  Reassigned
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Assign To Column */}
+        {assignedFilter !== 'assigned-to-me' && (
+          <div className="col-span-1 min-w-0 flex items-center justify-center">
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full bg-primary-ultralight flex items-center justify-center border border-primary-light/30 shrink-0">
+                <span className="text-[9px] font-semibold text-primary-dark">
+                  {userInfo.name ? userInfo.name.charAt(0).toUpperCase() : '—'}
+                </span>
+              </div>
+              <span className="text-[10px] font-medium text-gray-700 truncate max-w-[50px]" title={userInfo.email}>
+                {userInfo.name || '—'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Assign By Column */}
+        {!hideAssignBy && (
+          <div className="col-span-1 min-w-0 flex items-center justify-center">
+            <div className="flex items-center gap-1">
+              <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center border border-gray-300 shrink-0">
+                <span className="text-[9px] font-semibold text-gray-700">
+                  {assignerInfo.name ? assignerInfo.name.charAt(0).toUpperCase() : '—'}
+                </span>
+              </div>
+              <span className="text-[10px] font-medium text-gray-600 truncate max-w-[50px]" title={assignerInfo.email}>
+                {assignerInfo.name || '—'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Created At Column */}
+        <div className="col-span-1 flex items-center justify-center">
+          <div className="text-center">
+            <span className="text-[10px] text-gray-600 font-medium block leading-tight" title={createdAtText}>
+              {createdAtText}
             </span>
           </div>
         </div>
 
-        {/* Task Title Column - INCREASED WIDTH */}
-        <div className={hideAssignBy ? "col-span-3 min-w-0 pr-2" : "col-span-2 min-w-0 pr-2"}>
-          <div className="flex flex-col gap-1">
-            <h3 className="font-semibold text-gray-900 text-sm whitespace-normal break-words leading-tight" title={task.title}>
-              {task.title}
-            </h3>
-            {isOverdueTask && !isCompleted && (
-              <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1 w-fit">
-                <Clock className="h-3 w-3" />
-                Overdue
-              </span>
-            )}
-            {isReassignedTask && !isCompleted && (
-              <span className="inline-flex items-center gap-1 text-xs text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full mt-1 w-fit">
-                <UserPlus className="h-3 w-3" />
-                Reassigned
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Assign To Column - REDUCED WIDTH */}
-        {assignedFilter !== 'assigned-to-me' && (
-          <div className="col-span-1 min-w-0 flex items-center"> {/* Changed: col-span-1 */}
-            <div className="font-medium text-gray-900 text-sm truncate w-full text-center" title={userInfo.email}>
-              {userInfo.name || '—'}
-            </div>
-          </div>
-        )}
-
-        {!hideAssignBy && (
-          <div className="col-span-1 min-w-0 flex items-center"> {/* Changed: col-span-1 */}
-            <div className="font-medium text-gray-900 text-sm truncate w-full text-center" title={assignerInfo.email}>
-              {assignerInfo.name || '—'}
-            </div>
-          </div>
-        )}
-
-        {/* Created At Column - REDUCED */}
-        <div className="col-span-1 min-w-0 flex items-center justify-center">
-          <span className="text-[10px] text-gray-500 truncate w-full text-center" title={createdAtText}>
-            {createdAtText}
-          </span>
-        </div>
-
-        {/* Due Date Column - OPTIMIZED WIDTH */}
-        <div className="col-span-1 min-w-0 flex items-center"> {/* Changed: col-span-1 */}
-          <div className="flex flex-col w-full">
-            <div className={`flex items-center gap-1 ${isOverdueTask && !isCompleted ? 'text-red-600' : 'text-gray-700'}`}>
-              <span className="font-medium text-sm truncate w-full text-center">
+        {/* Due Date + Priority Column - Side by Side */}
+        <div className="col-span-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1">
+              <span className={`text-[10px] font-semibold leading-tight ${isOverdueTask && !isCompleted ? 'text-red-700' : 'text-gray-900'
+                }`}>
                 {formatDate(task.dueDate)}
               </span>
+              {task.priority && (
+                <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                  {task.priority.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
-            {task.priority && (
-              <span className={`text-xs px-1.5 py-0.5 rounded mt-1 w-full text-center truncate ${task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-green-100 text-green-800'}`}>
-                {task.priority}
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Last Comment Column - NEW */}
-        <div className="col-span-2 min-w-0 flex items-center pl-4 border-l border-gray-100">
+        {/* Last Comment Column */}
+        <div className="col-span-2 min-w-0 flex items-center pl-2.5 border-l border-gray-200">
           {(task as any).latestComment ? (
             <div
-              className="flex flex-col gap-0.5 cursor-pointer hover:bg-gray-50 p-1 rounded transition-colors w-full"
+              className="flex flex-col gap-0.5 cursor-pointer hover:bg-primary-ultralight p-1 rounded transition-all w-full"
               onClick={() => onOpenCommentSidebar(task)}
               title={(task as any).latestComment.content}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-blue-600 truncate max-w-[80px]">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-primary-main truncate max-w-[65px]">
                   {(task as any).latestComment.userName}
                 </span>
-                <span className="text-[9px] text-gray-400 shrink-0">
+                <span className="text-[8px] text-gray-400 shrink-0">
                   {new Date((task as any).latestComment.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <p className="text-xs text-gray-600 line-clamp-1 italic italic leading-tight">
+              <p className="text-[9px] text-gray-600 line-clamp-1 leading-tight">
                 "{(task as any).latestComment.content}"
               </p>
             </div>
           ) : (
-            <span className="text-xs text-gray-300 italic">No comments</span>
+            <button
+              onClick={() => onOpenCommentSidebar(task)}
+              className="text-[9px] text-gray-400 italic hover:text-primary-main transition-colors"
+            >
+              Add comment
+            </button>
           )}
         </div>
 
-        {/* Actions Column - OPTIMIZED */}
-        <div className="col-span-1 min-w-0">
-          <div className="flex flex-col items-end gap-1">
-            {/* Status Badge */}
-            <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${isCompleted ?
-              (isPermanentlyApproved ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                'bg-green-100 text-green-800 border border-green-200') :
-              isInProgressTask ? 'bg-orange-100 text-orange-800 border border-orange-200' :
-                isReassignedTask ? 'bg-cyan-100 text-cyan-800 border border-cyan-200' :
-                  'bg-gray-100 text-gray-800 border border-gray-200'}`}>
-              {isCompleted ? (isPermanentlyApproved ? 'Approved' : 'Completed') : isInProgressTask ? 'In Progress' : isReassignedTask ? 'Reassigned' : 'Pending'}
-            </span>
+        {/* Actions Column */}
+        <div className="col-span-1 flex items-center justify-end gap-1">
+          {/* Status Badge */}
+          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${isCompleted
+            ? (isPermanentlyApproved
+              ? 'bg-blue-100 text-primary-dark border border-primary-light'
+              : 'bg-green-100 text-green-800 border border-green-300')
+            : isInProgressTask
+              ? 'bg-orange-100 text-orange-800 border border-orange-300'
+              : isReassignedTask
+                ? 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+                : 'bg-gray-100 text-gray-700 border border-gray-300'
+            }`}>
+            {isCompleted ? (isPermanentlyApproved ? 'APR' : 'COM') :
+              isInProgressTask ? 'PRG' :
+                isReassignedTask ? 'REA' : 'PND'}
+          </span>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-1">
-              {showAssignButton && typeof onAssignClick === 'function' && (
-                <button
-                  onClick={() => onAssignClick(task)}
-                  className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Assign"
-                >
-                  <UserPlus className="h-4 w-4" />
-                </button>
-              )}
-              {/* View Comments */}
+          {/* Action Buttons */}
+          <div className="flex items-center">
+            {showAssignButton && typeof onAssignClick === 'function' && (
               <button
-                onClick={() => onOpenCommentSidebar(task)}
-                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative"
-                title="View comments"
+                onClick={() => onAssignClick(task)}
+                className="p-0.5 text-gray-500 hover:text-primary-main hover:bg-primary-ultralight rounded transition-all"
+                title="Assign"
               >
-                <MessageSquare className="h-4 w-4" />
-                {hasUnreadComments && hasUnreadComments(task.id) && (
-                  <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-red-500" />
+                <UserPlus className="h-3 w-3" />
+              </button>
+            )}
+            <button
+              onClick={() => onOpenCommentSidebar(task)}
+              className="p-0.5 text-gray-500 hover:text-primary-main hover:bg-primary-ultralight rounded transition-all relative"
+              title="View comments"
+            >
+              <MessageSquare className="h-3 w-3" />
+              {hasUnreadComments && hasUnreadComments(task.id) && (
+                <span className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-red-500" />
+              )}
+            </button>
+
+            <button
+              onClick={() => onOpenHistoryModal(task)}
+              className="p-0.5 text-gray-500 hover:text-primary-main hover:bg-primary-ultralight rounded transition-all"
+              title="View history"
+            >
+              <History className="h-3 w-3" />
+            </button>
+
+            {canShowEditIcon && (
+              <button
+                onClick={() => onEditTaskClick(task)}
+                disabled={isPermanentlyApproved}
+                className={`p-0.5 rounded transition-all ${isPermanentlyApproved
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-primary-main hover:bg-primary-ultralight'
+                  }`}
+                title={isPermanentlyApproved ? "Editing not allowed" : "Edit task"}
+              >
+                <Edit className="h-3 w-3" />
+              </button>
+            )}
+
+            {canShowDeleteIcon && typeof onDeleteTask === 'function' && (
+              <button
+                onClick={() => onDeleteTask(task.id)}
+                className="p-0.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                title="Delete"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+
+            {userIsAssigner && isCompleted && (
+              <button
+                onClick={() => onPermanentApproval(task.id, !isPermanentlyApproved)}
+                disabled={isUpdatingApproval}
+                className="p-0.5 text-gray-500 hover:text-primary-main hover:bg-primary-ultralight rounded transition-all disabled:opacity-50"
+                title={isPermanentlyApproved ? 'Remove Permanent Approval' : 'Permanently Approve'}
+              >
+                {isUpdatingApproval ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isPermanentlyApproved ? (
+                  <EyeOff className="h-3 w-3 text-red-500" />
+                ) : (
+                  <Eye className="h-3 w-3 text-primary-main" />
                 )}
               </button>
-
-              {/* View History */}
-              <button
-                onClick={() => onOpenHistoryModal(task)}
-                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="View history"
-              >
-                <History className="h-4 w-4" />
-              </button>
-
-              {/* Edit Task */}
-              {canShowEditIcon && (
-                <button
-                  onClick={() => onEditTaskClick(task)}
-                  disabled={isPermanentlyApproved}
-                  className={`p-1 rounded-lg transition-colors ${isPermanentlyApproved ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'}`}
-                  title={isPermanentlyApproved ? "Editing not allowed for permanently approved tasks" : "Edit task"}
-                >
-                  <Edit className="h-4 w-4" />
-                </button>
-              )}
-
-              {canShowDeleteIcon && typeof onDeleteTask === 'function' && (
-                <button
-                  onClick={() => onDeleteTask(task.id)}
-                  className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-
-              {userIsAssigner && isCompleted && (
-                <button
-                  onClick={() => onPermanentApproval(task.id, !isPermanentlyApproved)}
-                  disabled={isUpdatingApproval}
-                  className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                  title={isPermanentlyApproved ? 'Remove Permanent Approval' : 'Permanently Approve'}
-                >
-                  {isUpdatingApproval ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : isPermanentlyApproved ? (
-                    <EyeOff className="h-4 w-4 text-red-500" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-blue-500" />
-                  )}
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -2091,116 +2133,123 @@ const CommentSidebar = memo(({
   const isCompleted = isTaskCompleted(selectedTask.id);
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={onCloseSidebar}
-      />
-      <div className="absolute inset-0 right-0">
-        <div className="h-full bg-white shadow-xl overflow-y-auto w-full md:w-[500px] transform transition-transform duration-300 ease-in-out">
-          {/* Sidebar Header */}
-          <div className="sticky top-0 bg-white border-b z-10">
-            <div className="px-4 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Task Details</h2>
-                  <p className="text-gray-600 text-sm mt-1">{selectedTask.title}</p>
-                </div>
-                <button
-                  onClick={onCloseSidebar}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="h-5 w-5 text-gray-500" />
-                </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#1e3a8a]/10 backdrop-blur-sm" onClick={onCloseSidebar}></div>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-50 text-[#1e3a8a]">
+                <History className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#1e3a8a]">Activity Timeline</h2>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-0.5">Task Logs & Events</p>
               </div>
             </div>
+            <button onClick={onCloseSidebar} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <X className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
 
-            {/* Tabs */}
-            <div className="flex border-b">
+          <div className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100 mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Task</h3>
+            </div>
+            <p className="text-sm font-bold text-gray-800 leading-snug">{selectedTask.title}</p>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="inline-flex bg-gray-100/70 p-1 rounded-xl border border-gray-200/80">
               <button
+                type="button"
                 onClick={() => setActiveTab('details')}
-                className={`flex-1 py-3 text-sm font-medium ${activeTab === 'details' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors ${activeTab === 'details' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 Details
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('permanent-history')}
-                className={`flex-1 py-3 text-sm font-medium ${activeTab === 'permanent-history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors ${activeTab === 'permanent-history' ? 'bg-white text-[#1e3a8a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                History
+                Timeline
               </button>
             </div>
           </div>
 
-          {/* Sidebar Content */}
-          <div className="p-4">
+          <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             {activeTab === 'details' ? (
-              <>
+              <div className="space-y-6">
                 {/* Task Details Summary */}
-                <div className="mb-6 bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Status</div>
-                      <div className={`inline-block px-2 py-1 text-xs rounded ${getStatusBadgeColor(selectedTask.id)}`}>
+                <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="grid grid-cols-2 gap-y-5 gap-x-4">
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</div>
+                      <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadgeColor(selectedTask.id)}`}>
                         {getStatusText(selectedTask.id)}
                       </div>
                     </div>
 
-                    <div>
-                      <div className="text-xs font-medium text-gray-500 mb-1">Priority</div>
-                      <div className={`inline-block px-2 py-1 text-xs rounded ${selectedTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        selectedTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priority</div>
+                      <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${selectedTask.priority === 'high' ? 'bg-red-50 text-red-700 border-red-100' :
+                        selectedTask.priority === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-100' :
+                          'bg-green-50 text-green-700 border-green-100'
                         }`}>
-                        {selectedTask.priority || 'Not set'}
+                        {selectedTask.priority?.toUpperCase() || 'NOT SET'}
                       </div>
                     </div>
 
-                    <div className="col-span-2">
-                      <div className="text-xs font-medium text-gray-500 mb-1">Assigned To</div>
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900 truncate">
-                          {userInfo.email}
+                    <div className="col-span-2 space-y-1">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Assigned To</div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-[#1e3a8a] text-white flex items-center justify-center text-[10px] font-bold uppercase">
+                          {userInfo.email?.charAt(0)}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs font-bold text-gray-800 truncate">
                           {userInfo.email}
                         </div>
                       </div>
                     </div>
 
-                    <div className="col-span-2">
-                      <div className="text-xs font-medium text-gray-500 mb-1">Due Date</div>
-                      <div className="text-sm">
-                        <div className="text-gray-900">
-                          {formatDate(selectedTask.dueDate)}
-                        </div>
+                    <div className="col-span-2 space-y-1">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Due Date</div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-xs font-bold text-gray-800">{formatDate(selectedTask.dueDate)}</span>
                         {isOverdue(selectedTask.dueDate, selectedTask.status) && !isCompleted && (
-                          <div className="text-red-600 text-xs">Overdue</div>
+                          <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight">Overdue</span>
                         )}
                       </div>
                     </div>
 
                     {selectedTask.type && (
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Type</div>
-                        <div className="text-sm text-gray-900">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Type</div>
+                        <div className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <Layers className="h-3.5 w-3.5 text-gray-400" />
                           {selectedTask.type}
                         </div>
                       </div>
                     )}
 
                     {selectedTask.company && (
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Company</div>
-                        <div className="text-sm text-gray-900">
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Company</div>
+                        <div className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <Building className="h-3.5 w-3.5 text-gray-400" />
                           {selectedTask.company}
                         </div>
                       </div>
                     )}
 
                     {selectedTask.brand && (
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Brand</div>
-                        <div className="text-sm text-gray-900">
+                      <div className="col-span-2 space-y-1">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Brand</div>
+                        <div className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-gray-400" />
                           {(typeof formatBrandLabel === 'function' ? formatBrandLabel(selectedTask) : selectedTask.brand)}
                         </div>
                       </div>
@@ -2209,89 +2258,95 @@ const CommentSidebar = memo(({
                 </div>
 
                 {/* Comments Section */}
-                <div className="mt-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Add Comment</h4>
-                  <div className="flex gap-2">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-[#1e3a8a]">
+                    <MessageSquare className="h-4 w-4" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider">Add Comment</h4>
+                  </div>
+                  <div className="relative group">
                     <textarea
                       value={localComment}
                       onChange={(e) => setLocalComment(e.target.value)}
-                      placeholder="Type your comment here..."
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none"
-                      rows={3}
+                      placeholder="Share updates or feedback..."
+                      className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 min-h-[120px] resize-none transition-all placeholder:text-gray-300"
                     />
-                  </div>
-                  <div className="flex justify-between items-center mt-3">
-                    <button
-                      onClick={() => {
-                        onSaveComment(localComment);
-                        setLocalComment('');
-                      }}
-                      disabled={!localComment.trim() || commentLoading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-2 transition-colors"
-                    >
-                      {commentLoading ? (
-                        <>
+                    <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          onSaveComment(localComment);
+                          setLocalComment('');
+                        }}
+                        disabled={!localComment.trim() || commentLoading}
+                        className="h-10 w-10 bg-[#1e3a8a] text-white rounded-xl shadow-lg shadow-blue-900/20 hover:bg-[#1e3a8a]/90 disabled:opacity-50 disabled:scale-95 transition-all flex items-center justify-center"
+                        title="Send Comment"
+                      >
+                        {commentLoading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
+                        ) : (
                           <Send className="h-4 w-4" />
-                          Add Comment
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  {!onSaveComment && (
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                      ⚠️ Comment saving functionality is not available.
+                        )}
+                      </button>
                     </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Permanent History Tab */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileClock className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-bold text-gray-900">History</h3>
-                    <span className="ml-auto text-xs text-gray-500">
-                      {taskComments ? taskComments.length : 0} records
-                    </span>
                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Permanent History Tab */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-[#1e3a8a]">
+                    <History className="h-4 w-4" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider">Timeline</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-1 rounded-full">
+                    {taskComments ? taskComments.length : 0} Items
+                  </span>
                 </div>
 
                 {/* Loading State */}
                 {(loadingHistory || loadingComments) ? (
-                  <div className="text-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
-                    <p className="mt-2 text-gray-500">Loading history...</p>
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                    <Loader2 className="h-8 w-8 animate-spin mb-3 text-blue-200" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Fetching data...</p>
                   </div>
                 ) : taskComments && taskComments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FileClock className="h-12 w-12 mx-auto text-gray-300" />
-                    <p className="mt-2 text-gray-500">No history available</p>
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-300">
+                    <FileClock className="h-12 w-12 mb-4 opacity-20" />
+                    <p className="text-xs font-bold uppercase tracking-widest text-center">No Activity Recorded Yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="relative pl-4 space-y-6 before:absolute before:left-[1px] before:top-2 before:bottom-2 before:w-[1.5px] before:bg-gradient-to-b before:from-blue-200 before:to-transparent">
                     {taskComments?.map((comment: CommentType) => (
-                      <div key={comment.id} className="border-l-2 border-blue-400 pl-4 pb-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MessageSquare className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm font-medium">Comment</span>
-                          <span className="text-xs text-gray-500 ml-auto">
-                            {formatDateTime(comment.createdAt)}
-                          </span>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      <div key={comment.id} className="relative group">
+                        {/* Dot */}
+                        <div className="absolute -left-[19.5px] top-1.5 h-3 w-3 rounded-full border-2 border-white bg-blue-500 shadow-sm" />
+
+                        <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="h-6 w-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                {comment.userName?.charAt(0)}
+                              </div>
+                              <span className="text-xs font-bold text-gray-800">{comment.userName}</span>
+                            </div>
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                              {formatDateTime(comment.createdAt)}
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
                             {(comment.content || '').trim()}
-                          </p>
-                          <div className="mt-2 text-xs text-gray-500">
-                            By: {comment.userName} ({comment.userRole})
+                          </div>
+
+                          <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded-full">
+                              {comment.userRole}
+                            </span>
                             {comment.userId === currentUser.id && (
-                              <span className="text-blue-600 ml-2">✓ You</span>
+                              <span className="text-[9px] font-bold text-blue-500 uppercase flex items-center gap-1">
+                                <CheckCircle className="h-2.5 w-2.5" />
+                                Your Update
+                              </span>
                             )}
                           </div>
                         </div>
@@ -2299,7 +2354,7 @@ const CommentSidebar = memo(({
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -2462,7 +2517,7 @@ const PermanentHistoryTimeline = memo(({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative pl-4 before:absolute before:left-[1px] before:top-2 before:bottom-2 before:w-[1.5px] before:bg-gradient-to-b before:from-blue-200 before:to-transparent">
       {displayItems.map((item, index) => {
         const isComment = item.type === 'comment';
         const isExpanded = expandedItems.includes(item.id);
@@ -2471,109 +2526,78 @@ const PermanentHistoryTimeline = memo(({
         return (
           <div
             key={`${item.type}-${item.id}-${index}`}
-            className={`border-l-2 pl-4 pb-4 relative ${index !== displayItems.length - 1 ? '' : ''}`}
-            style={{
-              borderLeftColor: isComment ? '#3b82f6' : '#10b981'
-            }}
+            className="relative"
           >
-            {/* Timeline dot */}
-            <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 ${isComment ? 'bg-blue-100 border-blue-300' : 'bg-green-100 border-green-300'}`}>
-              <div className="flex items-center justify-center w-full h-full">
-                {isComment ? (
-                  <MessageSquare className="h-2.5 w-2.5 text-blue-600" />
-                ) : (
-                  <History className="h-2.5 w-2.5 text-green-600" />
-                )}
-              </div>
-            </div>
+            {/* Dot */}
+            <div className={`absolute -left-[19.5px] top-1.5 h-3 w-3 rounded-full border-2 border-white shadow-sm ${isComment ? 'bg-blue-500' : 'bg-[#10b981]'}`} />
 
-            <div className="ml-2">
-              <div className="flex items-start justify-between mb-1">
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${isComment ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                    {isComment ? <MessageSquare className="h-3 w-3" /> : <History className="h-3 w-3" />}
-                    {isComment ? 'Comment' : item.label}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {formatDateTime(item.timestamp)}
-                  </span>
+                  <div className={`h-6 w-6 rounded-lg flex items-center justify-center text-[10px] font-bold ${isComment ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
+                    {isComment ? <MessageSquare className="h-3.5 w-3.5" /> : <History className="h-3.5 w-3.5" />}
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-gray-800">
+                      {isComment
+                        ? (item.data as CommentType).userName
+                        : (item.data as TaskHistory).userName}
+                    </span>
+                    <div className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                      {formatDateTime(item.timestamp)}
+                    </div>
+                  </div>
                 </div>
                 {isComment && (
                   <button
                     onClick={() => toggleExpand(item.id)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="p-1 hover:bg-gray-50 rounded-lg transition-colors"
                   >
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
                   </button>
                 )}
               </div>
 
-              {/* User info */}
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <div className="text-sm font-medium text-gray-900">
-                  {isComment
-                    ? (item.data as CommentType).userName
-                    : (item.data as TaskHistory).userName}
-                </div>
-                <div className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+              {/* Content */}
+              <div className="space-y-2">
+                {isComment ? (
+                  <div className={`text-xs text-gray-600 leading-relaxed whitespace-pre-wrap bg-gray-50/50 p-3 rounded-xl border border-gray-100 ${isExpanded ? '' : 'max-h-20 overflow-hidden'}`}>
+                    {(item.data as CommentType).content || '—'}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-600 leading-relaxed bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                    <p className="font-bold text-gray-800 mb-2">{(item.data as TaskHistory).message || 'Activity Recorded'}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase">Action</span>
+                        <span className="text-[10px] font-bold text-[#1e3a8a] truncate">{(item.data as TaskHistory).action?.replace(/_/g, ' ').toUpperCase()}</span>
+                      </div>
+                      {(item.data as TaskHistory).action === 'status_changed' && (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] font-bold text-gray-400 uppercase">Transition</span>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-700">
+                            <span className="truncate max-w-[40px]">{(item.data as TaskHistory).additionalData?.fromStatus}</span>
+                            <span className="text-gray-300">→</span>
+                            <span className="truncate max-w-[40px]">{(item.data as TaskHistory).additionalData?.toStatus}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-0.5 rounded-full">
                   {isComment
                     ? (item.data as CommentType).userRole
                     : (item.data as TaskHistory).userRole}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {isComment
-                    ? (item.data as CommentType).userEmail
-                    : (item.data as TaskHistory).userEmail}
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="mt-2">
-                {isComment ? (
-                  <div>
-                    <div className={`bg-gray-50 p-3 rounded-lg border ${isExpanded ? '' : 'max-h-20 overflow-hidden'}`}>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {(((item.data as CommentType).content || '').toString().trim()) || '—'}
-                      </p>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      <div className="font-medium">Permanent Comment</div>
-                      <div>Added on: {formatDateTime((item.data as CommentType).createdAt || (item.data as CommentType).updatedAt || item.timestamp)}</div>
-                      {isCurrentUserAuthor && (
-                        <div className="text-blue-600 mt-1">✓ You are the author</div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border">
-                    <p className="font-medium mb-1">{(item.data as TaskHistory).message || 'No message'}</p>
-                    <div className="text-xs text-gray-500 space-y-1 mt-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Action:</span>
-                        <span className="px-2 py-0.5 rounded bg-gray-100">{(item.data as TaskHistory).action?.replace(/_/g, ' ')}</span>
-                      </div>
-                      {(item.data as TaskHistory).action === 'status_changed' && (
-                        (() => {
-                          const ad: any = (item.data as TaskHistory).additionalData || {};
-                          const fromStatus = String(ad?.fromStatus || '').trim();
-                          const toStatus = String(ad?.toStatus || '').trim();
-                          if (!fromStatus || !toStatus) return null;
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">Status:</span>
-                              <span className="px-2 py-0.5 rounded bg-gray-100">{fromStatus}</span>
-                              <span className="text-gray-400">→</span>
-                              <span className="px-2 py-0.5 rounded bg-gray-100">{toStatus}</span>
-                            </div>
-                          );
-                        })()
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">Time:</span>
-                        <span>{formatDateTime((item.data as TaskHistory).timestamp || item.timestamp) || '—'}</span>
-                      </div>
-                    </div>
-                  </div>
+                </span>
+                {isCurrentUserAuthor && (
+                  <span className="text-[9px] font-bold text-blue-500 uppercase flex items-center gap-1">
+                    <CheckCircle className="h-2.5 w-2.5" />
+                    Your Update
+                  </span>
                 )}
               </div>
             </div>
@@ -2920,7 +2944,6 @@ const TaskHistoryModal = memo(({
   currentUser,
   users,
   onClose,
-  formatDate,
   getEmailByIdInternal,
   getAssignerEmail
 }: {
@@ -3006,125 +3029,48 @@ const TaskHistoryModal = memo(({
   const assigneeEmail = getAssigneeEmail();
 
   return (
-    <div className="fixed inset-0 z-50">
-      <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-          {/* Modal Header */}
-          <div className="sticky top-0 bg-white border-b z-10 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Task History</h2>
-                <p className="text-gray-600 text-sm mt-1">{historyTask.title}</p>
-                <div className="mt-2 text-sm text-gray-500">
-                  Created: {formattedCreatedAt}
-                </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#1e3a8a]/10 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-blue-50 text-[#1e3a8a]">
+                <History className="h-6 w-6" />
               </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="h-5 w-5 text-gray-500" />
-              </button>
+              <div>
+                <h2 className="text-xl font-bold text-[#1e3a8a]">Activity Timeline</h2>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-0.5">Task Logs & Events</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+              <X className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="bg-gray-50/50 rounded-2xl p-4 border border-gray-100 mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Task</h3>
+            </div>
+            <p className="text-sm font-bold text-gray-800 leading-snug">{historyTask.title}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="text-[10px] text-gray-600">
+                <span className="font-bold text-gray-400 uppercase tracking-wider">Assigned By:</span>
+                <div className="font-bold text-gray-800 truncate">{creatorEmail || 'Unknown'}</div>
+              </div>
+              <div className="text-[10px] text-gray-600">
+                <span className="font-bold text-gray-400 uppercase tracking-wider">Assigned To:</span>
+                <div className="font-bold text-gray-800 truncate">{assigneeEmail || 'Unknown'}</div>
+              </div>
+              <div className="col-span-2 text-[10px] text-gray-600">
+                <span className="font-bold text-gray-400 uppercase tracking-wider">Created:</span>
+                <span className="ml-2 font-bold text-gray-800">{formattedCreatedAt}</span>
+              </div>
             </div>
           </div>
 
-          {/* Modal Content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="ml-auto text-xs text-gray-500">
-                  {timelineItems.length} records
-                </span>
-              </div>
-            </div>
-
-            {/* Task Creation Summary - UPDATED WITH CREATOR AND ASSIGNEE INFO */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-full bg-white border-2 border-blue-300 flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-blue-900">Task Created</h4>
-                  <p className="text-sm text-blue-800">
-                    This task was created on {formattedCreatedAt}
-                  </p>
-                </div>
-              </div>
-
-              {/* Creator and Assignee Info - NEW SECTION */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div className="bg-white p-3 rounded-lg border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <User className="h-4 w-4 text-blue-500" />
-                    <h5 className="font-medium text-gray-700">Created By</h5>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-900 font-medium truncate">
-                      {creatorEmail}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Task Creator/Assigner
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-3 rounded-lg border border-blue-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <UserPlus className="h-4 w-4 text-green-500" />
-                    <h5 className="font-medium text-gray-700">Assigned To</h5>
-                  </div>
-                  <div className="text-sm">
-                    <div className="text-gray-900 font-medium truncate">
-                      {assigneeEmail}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Task Assignee
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Task Details */}
-              <div className="grid grid-cols-2 gap-3 text-sm bg-white p-3 rounded-lg border border-blue-100">
-                <div>
-                  <span className="font-medium text-gray-600">Priority:</span>
-                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${historyTask.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    historyTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'}`}>
-                    {historyTask.priority || 'Not set'}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Due Date:</span>
-                  <span className="ml-2">{formatDate(historyTask.dueDate)}</span>
-                </div>
-                {historyTask.type && (
-                  <div>
-                    <span className="font-medium text-gray-600">Type:</span>
-                    <span className="ml-2 px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800">
-                      {historyTask.type}
-                    </span>
-                  </div>
-                )}
-                {historyTask.company && (
-                  <div>
-                    <span className="font-medium text-gray-600">Company:</span>
-                    <span className="ml-2">{historyTask.company}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* History Timeline */}
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Activity Timeline</h3>
-            </div>
-
+          <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             <PermanentHistoryTimeline
               timelineItems={timelineItems}
               loadingHistory={loadingHistory}
@@ -3132,6 +3078,15 @@ const TaskHistoryModal = memo(({
               currentUser={currentUser}
               formatDateTime={formatDateTime}
             />
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-gray-100 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Close History
+            </button>
           </div>
         </div>
       </div>
@@ -5825,7 +5780,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
         ) : (
           <div className="space-y-4">
             {/* Table Header - Desktop */}
-            <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 text-sm font-semibold text-gray-700 items-center">
+            <div className="hidden md:grid grid-cols-12 gap-1.5 px-4 py-2.5 bg-primary-ultralight rounded-lg border border-primary-light/20 text-xs font-semibold text-primary-dark items-center">
               <div className="col-span-1 text-center">#</div>
               <div className="col-span-1 text-center">Status</div>
               <div className="col-span-1 text-center">Brand</div>
@@ -5834,8 +5789,8 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
               {!hideAssignBy && <div className="col-span-1 text-center">Assign By</div>}
               <div className="col-span-1 text-center">Created</div>
               <div className="col-span-1 text-center">Due Date</div>
-              <div className="col-span-2 pl-4">Last Comment</div>
-              <div className="col-span-1 text-right pr-4">Actions</div>
+              <div className="col-span-2 pl-2.5 border-l border-primary-light/30">Last Comment</div>
+              <div className="col-span-1 text-right">Actions</div>
             </div>
 
             {/* Task List */}
@@ -6183,18 +6138,18 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       {/* Header Section */}
-      <div className="bg-white shadow-lg border-b">
-        <div className="px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="bg-white shadow-sm border-b border-gray-100">
+        <div className="px-4 py-3 sm:px-5 lg:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-lg font-semibold text-black">
                 {assignedFilter === 'assigned-by-me'
                   ? 'Tasks Assigned By Me'
                   : assignedFilter === 'assigned-to-me'
                     ? 'My Tasks'
                     : 'All Tasks'}
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-xs text-gray-500 mt-0.5">
                 {assignedFilter === 'assigned-by-me'
                   ? 'Tasks you have assigned to others'
                   : assignedFilter === 'assigned-to-me'
@@ -6204,7 +6159,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
             </div>
 
             {!isAssistantViewOnly && (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {isSpeedEcomUser ? (
                   <div className="hidden sm:block">
                     <input
@@ -6212,24 +6167,24 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
                       value={groupNumberSearch}
                       onChange={(e) => setGroupNumberSearch(e.target.value)}
                       placeholder="Search Group #"
-                      className="w-44 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-32 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-black placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6]"
                     />
                   </div>
                 ) : null}
                 <button
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium border border-gray-200 rounded-lg bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
                 >
-                  <Filter className="h-4 w-4 mr-2" />
+                  <Filter className="h-3.5 w-3.5 mr-1.5 text-[#3b82f6]" />
                   {showAdvancedFilters ? 'Hide Filters' : 'Show Filters'}
                 </button>
 
                 {!hideCreateAndBulkActions && !isBulkImportDisabled && (
                   <button
                     onClick={handleOpenBulkImporter}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-[#1e3a8a] hover:bg-[#1e3a8a] transition-colors shadow-sm"
                   >
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-3.5 w-3.5 mr-1.5" />
                     Bulk Import
                   </button>
                 )}
@@ -6237,9 +6192,9 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
                 {!hideCreateAndBulkActions && canShowCreateTaskButton && (
                   <button
                     onClick={handleCreateTaskWithHistory}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-[#3b82f6] hover:bg-[#3b82f6] transition-colors shadow-sm"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
                     Create Task
                   </button>
                 )}

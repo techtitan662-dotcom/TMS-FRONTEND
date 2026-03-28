@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  X, LogOut, ListTodo, ChevronLeft, ChevronRight, Menu, Sun, Moon,
-  Users, Home, Calendar, CheckSquare, User, Building, BarChart3, Shield, Star, Briefcase, AlertTriangle, Megaphone,
-  UserCheck
+  X, LogOut, ListTodo, ChevronLeft, ChevronRight, Menu, 
+  Users, Calendar, CheckSquare, User, Building, Shield, Star, Briefcase, AlertTriangle, Megaphone,
+  UserCheck, LayoutDashboard, ClipboardList, TrendingUp, Settings,
 } from 'lucide-react';
 
 import type { UserType } from '../Types/Types';
+import CompanyLogo from '../../public/Untitled design (2).png';
 
 interface SidebarProps {
-
   sidebarOpen: boolean;
-
   setSidebarOpen: (open: boolean) => void;
   currentUser: UserType;
   handleLogout: () => void;
@@ -19,29 +18,7 @@ interface SidebarProps {
   navigateTo: (page: string) => void;
   assignedByMePendingCount?: number;
   assignedToMePendingCount?: number;
-
-  currentView?:
-  | 'dashboard'
-  | 'all-tasks'
-  | 'calendar'
-  | 'team'
-  | 'profile'
-  | 'brands'
-  | 'brand-detail'
-  | 'analyze'
-  | 'access'
-  | 'assign'
-  | 'speed-ecom-reassign'
-  | 'company-brand-task-types'
-  | 'reviews'
-  | 'manager-monthly-rankings'
-  | 'other-work'
-  | 'md-impex-strike'
-  | 'md-impex-access'
-  | 'personal-tasks'
-  | 'assigned-by-me'
-  | 'assigned-to-me'
-  | 'headline';
+  currentView?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -56,10 +33,55 @@ const Sidebar: React.FC<SidebarProps> = ({
   assignedToMePendingCount = 0,
   currentView = 'dashboard'
 }) => {
-  const [darkMode, setDarkMode] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+  
+  // Using CSS variables - will automatically update when theme changes
+  const getCSSVariable = (varName: string) => {
+    if (typeof window !== 'undefined') {
+      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    }
+    return '';
+  };
+
+  const logoColor = getCSSVariable('--color-primary-main') || '#1e3a8a';
+
+  // Save scroll position
+  const saveScrollPosition = () => {
+    if (scrollContainerRef.current) {
+      scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+    }
+  };
+
+  // Restore scroll position
+  const restoreScrollPosition = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+    }
+  };
+
+  // Handle scroll events
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      scrollPositionRef.current = scrollContainer.scrollTop;
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const hasAccess = (moduleId: string) => {
     const role = String((currentUser as any)?.role || '').trim().toLowerCase();
+    const isAdminUser = role === 'admin' || role === 'super_admin';
+    
+    if (isAdminUser) return true;
+    
     if (moduleId === 'access_management' && (role === 'am' || role === 'rm')) return false;
     const perms = (currentUser as any)?.permissions;
     if (!perms || typeof perms !== 'object') return true;
@@ -67,455 +89,378 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (typeof (perms as any)[moduleId] === 'undefined') return true;
     const perm = String((perms as any)[moduleId] || '').trim().toLowerCase();
     if (['deny', 'no', 'false', '0', 'disabled'].includes(perm)) return false;
-    if (['allow', 'allowed', 'yes', 'true', '1'].includes(perm)) return true;
     return perm !== 'deny';
   };
 
-  const canSeeAccess = hasAccess('access_management');
-  const canSeeTeam = hasAccess('team_page');
-  const canSeeTasks = hasAccess('tasks_page');
-  const canSeeCalendar = hasAccess('calendar_page');
-  const canSeeBrands = hasAccess('brands_page');
-  const canSeeProfile = hasAccess('profile_page');
-  const canSeeAnalyze = hasAccess('reports_analytics');
-  const canSeeAssignPage = hasAccess('assign_page');
-  const canSeeReviews = hasAccess('reviews_page');
-  const canSeeOtherWork = hasAccess('other_work_page');
-  const canSeeStrike = hasAccess('strike_page');
-  const canSeePersonalTasks = hasAccess('personal_tasks_page');
-
   const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase();
   const isAdmin = roleKey === 'admin' || roleKey === 'super_admin';
-  const canSeeMdImpexAccess = roleKey === 'md_manager' || isAdmin;
+  
+  const canSeeAccess = isAdmin ? true : hasAccess('access_management');
+  const canSeeTeam = isAdmin ? true : hasAccess('team_page');
+  const canSeeTasks = isAdmin ? true : hasAccess('tasks_page');
+  const canSeeCalendar = isAdmin ? true : hasAccess('calendar_page');
+  const canSeeBrands = isAdmin ? true : hasAccess('brands_page');
+  const canSeeProfile = isAdmin ? true : hasAccess('profile_page');
+  const canSeeAnalyze = isAdmin ? true : hasAccess('reports_analytics');
+  const canSeeReviews = isAdmin ? true : hasAccess('reviews_page');
+  const canSeePersonalTasks = isAdmin ? true : hasAccess('personal_tasks_page');
+  const canSeeStrike = isAdmin ? true : hasAccess('strike_page');
+  const canSeeOtherWork = isAdmin ? true : hasAccess('other_work_page');
+  const canSeeAssignPage = isAdmin ? true : hasAccess('assign_page');
+  const canSeeMdImpexAccess = isAdmin ? true : (roleKey === 'md_manager');
 
   const getDisplayInitial = () => {
     if (!currentUser) return 'U';
-
     if (currentUser.name && currentUser.name.trim() !== '') {
       return currentUser.name.charAt(0).toUpperCase();
     }
-
     if (currentUser.email && currentUser.email.trim() !== '') {
       return currentUser.email.charAt(0).toUpperCase();
     }
-
     return 'U';
   };
 
-  // Combine navigation based on user role and current view
-  const getNavigationItems = () => {
-    const baseItems = [
-      {
-        name: 'Dashboard',
-        icon: Home,
-        current: currentView === 'dashboard',
-        onClick: () => navigateTo('dashboard'),
-        badge: 0
-      },
-      ...(canSeeTasks
-        ? [
-          {
-            name: 'All Tasks',
-            icon: CheckSquare,
-            current: currentView === 'all-tasks',
-            onClick: () => navigateTo('tasks'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeePersonalTasks
-        ? [
-          {
-            name: 'Personal Tasks',
-            icon: ListTodo,
-            current: currentView === 'personal-tasks',
-            onClick: () => navigateTo('personal-tasks'),
-            badge: 0
-          }
-        ]
-        : []),
-      {
-        name: 'Assigned By Me',
-        icon: UserCheck,
-        current: currentView === 'assigned-by-me',
-        onClick: () => navigateTo('assigned-by-me'),
-        badge: assignedByMePendingCount
-      },
-      {
-        name: 'Assigned To Me',
-        icon: ListTodo,
-        current: currentView === 'assigned-to-me',
-        onClick: () => navigateTo('assigned-to-me'),
-        badge: assignedToMePendingCount
-      },
-      ...(canSeeCalendar
-        ? [
-          {
-            name: 'Calendar',
-            icon: Calendar,
-            current: currentView === 'calendar',
-            onClick: () => navigateTo('calendar'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeAnalyze
-        ? [
-          {
-            name: 'Analyze Task',
-            icon: BarChart3,
-            current: currentView === 'analyze',
-            onClick: () => navigateTo('analyze'),
-            badge: 0
-          }
-        ]
-        : [])
-    ];
-
-    const itemsWithRoleGated = [
-      ...baseItems,
-      ...(canSeeBrands
-        ? [
-          {
-            name: 'Brands',
-            icon: Building,
-            current: currentView === 'brands',
-            onClick: () => navigateTo('brands'),
-            badge: 0
-          }
-        ]
-        : [])
-    ];
-
-    return [
-      ...itemsWithRoleGated,
-      ...(canSeeStrike
-        ? [
-          {
-            name: 'Strike',
-            icon: AlertTriangle,
-            current: currentView === 'md-impex-strike',
-            onClick: () => navigateTo('md-impex-strike'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeMdImpexAccess
-        ? [
-          {
-            name: 'MD Access',
-            icon: Shield,
-            current: currentView === 'md-impex-access',
-            onClick: () => navigateTo('md-impex-access'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeOtherWork
-        ? [
-          {
-            name: 'Other Work',
-            icon: Briefcase,
-            current: currentView === 'other-work',
-            onClick: () => navigateTo('other-work'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeReviews
-        ? [
-          {
-            name: 'Reviews',
-            icon: Star,
-            current: currentView === 'reviews',
-            onClick: () => navigateTo('reviews'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeAssignPage
-        ? [
-          {
-            name: 'Assign Page',
-            icon: Building,
-            current: currentView === 'assign',
-            onClick: () => navigateTo('assign'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeTeam
-        ? [
-          {
-            name: 'Team',
-            icon: Users,
-            current: currentView === 'team',
-            onClick: () => navigateTo('team'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeAccess
-        ? [
-          {
-            name: 'Access',
-            icon: Shield,
-            current: currentView === 'access',
-            onClick: () => navigateTo('access'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(canSeeProfile
-        ? [
-          {
-            name: 'Profile',
-            icon: User,
-            current: currentView === 'profile',
-            onClick: () => navigateTo('profile'),
-            badge: 0
-          }
-        ]
-        : []),
-      ...(isAdmin
-        ? [
-          {
-            name: 'Headline',
-            icon: Megaphone,
-            current: currentView === 'headline',
-            onClick: () => navigateTo('headline'),
-            badge: 0
-          }
-        ]
-        : [])
-    ];
-  };
+  const navigationSections = [
+    {
+      id: 'main',
+      title: '',
+      items: [
+        { name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard', badge: 0 },
+      ]
+    },
+    {
+      id: 'tasks',
+      title: 'TASKS',
+      items: [
+        ...(canSeeTasks ? [{ name: 'All Tasks', icon: CheckSquare, id: 'all-tasks', badge: 0 }] : []),
+        ...(canSeePersonalTasks ? [{ name: 'Personal Tasks', icon: ListTodo, id: 'personal-tasks', badge: 0 }] : []),
+        { name: 'Assigned By Me', icon: UserCheck, id: 'assigned-by-me', badge: assignedByMePendingCount },
+        { name: 'Assigned To Me', icon: ClipboardList, id: 'assigned-to-me', badge: assignedToMePendingCount },
+        ...(canSeeCalendar ? [{ name: 'Calendar', icon: Calendar, id: 'calendar', badge: 0 }] : []),
+        ...(canSeeAnalyze ? [{ name: 'Analytics', icon: TrendingUp, id: 'analyze', badge: 0 }] : []),
+      ]
+    },
+    {
+      id: 'business',
+      title: 'BUSINESS',
+      items: [
+        ...(canSeeBrands ? [{ name: 'Brands', icon: Building, id: 'brands', badge: 0 }] : []),
+        ...(canSeeReviews ? [{ name: 'Reviews', icon: Star, id: 'reviews', badge: 0 }] : []),
+        ...(canSeeAssignPage ? [{ name: 'Assign Page', icon: Briefcase, id: 'assign', badge: 0 }] : []),
+        ...(canSeeOtherWork ? [{ name: 'Other Work', icon: Briefcase, id: 'other-work', badge: 0 }] : []),
+      ]
+    },
+    {
+      id: 'management',
+      title: 'MANAGEMENT',
+      items: [
+        ...(canSeeTeam ? [{ name: 'Team', icon: Users, id: 'team', badge: 0 }] : []),
+        ...(canSeeStrike ? [{ name: 'Strike', icon: AlertTriangle, id: 'md-impex-strike', badge: 0 }] : []),
+        ...(canSeeMdImpexAccess ? [{ name: 'MD Access', icon: Shield, id: 'md-impex-access', badge: 0 }] : []),
+        ...(canSeeAccess ? [{ name: 'Access Control', icon: Settings, id: 'access', badge: 0 }] : []),
+        ...(isAdmin ? [{ name: 'Headline', icon: Megaphone, id: 'headline', badge: 0 }] : []),
+      ]
+    },
+    {
+      id: 'account',
+      title: 'ACCOUNT',
+      items: [
+        ...(canSeeProfile ? [{ name: 'Profile', icon: User, id: 'profile', badge: 0 }] : []),
+      ]
+    }
+  ];
 
   const toggleSidebarMode = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
     localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
-  };
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    if (!darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    setTimeout(restoreScrollPosition, 100);
   };
 
   useEffect(() => {
     const savedState = localStorage.getItem('sidebarCollapsed');
-    if (savedState) {
-      setIsCollapsed(JSON.parse(savedState));
-    }
+    if (savedState) setIsCollapsed(JSON.parse(savedState));
   }, [setIsCollapsed]);
+
+  useEffect(() => {
+    restoreScrollPosition();
+  });
+
+  const SidebarContent = ({ isMobile = false, onItemClick }: { isMobile?: boolean; onItemClick?: () => void }) => (
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+      {/* Logo Section */}
+      <div className={`flex-shrink-0 ${isCollapsed && !isMobile ? 'px-2 py-3' : 'px-4 py-4'} border-b border-gray-100 dark:border-gray-800`}>
+        {!isCollapsed || isMobile ? (
+          <div className="flex items-center justify-center">
+            <img 
+              src={CompanyLogo}
+              alt="HM² Solutions LLP" 
+              className="w-full h-auto object-contain"
+              style={{ maxHeight: '55px', minHeight: '45px' }}
+            />
+          </div>
+        ) : (
+          <div className="flex justify-center">
+            <img 
+              src={CompanyLogo}
+              alt="HM²" 
+              className="w-full h-auto object-contain"
+              style={{ maxHeight: '40px', minHeight: '35px' }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Navigation with Custom Scrollbar */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto py-3 custom-scrollbar"
+      >
+        {navigationSections.map((section) => {
+          const visibleItems = section.items.filter(item => item.name);
+          if (visibleItems.length === 0) return null;
+          
+          return (
+            <div key={section.id} className="mb-3">
+              {(!isCollapsed || isMobile) && section.title && (
+                <div className="px-4 mb-1.5">
+                  <p className="text-[9px] font-semibold tracking-wider text-gray-400 dark:text-gray-500">{section.title}</p>
+                </div>
+              )}
+              <div className={`${isCollapsed && !isMobile ? 'px-1.5' : 'px-3'} space-y-0.5`}>
+                {visibleItems.map((item) => {
+                  const isActive = currentView === item.id;
+                  
+                  return (
+                    <button
+                      key={item.name}
+                      onClick={() => {
+                        navigateTo(item.id);
+                        onItemClick?.();
+                        saveScrollPosition();
+                      }}
+                      className={`
+                        relative w-full flex items-center rounded-md transition-all duration-300 ease-out
+                        ${isCollapsed && !isMobile ? 'justify-center py-1.5' : 'py-1.5 px-2.5'}
+                        ${isActive ? 'active-menu-item' : ''}
+                      `}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className={`flex items-center w-full ${isCollapsed && !isMobile ? 'justify-center' : ''} min-w-0`}>
+                        <item.icon 
+                          className={`h-4 w-4 flex-shrink-0 transition-all duration-300 ease-out ${isCollapsed && !isMobile ? '' : 'mr-2.5'}`}
+                          style={{ 
+                            color: isActive ? 'white' : 'black',
+                            strokeWidth: isActive ? 2 : 1.5
+                          }}
+                        />
+                        {(!isCollapsed || isMobile) && (
+                          <span 
+                            className={`text-[13px] font-medium truncate transition-all duration-300 ease-out ${
+                              isActive ? 'font-semibold' : ''
+                            }`}
+                            style={{ 
+                              color: isActive ? 'white' : 'black',
+                              maxWidth: 'calc(100% - 30px)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}
+                            title={item.name}
+                          >
+                            {item.name}
+                          </span>
+                        )}
+                        {!isCollapsed && !isMobile && item.badge > 0 && (
+                          <span 
+                            className="ml-auto text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 transition-all duration-300 ease-out"
+                            style={{ 
+                              backgroundColor: isActive ? 'white' : 'black',
+                              color: isActive ? 'black' : 'white'
+                            }}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                      {isCollapsed && !isMobile && item.badge > 0 && (
+                        <div className="absolute -top-0.5 -right-0.5 transition-all duration-300 ease-out">
+                          <span 
+                            className="flex h-3 w-3 items-center justify-center rounded-full text-[7px] font-bold"
+                            style={{ 
+                              backgroundColor: isActive ? 'white' : 'black',
+                              color: isActive ? 'black' : 'white'
+                            }}
+                          >
+                            {item.badge}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* User Profile Section */}
+      <div className={`flex-shrink-0 border-t border-gray-100 dark:border-gray-800 ${isCollapsed && !isMobile ? 'p-2.5' : 'p-3'} bg-white dark:bg-gray-900`}>
+        {(!isCollapsed || isMobile) ? (
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="relative flex-shrink-0 transition-all duration-300 ease-out hover:scale-105">
+              <div className="absolute inset-0 rounded-full blur opacity-30" style={{ backgroundColor: logoColor }}></div>
+              <div 
+                className="relative h-8 w-8 rounded-full flex items-center justify-center shadow-sm gradient-primary"
+              >
+                <span className="text-white font-bold text-[11px]">{getDisplayInitial()}</span>
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold truncate text-black" title={currentUser.name}>
+                {currentUser.name}
+              </p>
+              <p className="text-[9px] truncate text-gray-600" title={currentUser.email}>
+                {currentUser.email}
+              </p>
+              <button
+                onClick={handleLogout}
+                className="text-[9px] flex items-center transition-all duration-300 ease-out mt-0.5 hover:translate-x-0.5 text-black hover:text-gray-700"
+              >
+                <LogOut className="h-2.5 w-2.5 mr-1 transition-transform duration-300 ease-out text-black" />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="relative transition-all duration-300 ease-out hover:scale-105">
+              <div className="absolute inset-0 rounded-full blur opacity-30" style={{ backgroundColor: logoColor }}></div>
+              <div 
+                className="relative h-7 w-7 rounded-full flex items-center justify-center shadow-sm gradient-primary"
+              >
+                <span className="text-white font-bold text-[9px]">{getDisplayInitial()}</span>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-0.5 rounded-lg transition-all duration-300 ease-out hover:scale-110 text-black hover:text-gray-700"
+              title="Sign out"
+            >
+              <LogOut className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        /* Custom Scrollbar Styles */
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: var(--color-primary-main);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: var(--color-primary-main);
+          border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-primary-main);
+          border-radius: 10px;
+          transition: background 0.3s ease;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: var(--color-primary-main);
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        
+        /* Active Menu Item Styles */
+        .active-menu-item {
+          position: relative;
+          background: var(--color-primary-main);
+          border-radius: 8px;
+          transform: scale(1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .active-menu-item:hover {
+          background: var(--color-primary-main);
+          transform: scale(1.02);
+        }
+        
+        .active-menu-item::before {
+          display: none;
+        }
+        
+        /* Firefox Scrollbar */
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: var(--color-primary-main) var(--color-primary-ultralight);
+        }
+      `}</style>
+    </div>
+  );
 
   return (
     <>
       {/* Mobile Sidebar */}
       <div className={`fixed inset-0 flex z-40 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
-
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white dark:bg-gray-900">
-          <div className="absolute top-0 right-0 -mr-12 pt-2">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
+        <div className="relative flex flex-col w-full max-w-[260px] h-full bg-white dark:bg-gray-900 shadow-2xl">
+          <div className="absolute top-2.5 right-2.5 z-10">
             <button
-              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
               onClick={() => setSidebarOpen(false)}
+              className="p-1 rounded-lg bg-gray-100 dark:bg-gray-800 transition-all duration-300 ease-out hover:scale-105"
             >
-              <X className="h-6 w-6 text-white" />
+              <X className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
-
-          <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-            <div className="flex-shrink-0 flex items-center justify-between px-4">
-              <div className="flex items-center">
-                <div className="h-8 w-8 overflow-hidden rounded-lg flex items-center justify-center">
-                  <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
-                </div>
-                {!isCollapsed && (
-                  <span className="ml-3 text-xl font-bold text-gray-900 dark:text-white">TaskFlow</span>
-                )}
-              </div>
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                {darkMode ? (
-                  <Sun className="h-5 w-5 text-yellow-500" />
-                ) : (
-                  <Moon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                )}
-              </button>
-            </div>
-            <nav className="mt-8 px-3 space-y-1.5">
-              <button
-                onClick={handleLogout}
-                className="group flex items-center w-full px-4 py-3 text-base font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-200 border border-rose-100/50 mb-4"
-              >
-                <LogOut className="mr-4 h-5 w-5" />
-                Sign Out
-              </button>
-              {getNavigationItems().map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => {
-                    item.onClick();
-                    setSidebarOpen(false);
-                  }}
-                  className={`group flex items-center justify-between w-full px-3 py-3 text-base font-medium rounded-xl transition-all duration-200 ${item.current
-                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400 border-l-4 border-blue-500'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white hover:border-l-4 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                >
-                  <div className="flex items-center">
-                    <item.icon className="mr-4 flex-shrink-0 h-5 w-5" />
-                    {item.name}
-                  </div>
-                  {item.badge > 0 && (
-                    <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold px-2 py-1 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center w-full">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">{getDisplayInitial()}</span>
-                </div>
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-base font-medium text-gray-700 dark:text-gray-300">
-                  {currentUser.name}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{currentUser.email}</p>
-                <div className="flex items-center gap-3 mt-2">
-                  <button
-                    className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 flex items-center transition-colors duration-200"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4 mr-1" />
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SidebarContent isMobile onItemClick={() => setSidebarOpen(false)} />
         </div>
       </div>
 
       {/* Desktop Sidebar */}
-      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
-        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-          {/* Logo and Toggle Button */}
-          <div className="flex-shrink-0 flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-700">
-            {!isCollapsed ? (
-              <div className="flex items-center">
-                <div className="h-8 w-8 overflow-hidden rounded-lg flex items-center justify-center">
-                  <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
-                </div>
-                <span className="ml-3 text-xl font-bold text-gray-900 dark:text-white">TaskFlow</span>
-              </div>
+      <div 
+        className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 transition-all duration-300 ease-in-out z-30
+          ${isCollapsed ? 'lg:w-17' : 'lg:w-56'} bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 shadow-lg`}
+      >
+        {/* Toggle Button */}
+        <div className="absolute -right-2.5 top-20 z-40">
+          <button
+            onClick={toggleSidebarMode}
+            className="p-0.5 rounded-full bg-white dark:bg-gray-800 border shadow-md transition-all duration-300 ease-out hover:scale-110"
+            style={{ borderColor: `${logoColor}30` }}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-2.5 w-2.5 transition-transform duration-300 ease-out text-black" />
             ) : (
-              <div className="flex items-center justify-center w-full">
-                <div className="h-8 w-8 overflow-hidden rounded-lg flex items-center justify-center">
-                  <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
-                </div>
-              </div>
+              <ChevronLeft className="h-2.5 w-2.5 transition-transform duration-300 ease-out text-black" />
             )}
-
-            <button
-              onClick={toggleSidebarMode}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              {isCollapsed ? (
-                <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              ) : (
-                <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              )}
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <nav className="flex-1 px-2 space-y-2">
-              {getNavigationItems().map((item) => (
-                <button
-                  key={item.name}
-                  onClick={item.onClick}
-                  className={`group flex items-center justify-between w-full px-3 py-3 rounded-xl transition-all duration-200 ${item.current
-                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white'
-                    } ${isCollapsed ? 'justify-center px-2' : ''}`}
-                  title={isCollapsed ? item.name : ''}
-                >
-                  <div className="flex items-center">
-                    <item.icon className={`flex-shrink-0 h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`} />
-                    {!isCollapsed && item.name}
-                  </div>
-
-                  {!isCollapsed && item.badge > 0 && (
-                    <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold px-2 py-1 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* User Profile & Settings */}
-          <div className="flex-shrink-0 flex border-t border-gray-200 dark:border-gray-700 p-4">
-            <div className={`flex items-center w-full ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">{getDisplayInitial()}</span>
-                </div>
-              </div>
-
-              {!isCollapsed && (
-                <div className="ml-3 flex-1">
-                  <div className="flex items-center">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {currentUser.name}
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser.email}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleLogout}
-                        className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center"
-                      >
-                        <LogOut className="h-3 w-3 mr-1" />
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          </button>
         </div>
+        
+        <SidebarContent />
+      </div>
 
-        {/* Mobile Toggle Button (for collapsed state) */}
-        {isCollapsed && (
-          <div className="lg:hidden absolute top-4 left-4 z-50">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            </button>
-          </div>
-        )}
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-3 left-3 z-20">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-300 ease-out hover:scale-105"
+        >
+          <Menu className="h-4 w-4 text-black" />
+        </button>
       </div>
     </>
   );

@@ -18,7 +18,17 @@ const performanceLevelForAvg = (avgStars: number) => {
   if (v >= 4.5) return 'Excellent';
   if (v >= 4.0) return 'Very Good';
   if (v >= 3.0) return 'Good';
-  return 'Improve';
+  return 'Needs Improvement';
+};
+
+const getPerformanceColor = (performance: string) => {
+  switch (performance) {
+    case 'Excellent': return 'text-emerald-600 bg-emerald-50';
+    case 'Very Good': return 'text-blue-600 bg-blue-50';
+    case 'Good': return 'text-amber-600 bg-amber-50';
+    case 'Needs Improvement': return 'text-rose-600 bg-rose-50';
+    default: return 'text-gray-600 bg-gray-50';
+  }
 };
 
 const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: UserType[] }) => {
@@ -62,7 +72,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
 
   const [tableStatFilter, setTableStatFilter] = useState<'all' | 'done' | 'pending' | 'reviewed' | 'review_pending'>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 15;
 
   const normalizeEmailKey = useCallback((v: unknown): string => {
     const raw = String(v || '').trim().toLowerCase();
@@ -359,9 +369,9 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
       return reviewedAt >= monthRange.start && reviewedAt < monthRange.endExclusive;
     });
 
-     selectedAssigneeKey === 'all'
+    const filteredReviewed = selectedAssigneeKey === 'all'
       ? reviewed
-      : reviewed.filter((t: any) => resolveAssigneeEmailKey(t) === selectedAssigneeKey); 
+      : reviewed.filter((t: any) => resolveAssigneeEmailKey(t) === selectedAssigneeKey);
 
     const byAssignee = new Map<string, {
       email: string;
@@ -371,8 +381,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
       stars: Record<number, number>;
     }>();
 
-    // Always show all assistants data in monthly summary
-    reviewed.forEach((t) => {
+    filteredReviewed.forEach((t) => {
       const assignedToUser = (t as any)?.assignedToUser;
       const email = String(
         assignedToUser?.email
@@ -386,7 +395,6 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
       const starsValue = Number((t as any).reviewStars);
       if (!Number.isFinite(starsValue) || starsValue < 1 || starsValue > 5) return;
 
-      // Only count reviews for tasks that were assigned in the selected month
       if (monthRange) {
         const createdAtRaw = (t as any).createdAt || (t as any).assignedAt;
         if (!createdAtRaw) return;
@@ -409,16 +417,13 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
       byAssignee.set(email, existing);
     });
 
-    // Helper to normalize role keys
     const normalizeRoleKey = (v: unknown): string => String(v || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
     const isAssistantRoleKey = (rk: string): boolean => {
       if (!rk) return false;
-      // Strict check: only exact assistant/sub_assistance roles (NOT managers)
       const validRoles = ['assistant', 'sub_assistance', 'sub_assistence', 'sub_assist', 'sub_assistant'];
       return validRoles.includes(rk);
     };
 
-    // Build full assistance list from users array (only assistants/sub_assistances)
     const fullAssistanceList = new Map<string, { email: string; name: string; roleKey: string }>();
     if (Array.isArray(users)) {
       users.forEach((u: any) => {
@@ -431,7 +436,6 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
       });
     }
 
-    // Merge reviews data with full assistance list
     const rows: Array<{
       email: string;
       name: string;
@@ -539,131 +543,193 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
 
   if (!canView) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900">Reviews</h2>
-        <p className="text-sm text-gray-500 mt-2">Access denied</p>
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6-4h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6a2 2 0 012-2zm10-10V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m6 0H8" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+          <p className="text-sm text-gray-500 mt-2">You don't have permission to view this page.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      {/* Header Card */}
+      <div className="bg-gradient-to-r from-[#0f2a6e] to-[#1e3a8a] rounded-xl shadow-lg p-6 text-white">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Reviews</h2>
-            <p className="text-sm text-gray-500 mt-1">Manager can rate completed tasks (1–5 stars). OB Manager can view.</p>
+            <h1 className="text-2xl font-bold">Reviews Dashboard</h1>
+            <p className="text-[#60a5fa] mt-1 text-sm">Rate and review completed tasks</p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              disabled={loading}
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-white/10 rounded-lg px-3 py-2 backdrop-blur-sm">
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="bg-transparent text-white border border-white/20 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-[#60a5fa]"
+                disabled={loading}
+              />
+            </div>
             {!isSubAssistance && (roleKey === 'manager' || roleKey === 'marketer_manager' || roleKey === 'md_manager' || roleKey === 'admin' || roleKey === 'super_admin' || roleKey === 'ob_manager' || roleKey === 'assistant') ? (
+              <div className="bg-white/10 rounded-lg px-3 py-2 backdrop-blur-sm">
+                <select
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  className="bg-transparent text-white border border-white/20 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-[#60a5fa]"
+                  disabled={loading}
+                >
+                  {roleKey !== 'assistant' ? (
+                    <option value="all" className="text-gray-900">All assistance</option>
+                  ) : null}
+                  {assigneeOptions.map((o) => (
+                    <option key={o.email} value={o.email} className="text-gray-900">{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="bg-white/10 rounded-lg px-3 py-2 backdrop-blur-sm">
               <select
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as ReviewFilter)}
+                className="bg-transparent text-white border border-white/20 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-[#60a5fa]"
                 disabled={loading}
               >
-                {roleKey !== 'assistant' ? (
-                  <option value="all">All assistance</option>
-                ) : null}
-                {assigneeOptions.map((o) => (
-                  <option key={o.email} value={o.email}>{o.label}</option>
-                ))}
+                <option value="pending" className="text-gray-900">Pending reviews</option>
+                <option value="reviewed" className="text-gray-900">Reviewed</option>
+                <option value="all" className="text-gray-900">All</option>
               </select>
-            ) : null}
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as ReviewFilter)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              disabled={loading}
-            >
-              <option value="pending">Pending reviews</option>
-              <option value="reviewed">Reviewed</option>
-              <option value="all">All</option>
-            </select>
+            </div>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <button type="button" onClick={() => setTableStatFilter('all')} className={`px-2.5 py-1 rounded-full border ${tableStatFilter === 'all' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>Total: {filteredStats.total}</button>
-          <button type="button" onClick={() => setTableStatFilter('done')} className={`px-2.5 py-1 rounded-full border ${tableStatFilter === 'done' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>Done: {filteredStats.done}</button>
-          <button type="button" onClick={() => setTableStatFilter('pending')} className={`px-2.5 py-1 rounded-full border ${tableStatFilter === 'pending' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>Pending: {filteredStats.pending}</button>
-          <button type="button" onClick={() => setTableStatFilter('reviewed')} className={`px-2.5 py-1 rounded-full border ${tableStatFilter === 'reviewed' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>Reviewed: {filteredStats.reviewed}</button>
-          <button type="button" onClick={() => setTableStatFilter('review_pending')} className={`px-2.5 py-1 rounded-full border ${tableStatFilter === 'review_pending' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700'}`}>Review Pending: {filteredStats.reviewPending}</button>
+
+        {/* Stats Chips */}
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button 
+            type="button" 
+            onClick={() => setTableStatFilter('all')} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tableStatFilter === 'all' ? 'bg-[#3b82f6] text-white shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
+          >
+            All ({filteredStats.total})
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setTableStatFilter('done')} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tableStatFilter === 'done' ? 'bg-[#3b82f6] text-white shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
+          >
+            Done ({filteredStats.done})
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setTableStatFilter('pending')} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tableStatFilter === 'pending' ? 'bg-[#3b82f6] text-white shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
+          >
+            Pending ({filteredStats.pending})
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setTableStatFilter('reviewed')} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tableStatFilter === 'reviewed' ? 'bg-[#3b82f6] text-white shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
+          >
+            Reviewed ({filteredStats.reviewed})
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setTableStatFilter('review_pending')} 
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tableStatFilter === 'review_pending' ? 'bg-[#3b82f6] text-white shadow-md' : 'bg-white/10 text-white/80 hover:bg-white/20'}`}
+          >
+            Review Pending ({filteredStats.reviewPending})
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+      {/* Monthly Summary Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-gray-900">Monthly summary (person-wise)</div>
-              <div className="text-xs text-gray-500 mt-1">Only reviewed tasks are included (based on reviewed date).</div>
+              <h3 className="text-lg font-semibold text-[#0f2a6e]">Monthly Performance Summary</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Based on reviewed tasks only</p>
             </div>
-            <div className="text-sm text-gray-700">Total reviews: <span className="font-semibold">{monthlySummary.totalReviews}</span></div>
+            <div className="px-4 py-2 bg-[#dbeafe] rounded-lg">
+              <span className="text-sm text-[#1e3a8a] font-medium">Total Reviews: </span>
+              <span className="text-lg font-bold text-[#0f2a6e]">{monthlySummary.totalReviews}</span>
+            </div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr className="text-left text-sm font-semibold text-gray-700">
-                <th className="px-6 py-4">Assistance</th>
-                <th className="px-6 py-4">Reviews</th>
-                <th className="px-6 py-4">Total Tasks</th>
-                <th className="px-6 py-4">Avg Task Review %</th>
-                <th className="px-6 py-4">Total Stars</th>
-                <th className="px-6 py-4">Avg</th>
-                <th className="px-6 py-4">Rating %</th>
-                <th className="px-6 py-4">Performance</th>
-                <th className="px-6 py-4">Share %</th>
-                <th className="px-6 py-4">5★</th>
-                <th className="px-6 py-4">4★</th>
-                <th className="px-6 py-4">3★</th>
-                <th className="px-6 py-4">2★</th>
-                <th className="px-6 py-4">1★</th>
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Assistance</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Reviews</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Tasks</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Review %</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">⭐ Avg</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Rating %</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Performance</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Share</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">5★</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">4★</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">3★</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">2★</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">1★</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {monthlySummary.rows.map((r) => {
                 const isTop = monthlySummary.topEmail && monthlySummary.topEmail === r.email;
                 const totalTasks = Number((r as any).totalTasks || 0);
                 const avgTaskReviewPct = totalTasks > 0 ? (Number(r.total || 0) / totalTasks) * 100 : 0;
+                const performanceColor = getPerformanceColor(r.performance);
                 return (
-                  <tr key={r.email} className={isTop ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-gray-900">{r.name}</div>
-                      <div className="text-xs text-gray-500 mt-1">{r.email}</div>
+                  <tr key={r.email} className={`${isTop ? 'bg-[#dbeafe]/30' : 'hover:bg-gray-50'} transition-colors`}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900 text-sm">{r.name}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{r.email}</div>
                     </td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.total}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{totalTasks}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">
-                      {`${avgTaskReviewPct.toFixed(0)}%`} <span className="text-xs text-gray-500">({r.total} Reviews / {totalTasks} Tasks)</span>
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{r.total}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-600">{totalTasks}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-600">
+                      {`${avgTaskReviewPct.toFixed(0)}%`}
                     </td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.starSum}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.avgStarsLabel}/5</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.ratingPctLabel}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.performance}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.sharePctLabel}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.stars[5] || 0} <span className="text-xs text-gray-500">({r.starPctLabel[5]})</span></td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.stars[4] || 0} <span className="text-xs text-gray-500">({r.starPctLabel[4]})</span></td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.stars[3] || 0} <span className="text-xs text-gray-500">({r.starPctLabel[3]})</span></td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.stars[2] || 0} <span className="text-xs text-gray-500">({r.starPctLabel[2]})</span></td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{r.stars[1] || 0} <span className="text-xs text-gray-500">({r.starPctLabel[1]})</span></td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm font-semibold text-amber-600">{r.avgStarsLabel}</span>
+                      <span className="text-xs text-gray-400">/5</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="inline-flex items-center gap-1">
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#3b82f6] rounded-full" style={{ width: `${r.ratingPct}%` }}></div>
+                        </div>
+                        <span className="text-xs text-gray-600">{r.ratingPctLabel}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${performanceColor}`}>
+                        {r.performance}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-600">{r.sharePctLabel}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700">{r.stars[5] || 0}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700">{r.stars[4] || 0}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700">{r.stars[3] || 0}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700">{r.stars[2] || 0}</td>
+                    <td className="px-4 py-3 text-center text-sm text-gray-700">{r.stars[1] || 0}</td>
                   </tr>
                 );
               })}
 
               {monthlySummary.rows.length === 0 && (
                 <tr>
-                  <td className="px-6 py-8 text-sm text-gray-500" colSpan={14}>
-                    {loading ? 'Loading…' : 'No reviewed tasks found for selected month'}
+                  <td className="px-4 py-8 text-center text-gray-500" colSpan={13}>
+                    {loading ? 'Loading...' : 'No reviewed tasks found for selected month'}
                   </td>
                 </tr>
               )}
@@ -672,22 +738,28 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Tasks Table Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <h3 className="text-lg font-semibold text-[#0f2a6e]">Task Reviews</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Rate completed tasks to provide feedback</p>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr className="text-left text-sm font-semibold text-gray-700">
-                <th className="px-6 py-4">Task</th>
-                {roleKey === 'ob_manager' && <th className="px-6 py-4">Assignee</th>}
-                <th className="px-6 py-4">Creator</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Stars</th>
-                <th className="px-6 py-4">Comment</th>
-                <th className="px-6 py-4">Reviewed At</th>
-                <th className="px-6 py-4 text-right">Action</th>
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Task</th>
+                {roleKey === 'ob_manager' && <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Assignee</th>}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Creator</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Stars</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Comment</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Reviewed At</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[#1e3a8a] uppercase tracking-wider">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {paginatedTableTasks.map((t) => {
                 const reviewedStars = (t as any).reviewStars;
                 const isReviewed = reviewedStars != null;
@@ -700,26 +772,40 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
                 const reviewComment = String((t as any).reviewComment || '').trim();
 
                 return (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-5">
-                      <div className="font-semibold text-gray-900">{t.title}</div>
-                      <div className="text-xs text-gray-500 mt-1">Due: {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—'}</div>
+                  <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900 text-sm">{t.title}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">Due: {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—'}</div>
                     </td>
-                    {roleKey === 'ob_manager' && <td className="px-6 py-5 text-sm text-gray-700">{assigneeEmail || '—'}</td>}
-                    <td className="px-6 py-5 text-sm text-gray-700">{creatorEmail || '—'}</td>
-                    <td className="px-6 py-5">
-                      <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full border bg-gray-50 text-gray-700">
+                    {roleKey === 'ob_manager' && <td className="px-4 py-3 text-sm text-gray-600">{assigneeEmail || '—'}</td>}
+                    <td className="px-4 py-3 text-sm text-gray-600">{creatorEmail || '—'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${
+                        t.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
                         {t.status}
                       </span>
                     </td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{isReviewed ? `${reviewedStars}/5` : '—'}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{reviewComment || '—'}</td>
-                    <td className="px-6 py-5 text-sm text-gray-700">{(t as any).reviewedAt ? new Date((t as any).reviewedAt).toLocaleString() : '—'}</td>
-                    <td className="px-6 py-5 text-right">
+                    <td className="px-4 py-3 text-center">
+                      {isReviewed ? (
+                        <div className="flex items-center justify-center gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < reviewedStars ? 'text-[#0f2a6e] fill-[#0f2a6e]' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{reviewComment || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{(t as any).reviewedAt ? new Date((t as any).reviewedAt).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3 text-center">
                       {canSubmit ? (
                         <button
                           type="button"
-                          className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          className="px-3 py-1.5 text-sm font-medium rounded-lg text-[#1e3a8a] border border-[#3b82f6] hover:bg-[#dbeafe] transition-colors"
                           onClick={() => startEdit(t)}
                           disabled={loading}
                         >
@@ -730,49 +816,59 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
                       )}
 
                       {isEditing && (
-                        <div className="mt-3 p-3 border border-gray-200 rounded-lg bg-white text-left">
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-700">Stars</label>
-                            <select
-                              value={stars}
-                              onChange={(e) => setStars(Number(e.target.value))}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm"
-                              disabled={loading}
-                            >
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <option key={n} value={n}>{n}</option>
-                              ))}
-                            </select>
-                          </div>
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingId(null)}>
+                          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+                            <h4 className="text-lg font-semibold text-[#0f2a6e] mb-4">Review Task</h4>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Rating (1-5 stars)</label>
+                                <div className="flex items-center gap-2">
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <button
+                                      key={n}
+                                      type="button"
+                                      onClick={() => setStars(n)}
+                                      className={`p-2 rounded-lg transition-all ${stars === n ? 'bg-[#3b82f6] text-white scale-110' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                    >
+                                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
 
-                          <div className="mt-2">
-                            <label className="block text-sm text-gray-700 mb-1">Comment</label>
-                            <textarea
-                              value={comment}
-                              onChange={(e) => setComment(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
-                              rows={3}
-                              disabled={loading}
-                            />
-                          </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Comment</label>
+                                <textarea
+                                  value={comment}
+                                  onChange={(e) => setComment(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3b82f6] focus:border-transparent text-sm"
+                                  rows={3}
+                                  placeholder="Add your feedback here..."
+                                  disabled={loading}
+                                />
+                              </div>
 
-                          <div className="mt-3 flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
-                              onClick={() => setEditingId(null)}
-                              disabled={loading}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              className="px-4 py-2 text-sm rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                              onClick={() => submit()}
-                              disabled={loading}
-                            >
-                              Save
-                            </button>
+                              <div className="flex items-center justify-end gap-3 pt-2">
+                                <button
+                                  type="button"
+                                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                  onClick={() => setEditingId(null)}
+                                  disabled={loading}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#1e3a8a] hover:bg-[#0f2a6e] transition-colors disabled:opacity-50"
+                                  onClick={() => submit()}
+                                  disabled={loading}
+                                >
+                                  Save Review
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -783,8 +879,8 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
 
               {paginatedTableTasks.length === 0 && (
                 <tr>
-                  <td className="px-6 py-8 text-sm text-gray-500" colSpan={8}>
-                    {loading ? 'Loading…' : 'No tasks found'}
+                  <td className="px-4 py-8 text-center text-gray-500" colSpan={roleKey === 'ob_manager' ? 8 : 7}>
+                    {loading ? 'Loading...' : 'No tasks found'}
                   </td>
                 </tr>
               )}
@@ -802,7 +898,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
                 type="button"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1 || loading}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
@@ -813,7 +909,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
                 type="button"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || loading}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>

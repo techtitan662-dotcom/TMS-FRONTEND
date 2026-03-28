@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Edit, Check, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// Theme colors matching the app
+const theme = {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2a6e',
+    primaryLight: '#3b82f6',
+    primaryLighter: '#60a5fa',
+    primaryUltralight: '#dbeafe',
+};
 
 interface EditCompanyModalProps {
     isOpen: boolean;
@@ -68,43 +77,46 @@ const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
     const isActive = typeof company?.isActive === 'boolean' ? company.isActive : true;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5">
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+                {/* Header - Compact */}
+                <div className={`px-4 py-3 border-b border-gray-100 bg-[${theme.primaryUltralight}]`}>
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white/20 rounded-xl">
-                                <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7V6a2 2 0 012-2h14a2 2 0 012 2v1M3 7h18M5 7v13a2 2 0 002 2h10a2 2 0 002-2V7" />
-                                </svg>
+                        <div className="flex items-center gap-2">
+                            <div className={`p-1.5 bg-[${theme.primary}] rounded-lg`}>
+                                <Edit className="h-4 w-4 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-semibold text-white">Edit Company</h3>
-                                <p className="text-sm text-blue-100 mt-0.5">Update company name only</p>
+                                <h3 className="text-sm font-semibold text-gray-900">Edit Company</h3>
+                                <p className="text-[10px] text-gray-500 mt-0.5">Update company name only</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-1.5 text-white hover:bg-white/20 rounded-lg"
+                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             disabled={isSubmitting}
                         >
-                            <X className="h-5 w-5" />
+                            <X className="h-4 w-4" />
                         </button>
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="px-6 py-6 overflow-y-auto flex-1">
-                        <div className="space-y-6">
+                {/* Form Content - Compact */}
+                <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
+                    <div className="px-4 py-4 overflow-y-auto flex-1">
+                        <div className="space-y-4">
+                            {/* Company Name Input */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-900 mb-2">Company Name *</label>
+                                <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                                    Company Name *
+                                </label>
                                 <input
                                     type="text"
                                     placeholder="Enter company name"
-                                    className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                                        error ? 'border-red-500' : 'border-gray-300 hover:border-gray-400'
+                                    className={`w-full px-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                                        error ? 'border-red-500' : 'border-gray-200 focus:border-transparent'
                                     }`}
                                     value={companyName}
                                     onChange={(e) => {
@@ -115,8 +127,8 @@ const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                                     autoFocus
                                 />
                                 {error && (
-                                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
-                                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <p className="mt-1 text-[10px] text-red-600 flex items-center gap-1">
+                                        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                                             <path
                                                 fillRule="evenodd"
                                                 d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
@@ -128,18 +140,24 @@ const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                                 )}
                             </div>
 
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h4 className="text-sm font-medium text-gray-900 mb-2">Current Information</h4>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Current Name:</span>
-                                        <span className="font-medium text-gray-900">{company?.name || 'N/A'}</span>
+                            {/* Current Information Card - Compact */}
+                            <div className={`bg-[${theme.primaryUltralight}] p-3 rounded-lg border border-[${theme.primaryLight}]/30`}>
+                                <h4 className="text-[11px] font-medium text-gray-700 mb-2 flex items-center gap-1">
+                                    <Building className="h-3 w-3" />
+                                    Current Information
+                                </h4>
+                                <div className="space-y-1.5 text-[11px]">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500">Current Name:</span>
+                                        <span className="font-medium text-gray-800 truncate max-w-[200px]">{company?.name || 'N/A'}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Status:</span>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500">Status:</span>
                                         <span
-                                            className={`font-medium px-2 py-1 text-xs rounded-full ${
-                                                isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                            className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full ${
+                                                isActive 
+                                                    ? 'bg-green-100 text-green-700 border border-green-200' 
+                                                    : 'bg-gray-100 text-gray-700 border border-gray-200'
                                             }`}
                                         >
                                             {isActive ? 'active' : 'inactive'}
@@ -150,35 +168,34 @@ const EditCompanyModal: React.FC<EditCompanyModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="px-6 py-5 bg-gray-50 border-t border-gray-200">
-                        <div className="flex justify-end gap-3">
+                    {/* Footer - Compact */}
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <div className="flex justify-end gap-2">
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="px-3 py-1.5 text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={isSubmitting || !companyName.trim()}
-                                className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl transition-all ${
+                                className={`px-3 py-1.5 text-[11px] font-medium text-white rounded-lg transition-colors ${
                                     isSubmitting || !companyName.trim()
-                                        ? 'bg-blue-400 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-sm hover:shadow'
+                                        ? 'bg-gray-400 cursor-not-allowed'
+                                        : `bg-[${theme.primary}] hover:bg-[${theme.primaryDark}]`
                                 }`}
                             >
                                 {isSubmitting ? (
-                                    <span className="flex items-center gap-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                    <span className="flex items-center gap-1.5">
+                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
                                         Updating...
                                     </span>
                                 ) : (
-                                    <span className="flex items-center gap-2">
-                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
+                                    <span className="flex items-center gap-1.5">
+                                        <Check className="h-3 w-3" />
                                         Update Company
                                     </span>
                                 )}

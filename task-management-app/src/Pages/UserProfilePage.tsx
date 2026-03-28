@@ -5,6 +5,9 @@ import {
     Calendar,
     CheckCircle,
     Edit,
+    Shield,
+    Briefcase,
+    Phone,
 } from 'lucide-react';
 
 import type { UserType } from '../Types/Types';
@@ -13,8 +16,17 @@ import { authService } from '../Services/User.Services';
 import { UserProfileSkeleton } from '../Components/LoadingSkeletons';
 import { userAvatarUrl } from '../utils/avatar';
 
+// Theme colors matching the app
+const theme = {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2a6e',
+    primaryLight: '#3b82f6',
+    primaryLighter: '#60a5fa',
+    primaryUltralight: '#dbeafe',
+};
+
 interface UserProfilePageProps {
-    user?: UserType; // The profile being viewed
+    user?: UserType;
     formatDate?: (dateString: string) => string;
     onUserUpdated?: (user: UserType) => void;
 }
@@ -77,6 +89,35 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
         if (key === 'sub_assistance' || key === 'sub_assistence') return 'Sub Assistance';
         return String(raw || '').toString().trim();
     }, [profileUser]);
+
+    const getRoleBadgeColor = (role: string) => {
+        const r = (role || '').toLowerCase();
+        switch (r) {
+            case 'super_admin':
+            case 'admin':
+                return 'bg-purple-100 text-purple-800';
+            case 'md_manager':
+            case 'ob_manager':
+            case 'manager':
+                return `bg-[${theme.primaryUltralight}] text-[${theme.primaryDark}]`;
+            case 'sbm':
+            case 'rm':
+            case 'am':
+                return 'bg-amber-100 text-amber-800';
+            case 'assistant':
+            case 'sub_assistance':
+                return 'bg-green-100 text-green-800';
+            default:
+                return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getRoleIcon = (role: string) => {
+        const r = (role || '').toLowerCase();
+        if (r === 'super_admin' || r === 'admin') return <Shield className="h-3 w-3" />;
+        if (r === 'md_manager' || r === 'ob_manager' || r === 'manager') return <Briefcase className="h-3 w-3" />;
+        return <User className="h-3 w-3" />;
+    };
 
     const isPlaceholderUser = useMemo(() => {
         const name = (user as any)?.name;
@@ -193,9 +234,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
         setAvatarUploading(true);
         try {
             const res = await authService.uploadProfileAvatar(avatarFile);
-            if (!res?.success || !res.data) {
-                return;
-            }
+            if (!res?.success || !res.data) return;
 
             try {
                 localStorage.setItem('currentUser', JSON.stringify(res.data));
@@ -220,9 +259,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
         setAvatarUploading(true);
         try {
             const res = await authService.removeProfileAvatar();
-            if (!res?.success || !res.data) {
-                return;
-            }
+            if (!res?.success || !res.data) return;
 
             try {
                 localStorage.setItem('currentUser', JSON.stringify(res.data));
@@ -257,97 +294,94 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
                 <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900">User not found</h2>
-                    <p className="text-gray-600 mt-2">Please select a user to view their profile.</p>
+                    <h2 className="text-lg font-bold text-gray-900">User not found</h2>
+                    <p className="text-xs text-gray-600 mt-1">Please select a user to view their profile.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6">
-            {/* Main Container */}
-            <div className="w-full">
-                {/* Header Section */}
-                <div className="mb-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl">
-                                <User className="h-8 w-8 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-                                    {profileUser.name}'s Profile
-                                </h1>
-                                <p className="text-gray-600 mt-2">
-                                    View user profile information and activity
-                                </p>
-                            </div>
+        <div className="w-full min-h-screen bg-gray-50 p-3 md:p-4">
+            <div className="w-full max-w-7xl mx-auto space-y-4">
+                {/* Header Section - Compact */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 bg-gradient-to-r from-[${theme.primaryDark}] to-[${theme.primary}] rounded-lg`}>
+                            <User className="h-4 w-4 text-white" />
                         </div>
-
+                        <div>
+                            <h1 className="text-lg font-bold text-gray-900">
+                                {profileUser.name}'s Profile
+                            </h1>
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                                View profile information and activity
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Profile Content */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Profile Content - Compact Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Left Column - Profile Information */}
                     <div className="lg:col-span-8">
                         {/* Profile Card */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6 md:p-8">
-                                {/* User Header */}
-                                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6 mb-8">
+                        <div className={`bg-white rounded-lg shadow-sm overflow-hidden`}>
+                            <div className="p-4">
+                                {/* User Header - Compact */}
+                                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 mb-5">
                                     {/* Avatar */}
                                     <div className="relative">
                                         {avatarUrl ? (
                                             <img
                                                 src={avatarUrl}
                                                 alt={profileUser.name}
-                                                className="w-32 h-32 rounded-2xl object-cover border border-gray-200"
+                                                className="w-20 h-20 rounded-lg object-cover"
                                             />
                                         ) : (
-                                            <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-5xl font-bold">
+                                            <div className={`w-20 h-20 rounded-lg bg-gradient-to-br from-[${theme.primaryDark}] to-[${theme.primary}] flex items-center justify-center text-white text-2xl font-bold`}>
                                                 {profileUser.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-full">
-                                            <CheckCircle className="h-5 w-5" />
+                                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full">
+                                            <CheckCircle className="h-3 w-3" />
                                         </div>
 
                                         {isOwnProfile && (
                                             <button
                                                 type="button"
                                                 onClick={() => setShowAvatarModal(true)}
-                                                className="absolute -top-2 -right-2 bg-white text-gray-700 p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50"
+                                                className="absolute -top-1 -right-1 bg-white text-gray-700 p-1 rounded-full shadow hover:bg-gray-50"
                                                 title="Edit profile picture"
                                             >
-                                                <Edit className="h-4 w-4" />
+                                                <Edit className="h-3 w-3" />
                                             </button>
                                         )}
                                     </div>
 
                                     {/* Basic Info */}
                                     <div className="flex-1">
-                                        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                                        <h2 className="text-base font-bold text-gray-900 mb-1">
                                             {profileUser.name}
                                         </h2>
                                         {roleLabel && (
-                                            <div className="mb-2">
-                                                <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-emerald-50 text-emerald-700 rounded-full">
+                                            <div className="mb-1">
+                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ${getRoleBadgeColor(roleLabel)}`}>
+                                                    {getRoleIcon(roleLabel)}
                                                     {roleLabel}
                                                 </span>
                                             </div>
                                         )}
-                                        <div className="flex flex-wrap items-center gap-3">
-
-                                            <span className="text-gray-600 flex items-center gap-1">
-                                                <Calendar className="h-4 w-4" />
+                                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+                                            <span className="flex items-center gap-0.5">
+                                                <Calendar className="h-3 w-3" />
                                                 Member since {formatDate(profileUser.joinDate || new Date().toISOString())}
                                             </span>
                                         </div>
                                         {profileUser.department && (
-                                            <div className="mt-3">
-                                                <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-blue-50 text-blue-700 rounded-full">
+                                            <div className="mt-1">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-700 rounded-full">
+                                                    <Briefcase className="h-3 w-3" />
                                                     {profileUser.department}
                                                 </span>
                                             </div>
@@ -355,33 +389,34 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Contact Information */}
-                                <div className="mb-8">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                {/* Contact Information - Compact */}
+                                <div className="mb-5">
+                                    <h3 className="text-xs font-semibold text-gray-900 mb-2 pb-1 border-b border-gray-200">
                                         Contact Information
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                                            <div className="p-3 bg-blue-100 text-blue-600 rounded-lg">
-                                                <Mail className="h-6 w-6" />
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div className={`flex items-start gap-3 p-3 bg-[${theme.primaryUltralight}] rounded-lg`}>
+                                            <div className={`p-1.5 bg-[${theme.primaryLight}]/20 rounded-lg`}>
+                                                <Mail className="h-3.5 w-3.5 text-[${theme.primaryDark}]" />
                                             </div>
-                                            <div>
-                                                <p className="text-sm text-gray-500 mb-1">Email Address</p>
-                                                <p className="font-medium text-gray-900 break-all">{profileUser.email}</p>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] text-gray-500 mb-0.5">Email Address</p>
+                                                <p className="text-xs font-medium text-gray-900 break-all">{profileUser.email}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mb-8">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+                                {/* Google Calendar - Compact */}
+                                <div className="mb-5">
+                                    <h3 className="text-xs font-semibold text-gray-900 mb-2 pb-1 border-b border-gray-200">
                                         Google Calendar
                                     </h3>
-                                    <div className="p-4 bg-gray-50 rounded-xl">
-                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                    <div className={`p-3 bg-[${theme.primaryUltralight}] rounded-lg`}>
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                                             <div>
-                                                <p className="text-sm text-gray-500 mb-1">Connection Status</p>
-                                                <p className="font-medium text-gray-900">
+                                                <p className="text-[10px] text-gray-500 mb-0.5">Connection Status</p>
+                                                <p className="text-xs font-medium text-gray-900">
                                                     {googleStatusLoading
                                                         ? 'Checking...'
                                                         : googleConnected
@@ -389,24 +424,24 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                                             : 'Not connected'}
                                                 </p>
                                                 {googleConnectedAt && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Connected at {formatDate(googleConnectedAt)}
+                                                    <p className="text-[9px] text-gray-500 mt-0.5">
+                                                        Connected {formatDate(googleConnectedAt)}
                                                     </p>
                                                 )}
                                                 {googleCallbackStatus && (
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        Last connect result: {googleCallbackStatus}
+                                                    <p className="text-[9px] text-gray-500 mt-0.5">
+                                                        Last connect: {googleCallbackStatus}
                                                     </p>
                                                 )}
                                             </div>
 
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-2">
                                                 {googleConnected ? (
                                                     <button
                                                         type="button"
                                                         onClick={handleDisconnectGoogle}
                                                         disabled={googleActionLoading}
-                                                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                                        className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 text-[10px] font-medium hover:bg-gray-50 disabled:opacity-50"
                                                     >
                                                         Disconnect
                                                     </button>
@@ -415,7 +450,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                                         type="button"
                                                         onClick={handleConnectGoogle}
                                                         disabled={googleActionLoading}
-                                                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                                        className={`px-3 py-1.5 rounded-lg bg-[${theme.primary}] text-white text-[10px] font-medium hover:bg-[${theme.primaryDark}] disabled:opacity-50`}
                                                     >
                                                         Connect Google Calendar
                                                     </button>
@@ -424,47 +459,81 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Additional Info if available */}
+                                {(profileUser.position || profileUser.phone) && (
+                                    <div>
+                                        <h3 className="text-xs font-semibold text-gray-900 mb-2 pb-1 border-b border-gray-200">
+                                            Additional Information
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {profileUser.position && (
+                                                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                                    <Briefcase className="h-3 w-3 text-gray-400 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[9px] text-gray-500">Position</p>
+                                                        <p className="text-[10px] font-medium text-gray-900">{profileUser.position}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {profileUser.phone && (
+                                                <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                                    <Phone className="h-3 w-3 text-gray-400 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-[9px] text-gray-500">Phone</p>
+                                                        <p className="text-[10px] font-medium text-gray-900">{profileUser.phone}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Column - Summary & Stats */}
-                    <div className="lg:col-span-4 space-y-6">
-                        {/* Quick Stats Card */}
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2 bg-white/20 rounded-xl">
-                                    <User className="h-5 w-5" />
+                    {/* Right Column - Summary Card - Compact */}
+                    <div className="lg:col-span-4">
+                        <div className={`bg-gradient-to-br from-[${theme.primaryDark}] to-[${theme.primary}] rounded-lg p-4 text-white shadow-sm`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="p-1.5 bg-white/20 rounded-lg">
+                                    <User className="h-3.5 w-3.5" />
                                 </div>
-                                <h3 className="text-lg font-semibold">Profile Overview</h3>
+                                <h3 className="text-xs font-semibold">Profile Overview</h3>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-2.5">
                                 <div>
-                                    <p className="text-blue-100 text-sm mb-1">Full Name</p>
-                                    <p className="font-medium truncate">{profileUser.name}</p>
+                                    <p className="text-blue-100 text-[9px] mb-0.5">Full Name</p>
+                                    <p className="text-xs font-medium truncate">{profileUser.name}</p>
                                 </div>
                                 <div>
-                                    <p className="text-blue-100 text-sm mb-1">Email</p>
-                                    <p className="font-medium truncate">{profileUser.email}</p>
+                                    <p className="text-blue-100 text-[9px] mb-0.5">Email</p>
+                                    <p className="text-xs font-medium truncate">{profileUser.email}</p>
                                 </div>
                                 {profileUser.department && (
                                     <div>
-                                        <p className="text-blue-100 text-sm mb-1">Department</p>
-                                        <p className="font-medium">{profileUser.department}</p>
+                                        <p className="text-blue-100 text-[9px] mb-0.5">Department</p>
+                                        <p className="text-xs font-medium">{profileUser.department}</p>
                                     </div>
                                 )}
                                 {profileUser.position && (
                                     <div>
-                                        <p className="text-blue-100 text-sm mb-1">Position</p>
-                                        <p className="font-medium">{profileUser.position}</p>
+                                        <p className="text-blue-100 text-[9px] mb-0.5">Position</p>
+                                        <p className="text-xs font-medium">{profileUser.position}</p>
+                                    </div>
+                                )}
+                                {roleLabel && (
+                                    <div>
+                                        <p className="text-blue-100 text-[9px] mb-0.5">Role</p>
+                                        <p className="text-xs font-medium">{roleLabel}</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="mt-6 pt-6 border-t border-blue-400">
-                                <p className="text-sm text-blue-100">
-                                    This profile information is read-only.
+                            <div className="mt-3 pt-3 border-t border-blue-400">
+                                <p className="text-[9px] text-blue-100">
+                                    Profile information is read-only
                                 </p>
                             </div>
                         </div>
@@ -472,28 +541,30 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                 </div>
             </div>
 
+            {/* Avatar Modal - Compact */}
             {showAvatarModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAvatarModal(false)} />
-                    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="px-6 py-5 border-b border-gray-200">
-                            <h3 className="text-lg font-semibold text-gray-900">Update Profile Picture</h3>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40">
+                    <div className="absolute inset-0 bg-black/40" onClick={() => setShowAvatarModal(false)} />
+                    <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden">
+                        <div className={`px-4 py-3 border-b border-gray-200 bg-[${theme.primaryUltralight}]`}>
+                            <h3 className="text-sm font-semibold text-gray-900">Update Profile Picture</h3>
                         </div>
-                        <div className="px-6 py-6 space-y-4">
+                        <div className="px-4 py-4 space-y-3">
                             <input
                                 type="file"
                                 accept="image/*"
                                 onChange={handleSelectAvatarFile}
                                 disabled={avatarUploading}
+                                className="text-xs w-full"
                             />
-                            <div className="flex items-center justify-end gap-3">
+                            <div className="flex items-center justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={handleRemoveAvatar}
-                                    className="px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 text-[10px] font-medium hover:bg-red-100 disabled:opacity-50"
                                     disabled={avatarUploading}
                                 >
-                                    Remove Photo
+                                    Remove
                                 </button>
                                 <button
                                     type="button"
@@ -501,7 +572,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                         setShowAvatarModal(false);
                                         setAvatarFile(null);
                                     }}
-                                    className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 text-[10px] font-medium hover:bg-gray-50"
                                     disabled={avatarUploading}
                                 >
                                     Cancel
@@ -509,7 +580,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleUploadAvatar}
-                                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                    className={`px-3 py-1.5 rounded-lg bg-[${theme.primary}] text-white text-[10px] font-medium hover:bg-[${theme.primaryDark}] disabled:opacity-50`}
                                     disabled={!avatarFile || avatarUploading}
                                 >
                                     {avatarUploading ? 'Uploading...' : 'Upload'}

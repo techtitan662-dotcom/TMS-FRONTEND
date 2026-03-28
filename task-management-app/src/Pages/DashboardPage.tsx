@@ -13,14 +13,11 @@ import {
     Grid,
     List,
     Filter,
-    TrendingUp,
-    TrendingDown,
     BarChart3,
     CalendarDays,
     UserCheck,
     Flag,
-    Building,
-    Tag,
+    Layers,
     Edit,
     User,
     Star,
@@ -30,6 +27,7 @@ import {
     X,
     Send,
     Loader2,
+    RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Sidebar from './Sidebar';
@@ -409,7 +407,7 @@ const DashboardPage = () => {
         const monthRange = parseMonth(reviewsMonth);
         const currentUserCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim().toLowerCase();
         const isMdImpexUser = currentUserCompany.includes('mdimpex') || currentUserCompany.includes('md_impex');
-        
+
         let reviewedData = reviewedTasksForSummary || [];
         if (isMdImpexUser) {
             reviewedData = (tasks || []).filter((t) => {
@@ -1371,7 +1369,7 @@ const DashboardPage = () => {
         return `
             flex-1 flex flex-col
             transition-all duration-300 ease-in-out
-            ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
+            ${isSidebarCollapsed ? 'lg:ml-17' : 'lg:ml-56'}
             min-w-0
         `;
     }, [isSidebarCollapsed]);
@@ -3099,11 +3097,11 @@ const DashboardPage = () => {
         [users],
     );
 
-    const getAvailableBrandOptions = useCallback((): Array<{ value: string; label: string }> => {
+    const getAvailableBrandOptions = useCallback((): Array<{ value: string; label: string; ownerId?: string; createdBy?: string }> => {
         const company = newTask.companyName;
         if (!company) return [];
         const companyKey = normalizeCompanyKey(company);
-        const byNameKey = new Map<string, { value: string; label: string }>();
+        const byNameKey = new Map<string, { value: string; label: string; ownerId?: string; createdBy?: string }>();
         const addOption = (plainName: string) => {
             const name = (plainName || '').toString().trim();
             if (!name) return;
@@ -3115,7 +3113,16 @@ const DashboardPage = () => {
             ));
             const groupNumber = String((brandDoc as any)?.groupNumber || '').trim();
             const label = groupNumber ? `${groupNumber} - ${name}` : name;
-            byNameKey.set(key, { value: name, label });
+
+            const ownerId = (brandDoc as any)?.ownerId || (brandDoc as any)?.owner?.id || (brandDoc as any)?.owner?._id || (brandDoc as any)?.owner;
+            const createdBy = (brandDoc as any)?.createdBy;
+
+            byNameKey.set(key, {
+                value: name,
+                label,
+                ownerId: typeof ownerId === 'string' ? ownerId : undefined,
+                createdBy: typeof createdBy === 'string' ? createdBy : undefined
+            });
         };
         const email = stripDeletedEmailSuffix(currentUser?.email || '').trim().toLowerCase();
         if (email) {
@@ -3183,7 +3190,7 @@ const DashboardPage = () => {
         return Array.from(byNameKey.values()).sort((a, b) => a.label.localeCompare(b.label));
     }, [brandNamesByCompanyUserKey, brands, editFormData.assignedTo, editFormData.companyName, getBrandCompanyNameSafe, getBrandNameSafe, normalizeCompanyKey, normalizeText, stripDeletedEmailSuffix]);
 
-    const formatBrandWithGroupNumber = useCallback((task: any): string => {
+    const _formatBrandWithGroupNumber = useCallback((task: any): string => {
         const plain = String(task?.brand || '').trim();
         if (!plain) return '';
         const company = String(task?.companyName || task?.company || '').trim();
@@ -3201,6 +3208,8 @@ const DashboardPage = () => {
         const groupNumber = String(brandDoc?.groupNumber || '').trim();
         return groupNumber ? `${groupNumber} - ${plain}` : plain;
     }, [brands, getBrandCompanyNameSafe, getBrandNameSafe, normalizeCompanyKey, normalizeText]);
+
+    void _formatBrandWithGroupNumber;
 
     const handleSaveComment = useCallback(async (taskId: string, comment: string): Promise<CommentType> => {
         try {
@@ -3924,9 +3933,11 @@ const DashboardPage = () => {
         return Array.from(new Set(pages));
     }, [taskPage, totalTaskPages]);
 
-    const showListActionsColumn = useMemo(() => {
+    const _showListActionsColumn = useMemo(() => {
         return displayTasks.some((t: Task) => canEditTask(t) || canEditDeleteTask(t));
     }, [displayTasks, canEditTask, canEditDeleteTask]);
+
+    void _showListActionsColumn;
 
     useMemo(() => {
         if (!currentUser?.email) return [];
@@ -4230,7 +4241,8 @@ const DashboardPage = () => {
             {
                 name: 'Total Tasks',
                 value: filtered.length,
-                change: '+12%',
+                change: '',
+
                 changeType: 'positive',
                 icon: BarChart3,
                 id: 'total',
@@ -4240,7 +4252,8 @@ const DashboardPage = () => {
             {
                 name: 'Completed',
                 value: completedTasks.length,
-                change: '+8%',
+                change: '',
+
                 changeType: 'positive',
                 icon: CheckCircle,
                 id: 'completed',
@@ -4250,7 +4263,8 @@ const DashboardPage = () => {
             {
                 name: 'Pending',
                 value: pendingTasks.length,
-                change: '-3%',
+                change: '',
+
                 changeType: 'negative',
                 icon: Clock,
                 id: 'pending',
@@ -4260,7 +4274,8 @@ const DashboardPage = () => {
             {
                 name: 'Overdue',
                 value: overdueTasks.length,
-                change: '+5%',
+                change: '',
+
                 changeType: 'negative',
                 icon: AlertCircle,
                 id: 'overdue',
@@ -4269,55 +4284,6 @@ const DashboardPage = () => {
             }
         ];
     }, [canViewAllTasks, currentUser, filters, isOverdue, normalizeCompanyKey, normalizeRoleKey, searchTerm, tasks, usersRef]);
-
-    const getPriorityColor = useCallback((priority?: TaskPriority) => {
-        switch (priority) {
-            case 'high': return 'border-red-300 bg-red-50 text-red-700';
-            case 'medium': return 'border-amber-300 bg-amber-50 text-amber-700';
-            case 'low': return 'border-blue-300 bg-blue-50 text-blue-700';
-            default: return 'border-gray-300 bg-gray-50 text-gray-700';
-        }
-    }, []);
-
-    const getStatusColor = useCallback((status: TaskStatus) => {
-        switch (status) {
-            case 'completed': return 'border-emerald-300 bg-emerald-50 text-emerald-700';
-            case 'in-progress': return 'border-blue-300 bg-blue-50 text-blue-700';
-            case 'pending': return 'border-amber-300 bg-amber-50 text-amber-700';
-            default: return 'border-gray-300 bg-gray-50 text-gray-700';
-        }
-    }, []);
-
-    const getCompanyColor = useCallback((companyName?: string) => {
-        const value = (companyName || '').toLowerCase().trim();
-        if (!value) return 'border-gray-300 bg-gray-50 text-gray-700';
-        const palette = [
-            'border-purple-300 bg-purple-50 text-purple-700',
-            'border-indigo-300 bg-indigo-50 text-indigo-700',
-            'border-blue-300 bg-blue-50 text-blue-700',
-            'border-emerald-300 bg-emerald-50 text-emerald-700',
-            'border-amber-300 bg-amber-50 text-amber-700',
-            'border-rose-300 bg-rose-50 text-rose-700',
-        ];
-        const hash = value.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-        return palette[hash % palette.length];
-    }, []);
-
-    const getBrandColor = useCallback((brand: string) => {
-        const value = (brand || '').toLowerCase().trim();
-        if (!value) return 'border-gray-300 bg-gray-50 text-gray-700';
-        const palette = [
-            'border-purple-300 bg-purple-50 text-purple-700',
-            'border-indigo-300 bg-indigo-50 text-indigo-700',
-            'border-blue-300 bg-blue-50 text-blue-700',
-            'border-emerald-300 bg-emerald-50 text-emerald-700',
-            'border-amber-300 bg-amber-50 text-amber-700',
-            'border-rose-300 bg-rose-50 text-rose-700',
-        ];
-        const hash = value.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-        return palette[hash % palette.length];
-    }, []);
-
     const getActiveFilterCount = useCallback(() => {
         let count = 0;
         const isCompanyForced = (availableCompanies || []).length === 1;
@@ -5309,7 +5275,9 @@ const DashboardPage = () => {
         const isMdImpexUser = currentUserCompany.includes('mdimpex') ||
             currentUserCompany.includes('md_impex') ||
             currentUserCompany.includes('md impex') ||
-            currentUserRole === 'md_manager';
+            currentUserRole === 'md_manager' ||
+            currentUserRole === 'assistant' ||
+            currentUserRole === 'assistance';
         if (isMdImpexTask || isMdImpexUser) {
             const dueDate = task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '';
             setEditFormData({
@@ -5828,11 +5796,11 @@ const DashboardPage = () => {
                                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
                                             <div>
                                                 <div className="flex items-center gap-3 mb-1">
-                                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                                    <h1 className="text-4xl sm:text-2xl font-bold text-gray-900">
                                                         Dashboard
                                                     </h1>
                                                 </div>
-                                                <p className="text-gray-600">
+                                                <p className="text-gray-600 ">
                                                     {canViewAllTasks
                                                         ? `Welcome ${currentUser.name}. Manage all tasks.`
                                                         : `Welcome back, ${currentUser.name}. Here are your tasks.`
@@ -5842,7 +5810,7 @@ const DashboardPage = () => {
                                             <div className="flex flex-wrap gap-3">
                                                 <button
                                                     onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                                                    className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+                                                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
                                                 >
                                                     <Filter className="mr-2 h-4 w-4" />
                                                     Advanced Filters
@@ -5854,7 +5822,7 @@ const DashboardPage = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => setCurrentView('all-tasks')}
-                                                    className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-xl shadow-sm text-white bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-primary hover:bg-primary-dark"
                                                 >
                                                     <ListTodo className="mr-2 h-4 w-4" />
                                                     View All Tasks
@@ -5862,7 +5830,7 @@ const DashboardPage = () => {
                                                 {canCreateTasks && (
                                                     <button
                                                         onClick={() => openAddTaskModal()}
-                                                        className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-xl shadow-sm text-white bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
+                                                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-primary-light hover:bg-primary"
                                                     >
                                                         <PlusCircle className="mr-2 h-4 w-4" />
                                                         Add Task
@@ -5992,64 +5960,91 @@ const DashboardPage = () => {
                                                     type="button"
                                                     role="radio"
                                                     aria-checked={selectedStatFilter === stat.id}
-                                                    className={`bg-white p-6 rounded-2xl shadow-sm border-2 cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-1 relative ${selectedStatFilter === stat.id
-                                                        ? 'border-blue-500 shadow-lg shadow-blue-50'
-                                                        : 'border-transparent hover:border-gray-200'
-                                                        }`}
+                                                    className={`
+                    bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
+                    transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
+                    relative group
+                    ${selectedStatFilter === stat.id
+                                                            ? 'border-[#1e3a8a] shadow-md'
+                                                            : 'border-gray-100 hover:border-[#1e3a8a]'
+                                                        }
+                `}
                                                 >
+                                                    {/* Selection Indicator */}
                                                     <div
-                                                        className={`absolute top-4 right-4 h-5 w-5 rounded-full border-2 transition-colors ${selectedStatFilter === stat.id
-                                                            ? 'border-blue-600'
-                                                            : 'border-gray-300'
-                                                            }`}
+                                                        className={`
+                        absolute top-3 right-3 h-4 w-4 rounded-full border-2 
+                        transition-all duration-200 ease-out
+                        ${selectedStatFilter === stat.id
+                                                                ? 'border-[#1e3a8a] bg-[#3b82f6] scale-100'
+                                                                : 'border-gray-200 bg-white group-hover:border-[#1e3a8a] group-hover:scale-110'
+                                                            }
+                    `}
                                                     >
-                                                        {selectedStatFilter === stat.id ? (
+                                                        {selectedStatFilter === stat.id && (
                                                             <div className="h-full w-full flex items-center justify-center">
-                                                                <div className="h-2.5 w-2.5 rounded-full bg-blue-600" />
+                                                                <div className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                                                             </div>
-                                                        ) : null}
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-start justify-between">
+
+                                                    <div className="flex items-start">
                                                         <div className="flex-1">
-                                                            <div className="flex items-center gap-3 mb-3">
-                                                                <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                                                                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                                                            {/* Icon and Value Row */}
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <div
+                                                                    className={`
+                                    p-2 rounded-lg transition-all duration-200
+                                    ${selectedStatFilter === stat.id
+                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                        }
+                                `}
+                                                                >
+                                                                    <stat.icon
+                                                                        className={`
+                                        h-5 w-5 transition-colors duration-200
+                                        ${selectedStatFilter === stat.id
+                                                                                ? 'text-[#3b82f6]'
+                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                            }
+                                    `}
+                                                                    />
                                                                 </div>
-                                                                <div>
-                                                                    <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                                                                    <div className="flex items-baseline gap-2">
-                                                                        <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                                                                        <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full ${stat.changeType === 'positive'
-                                                                            ? 'bg-emerald-50 text-emerald-700'
-                                                                            : stat.changeType === 'negative'
-                                                                                ? 'bg-rose-50 text-rose-700'
-                                                                                : 'bg-gray-50 text-gray-700'
-                                                                            }`}>
-                                                                            {stat.changeType === 'positive' ? (
-                                                                                <TrendingUp className="h-3 w-3 mr-1" />
-                                                                            ) : stat.changeType === 'negative' ? (
-                                                                                <TrendingDown className="h-3 w-3 mr-1" />
-                                                                            ) : null}
-                                                                            {stat.change}
-                                                                        </div>
+                                                                <div className="text-left">
+                                                                    <p className="text-xs font-medium text-black tracking-wide">
+                                                                        {stat.name}
+                                                                    </p>
+                                                                    <div className="flex items-baseline gap-2 mt-0.5">
+                                                                        <p className="text-2xl font-bold text-black">{stat.value}</p>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-xs text-gray-500">
-                                                                    {stat.id === 'completed' ? 'From last week' :
-                                                                        stat.id === 'overdue' ? 'Needs attention' :
-                                                                            'View details'}
-                                                                </span>
-                                                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${selectedStatFilter === stat.id
-                                                                    ? 'bg-blue-100 text-blue-600'
-                                                                    : 'bg-gray-100 text-gray-600'
-                                                                    }`}>
-                                                                    Click to filter
+
+                                                            {/* Footer */}
+                                                            <div className="flex items-center justify-between mt-2 pt-1 border-t border-gray-50">
+                                                                <span className={`
+                                text-[10px] font-medium px-2 py-0.5 rounded-full 
+                                transition-all duration-200
+                                ${selectedStatFilter === stat.id
+                                                                        ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                        : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                    }
+                            `}>
+                                                                    {selectedStatFilter === stat.id ? '✓ Selected' : 'Filter'}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
+
+                                                    {/* Hover Effect Overlay - Thin border (ring-1) */}
+                                                    <div className={`
+                    absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
+                    ${selectedStatFilter === stat.id
+                                                            ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                            : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                        }
+                `} />
                                                 </button>
                                             ))}
                                         </div>
@@ -6066,30 +6061,61 @@ const DashboardPage = () => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setDashboardSpotlight('employee-of-month')}
-                                                                className={`bg-white p-6 rounded-2xl shadow-sm border-2 transition-all duration-200 hover:shadow-md ${dashboardSpotlight === 'employee-of-month'
-                                                                    ? 'border-blue-500 shadow-lg shadow-blue-50'
-                                                                    : 'border-transparent hover:border-gray-200'
-                                                                    }`}
+                                                                className={`
+        bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
+        transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
+        relative group
+        ${dashboardSpotlight === 'employee-of-month'
+                                                                        ? 'border-[#1e3a8a] shadow-md'
+                                                                        : 'border-gray-100 hover:border-[#1e3a8a]'
+                                                                    }
+    `}
                                                             >
                                                                 <div className="flex items-start justify-between">
                                                                     <div>
-                                                                        <h2 className="text-sm font-semibold text-gray-900">
+                                                                        <h2 className="text-xs font-medium text-black tracking-wide">
                                                                             <span className="inline-flex items-center gap-2">
-                                                                                <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/70 text-amber-700 ring-1 ring-amber-200 shadow-sm">
-                                                                                    <Crown className="h-4 w-4" />
+                                                                                <span className={`
+                        inline-flex items-center justify-center w-6 h-6 rounded-lg 
+                        transition-all duration-200
+                        ${dashboardSpotlight === 'employee-of-month'
+                                                                                        ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                        : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                                    }
+                    `}>
+                                                                                    <Crown className={`
+                            h-3.5 w-3.5 transition-colors duration-200
+                            ${dashboardSpotlight === 'employee-of-month'
+                                                                                            ? 'text-[#3b82f6]'
+                                                                                            : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                        }
+                        `} />
                                                                                 </span>
-                                                                                <span>Employee of the Month </span>
+                                                                                <span>Employee of the Month</span>
                                                                             </span>
                                                                         </h2>
-                                                                        <p className="text-xs text-gray-500 mt-1 ">Based on manager reviews (month wise)</p>
+                                                                        <p className="text-[10px] text-gray-500 mt-1">Based on manager reviews</p>
                                                                     </div>
-                                                                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${dashboardSpotlight === 'employee-of-month'
-                                                                        ? 'bg-blue-100 text-blue-600'
-                                                                        : 'bg-gray-100 text-gray-600'
-                                                                        }`}>
-                                                                        {dashboardSpotlight === 'employee-of-month' ? 'Selected' : 'Select'}
+                                                                    <span className={`
+            text-[10px] font-medium px-2 py-0.5 rounded-full 
+            transition-all duration-200
+            ${dashboardSpotlight === 'employee-of-month'
+                                                                            ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                            : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                        }
+        `}>
+                                                                        {dashboardSpotlight === 'employee-of-month' ? '✓ Selected' : 'Filter'}
                                                                     </span>
                                                                 </div>
+
+                                                                {/* Hover Effect Overlay - Thin border */}
+                                                                <div className={`
+        absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
+        ${dashboardSpotlight === 'employee-of-month'
+                                                                        ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                                        : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                                    }
+    `} />
                                                             </button>
                                                         );
                                                     })()}
@@ -6108,58 +6134,121 @@ const DashboardPage = () => {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setDashboardSpotlight('manager-monthly-ranking')}
-                                                                    className={`bg-white p-6 rounded-2xl shadow-sm border-2 transition-all duration-200 hover:shadow-md ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                        ? 'border-blue-500 shadow-lg shadow-blue-50'
-                                                                        : 'border-transparent hover:border-gray-200'
-                                                                        }`}
+                                                                    className={`
+        bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
+        transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
+        relative group
+        ${dashboardSpotlight === 'manager-monthly-ranking'
+                                                                            ? 'border-[#1e3a8a] shadow-md'
+                                                                            : 'border-gray-100 hover:border-[#1e3a8a]'
+                                                                        }
+    `}
                                                                 >
                                                                     <div className="flex items-start justify-between">
                                                                         <div>
-                                                                            <h2 className="text-sm font-semibold text-gray-900">
+                                                                            <h2 className="text-xs font-medium text-black tracking-wide">
                                                                                 <span className="inline-flex items-center gap-2">
-                                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/70 text-amber-700 ring-1 ring-amber-200 shadow-sm">
-                                                                                        <Trophy className="h-4 w-4" />
+                                                                                    <span className={`
+                        inline-flex items-center justify-center w-6 h-6 rounded-lg 
+                        transition-all duration-200
+                        ${dashboardSpotlight === 'manager-monthly-ranking'
+                                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                                        }
+                    `}>
+                                                                                        <Trophy className={`
+                            h-3.5 w-3.5 transition-colors duration-200
+                            ${dashboardSpotlight === 'manager-monthly-ranking'
+                                                                                                ? 'text-[#3b82f6]'
+                                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                            }
+                        `} />
                                                                                     </span>
                                                                                     <span>Employee of the Month Marketer</span>
                                                                                 </span>
                                                                             </h2>
-                                                                            <p className="text-xs text-gray-500">Assign vs Achieved (month wise)</p>
+                                                                            <p className="text-[10px] text-gray-500 mt-1">Assign vs Achieved</p>
                                                                         </div>
-                                                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                            ? 'bg-blue-100 text-blue-600'
-                                                                            : 'bg-gray-100 text-gray-600'
-                                                                            }`}>
-                                                                            {dashboardSpotlight === 'manager-monthly-ranking' ? 'Selected' : 'Select'}
+                                                                        <span className={`
+            text-[10px] font-medium px-2 py-0.5 rounded-full 
+            transition-all duration-200
+            ${dashboardSpotlight === 'manager-monthly-ranking'
+                                                                                ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                                : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                            }
+        `}>
+                                                                            {dashboardSpotlight === 'manager-monthly-ranking' ? '✓ Selected' : 'Filter'}
                                                                         </span>
                                                                     </div>
+
+                                                                    {/* Hover Effect Overlay - Thin border */}
+                                                                    <div className={`
+        absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
+        ${dashboardSpotlight === 'manager-monthly-ranking'
+                                                                            ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                                            : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                                        }
+    `} />
                                                                 </button>
+
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setDashboardSpotlight('power-star-of-month')}
-                                                                    className={`bg-white p-6 rounded-2xl shadow-sm border-2 transition-all duration-200 hover:shadow-md ${dashboardSpotlight === 'power-star-of-month'
-                                                                        ? 'border-blue-500 shadow-lg shadow-blue-50'
-                                                                        : 'border-transparent hover:border-gray-200'
-                                                                        }`}
+                                                                    className={`
+        bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
+        transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
+        relative group
+        ${dashboardSpotlight === 'power-star-of-month'
+                                                                            ? 'border-[#1e3a8a] shadow-md'
+                                                                            : 'border-gray-100 hover:border-[#1e3a8a]'
+                                                                        }
+    `}
                                                                 >
                                                                     <div className="flex items-start justify-between">
                                                                         <div>
-                                                                            <h2 className="text-sm font-semibold text-gray-900">
+                                                                            <h2 className="text-xs font-medium text-black tracking-wide">
                                                                                 <span className="inline-flex items-center gap-2">
-                                                                                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/70 text-amber-700 ring-1 ring-amber-200 shadow-sm">
-                                                                                        <Star className="h-4 w-4" />
+                                                                                    <span className={`
+                        inline-flex items-center justify-center w-6 h-6 rounded-lg 
+                        transition-all duration-200
+                        ${dashboardSpotlight === 'power-star-of-month'
+                                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                                        }
+                    `}>
+                                                                                        <Star className={`
+                            h-3.5 w-3.5 transition-colors duration-200
+                            ${dashboardSpotlight === 'power-star-of-month'
+                                                                                                ? 'text-[#3b82f6]'
+                                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                            }
+                        `} />
                                                                                     </span>
                                                                                     <span>Power Star of the Month</span>
                                                                                 </span>
                                                                             </h2>
-                                                                            <p className="text-xs text-gray-500 mt-1">Week wise (Churn / Live-Assign% / Hits)</p>
+                                                                            <p className="text-[10px] text-gray-500 mt-1">Week wise performance</p>
                                                                         </div>
-                                                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${dashboardSpotlight === 'power-star-of-month'
-                                                                            ? 'bg-blue-100 text-blue-600'
-                                                                            : 'bg-gray-100 text-gray-600'
-                                                                            }`}>
-                                                                            {dashboardSpotlight === 'power-star-of-month' ? 'Selected' : 'Select'}
+                                                                        <span className={`
+            text-[10px] font-medium px-2 py-0.5 rounded-full 
+            transition-all duration-200
+            ${dashboardSpotlight === 'power-star-of-month'
+                                                                                ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                                : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                            }
+        `}>
+                                                                            {dashboardSpotlight === 'power-star-of-month' ? '✓ Selected' : 'Filter'}
                                                                         </span>
                                                                     </div>
+
+                                                                    {/* Hover Effect Overlay - Thin border */}
+                                                                    <div className={`
+        absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
+        ${dashboardSpotlight === 'power-star-of-month'
+                                                                            ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                                            : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                                        }
+    `} />
                                                                 </button>
                                                             </>
                                                         );
@@ -6188,19 +6277,19 @@ const DashboardPage = () => {
                                             </>
                                         ) : null
                                     ) : null}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-4 mt-5">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                             <div>
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <ListTodo className="h-5 w-5 text-blue-600" />
-                                                    <h2 className="text-xl font-semibold text-gray-900">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <ListTodo className="h-4 w-4 text-[#3b82f6]" />
+                                                    <h2 className="text-base font-semibold text-black">
                                                         {displayTasks.length} Tasks
                                                     </h2>
-                                                    <span className="text-sm text-gray-500">
+                                                    <span className="text-xs text-gray-500">
                                                         • {selectedStatFilter !== 'all' ? `${getActiveFilterCount()} active filter(s)` : 'All tasks'}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500">
+                                                <p className="text-xs text-gray-500">
                                                     {selectedStatFilter === 'overdue'
                                                         ? 'Tasks that require immediate attention'
                                                         : selectedStatFilter === 'high-priority'
@@ -6208,36 +6297,26 @@ const DashboardPage = () => {
                                                             : 'Your current tasks at a glance'}
                                                 </p>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-3">
-                                                <div className="flex items-center bg-gray-100 rounded-xl p-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
                                                     <button
                                                         onClick={() => setViewMode('grid')}
-                                                        className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'grid'
-                                                            ? 'bg-white text-blue-600 shadow-sm'
-                                                            : 'text-gray-600 hover:text-gray-900'
+                                                        className={`px-2.5 py-1.5 rounded-md transition-colors ${viewMode === 'grid'
+                                                            ? 'bg-white text-[#3b82f6] shadow-sm'
+                                                            : 'text-gray-600 hover:text-black'
                                                             }`}
                                                     >
-                                                        <Grid className="h-4 w-4" />
+                                                        <Grid className="h-3.5 w-3.5" />
                                                     </button>
                                                     <button
                                                         onClick={() => setViewMode('list')}
-                                                        className={`px-3 py-2 rounded-lg transition-colors ${viewMode === 'list'
-                                                            ? 'bg-white text-blue-600 shadow-sm'
-                                                            : 'text-gray-600 hover:text-gray-900'
+                                                        className={`px-2.5 py-1.5 rounded-md transition-colors ${viewMode === 'list'
+                                                            ? 'bg-white text-[#3b82f6] shadow-sm'
+                                                            : 'text-gray-600 hover:text-black'
                                                             }`}
                                                     >
-                                                        <List className="h-4 w-4" />
+                                                        <List className="h-3.5 w-3.5" />
                                                     </button>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    {getActiveFilterCount() > 0 && (
-                                                        <button
-                                                            onClick={resetFilters}
-                                                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 bg-gray-100 rounded-lg hover:bg-gray-200"
-                                                        >
-                                                            Clear filters
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -6245,10 +6324,10 @@ const DashboardPage = () => {
                                     {displayTasks.length === 0 ? (
                                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
                                             <div className="max-w-md mx-auto">
-                                                <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl inline-flex mb-6">
-                                                    <ListTodo className="h-12 w-12 text-blue-600" />
+                                                <div className="p-4 bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 rounded-2xl inline-flex mb-6">
+                                                    <ListTodo className="h-12 w-12 text-[#3b82f6]" />
                                                 </div>
-                                                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                                <h3 className="text-xl font-semibold text-black mb-2">
                                                     No tasks found
                                                 </h3>
                                                 <p className="text-gray-500 mb-6">
@@ -6261,7 +6340,7 @@ const DashboardPage = () => {
                                                 {canCreateTasks && (
                                                     <button
                                                         onClick={openAddTaskModal}
-                                                        className="inline-flex items-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-sm"
+                                                        className="inline-flex items-center px-4 py-3 bg-[#3b82f6] text-white rounded-xl hover:bg-[#1e3a8a] shadow-sm transition-all duration-200"
                                                     >
                                                         <PlusCircle className="mr-2 h-5 w-5" />
                                                         Create New Task
@@ -6270,272 +6349,243 @@ const DashboardPage = () => {
                                             </div>
                                         </div>
                                     ) : viewMode === 'grid' ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                                             {paginatedTasks.map((task: Task) => (
                                                 <div
                                                     key={task.id}
-                                                    className="group bg-white rounded-2xl shadow-sm border border-gray-200 p-5 hover:shadow-lg transition-all duration-200 hover:-translate-y-1 relative"
+                                                    className="group bg-white rounded-xl border border-gray-100 hover:border-[#3b82f6]/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden"
                                                 >
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 mb-3">
-                                                                <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getPriorityColor(task.priority || 'medium')}`}>
-                                                                    <span className="flex items-center gap-1">
-                                                                        <Flag className="h-3 w-3" />
-                                                                        {task.priority}
-                                                                    </span>
-                                                                </span>
-                                                                <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(task.status)}`}>
-                                                                    {task.status}
-                                                                    {task.completedApproval && (
-                                                                        <span className="ml-1 text-blue-500">By Admin</span>
-                                                                    )}
+                                                    <div className="p-4">
+                                                        {/* Top Row - Status & Type */}
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`w-2 h-2 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                                                                <span className={`text-xs font-medium ${task.status === 'completed' ? 'text-emerald-600' : task.status === 'in-progress' ? 'text-amber-600' : 'text-blue-600'}`}>
+                                                                    {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
                                                                 </span>
                                                             </div>
-                                                            <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors whitespace-normal break-words [overflow-wrap:anywhere]">
-                                                                {task.title}
-                                                                {task.completedApproval && (
-                                                                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full">
-                                                                        Approved
-                                                                    </span>
-                                                                )}
-                                                            </h3>
-                                                            <p className="text-sm text-gray-500 line-clamp-2 mb-3">
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="space-y-3 mb-5">
-                                                        <div className="flex items-start justify-between text-sm gap-4">
-                                                            <span className="text-gray-500 flex items-center gap-2 shrink-0">
-                                                                <UserCheck className="h-4 w-4" />
-                                                                Assign To
-                                                            </span>
-                                                            <span className="font-medium text-gray-900 text-right break-words">
-                                                                {(() => {
-                                                                    const info = getAssignedUserInfo(task);
-                                                                    const email = (info as any)?.email ? stripDeletedEmailSuffix(String((info as any).email)) : '';
-                                                                    return email || '—';
-                                                                })()}
+                                                            <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                                                                {task.taskType}
                                                             </span>
                                                         </div>
-                                                        <div className="flex items-start justify-between text-sm gap-4">
-                                                            <span className="text-gray-500 flex items-center gap-2 shrink-0">
-                                                                <User className="h-4 w-4" />
-                                                                Assign By
-                                                            </span>
-                                                            <span className="font-medium text-gray-900 text-right break-words">
-                                                                {(() => {
-                                                                    const assignedByUser: any = (task as any)?.assignedByUser;
-                                                                    const assignedBy: any = (task as any)?.assignedBy;
-                                                                    const email = (assignedByUser?.email || (typeof assignedBy === 'string' ? assignedBy : assignedBy?.email) || '').toString();
-                                                                    const name = (assignedByUser?.name || (typeof assignedBy === 'object' ? assignedBy?.name : '') || '').toString();
-                                                                    const match = !name && email
-                                                                        ? (users || []).find((u: any) => (u?.email || '').toLowerCase() === email.toLowerCase())
-                                                                        : null;
-                                                                    const displayName = (name || match?.name || (email ? email.split('@')[0] : '') || email || '—').toString();
-                                                                    return (
-                                                                        <span className="block truncate" title={email}>
-                                                                            {displayName}
-                                                                        </span>
-                                                                    );
-                                                                })()}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="text-gray-500 flex items-center gap-2">
-                                                                <CalendarDays className="h-4 w-4" />
-                                                                Due Date
-                                                            </span>
-                                                            <span className={`font-medium ${isOverdue(task.dueDate, task.status)
-                                                                ? 'text-rose-600'
-                                                                : 'text-gray-900'
-                                                                }`}>
-                                                                {task.dueDate ? formatDate(task.dueDate) : '—'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-sm">
-                                                            <span className="text-gray-500 flex items-center gap-2">
-                                                                <Building className="h-4 w-4" />
-                                                                Company
-                                                            </span>
-                                                            <span className={`px-2 py-1 text-xs rounded-full border ${getCompanyColor(task.companyName)}`}>
-                                                                {task.companyName}
-                                                            </span>
-                                                        </div>
-                                                        {task.brand && (
-                                                            <div className="flex items-center justify-between text-sm">
-                                                                <span className="text-gray-500 flex items-center gap-2">
-                                                                    <Tag className="h-4 w-4" />
-                                                                    Brand
+
+                                                        {/* Title */}
+                                                        <h3 className="text-base font-semibold text-black mb-3 group-hover:text-[#3b82f6] transition-colors line-clamp-2">
+                                                            {task.title}
+                                                            {task.completedApproval && (
+                                                                <span className="ml-2 inline-flex items-center gap-1 text-[9px] bg-[#3b82f6]/10 text-[#3b82f6] px-1.5 py-0.5 rounded-full">
+                                                                    <CheckCircle className="h-2.5 w-2.5" />
+                                                                    Approved
                                                                 </span>
-                                                                <span className={`px-2 py-1 text-xs rounded-full border ${getBrandColor(task.brand)}`}>
-                                                                    {formatBrandWithGroupNumber(task)}
+                                                            )}
+                                                        </h3>
+
+                                                        {/* Key Info - Only 3 most important fields */}
+                                                        <div className="space-y-2 mb-4">
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-1.5 text-gray-500">
+                                                                    <UserCheck className="h-3.5 w-3.5" />
+                                                                    <span>Assigned to</span>
+                                                                </div>
+                                                                <span className="text-black font-medium truncate max-w-[60%]">
+                                                                    {(() => {
+                                                                        const info = getAssignedUserInfo(task);
+                                                                        const email = (info as any)?.email ? stripDeletedEmailSuffix(String((info as any).email)) : '';
+                                                                        const name = (info as any)?.name ? String((info as any).name) : '';
+                                                                        return name || (email ? email.split('@')[0] : '') || email || '—';
+                                                                    })()}
                                                                 </span>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex gap-2 pt-4 border-t border-gray-100">
-                                                        <button
-                                                            onClick={() => handleToggleTaskStatus(task.id, task.status)}
-                                                            disabled={!canMarkTaskDone(task)}
-                                                            className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${canMarkTaskDone(task)
-                                                                ? task.status === 'completed'
-                                                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                                                    : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                                }`}
-                                                        >
-                                                            {task.status === 'completed' ? 'Mark Pending' : 'Complete'}
-                                                        </button>
-                                                        {canEditDeleteTask(task) && (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-1.5 text-gray-500">
+                                                                    <Layers className="h-3.5 w-3.5" />
+                                                                    <span>Brand</span>
+                                                                </div>
+                                                                <span className="text-black font-medium truncate max-w-[60%]">
+                                                                    {_formatBrandWithGroupNumber(task) || '—'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-1.5 text-gray-500">
+                                                                    <CalendarDays className="h-3.5 w-3.5" />
+                                                                    <span>Due date</span>
+                                                                </div>
+                                                                <span className={`font-medium ${isOverdue(task.dueDate, task.status) ? 'text-rose-600' : 'text-black'}`}>
+                                                                    {task.dueDate ? formatDate(task.dueDate) : '—'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <div className="flex items-center gap-1.5 text-gray-500">
+                                                                    <Flag className="h-3.5 w-3.5" />
+                                                                    <span>Priority</span>
+                                                                </div>
+                                                                <span className={`inline-flex items-center gap-1 text-xs font-medium ${task.priority === 'high' ? 'text-rose-600' : task.priority === 'medium' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                                    {task.priority || 'medium'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Action Buttons - Clean & Minimal */}
+                                                        <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-50">
                                                             <button
-                                                                onClick={() => handleDeleteTask(task.id)}
-                                                                className="px-3 py-2 text-sm font-medium bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors"
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                        {canSendReminderForTask(task) && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleSendReminder(task)}
-                                                                disabled={Boolean(sendingReminderByTaskId[String(task.id || '')])}
-                                                                title="Send reminder"
-                                                                className={`px-3 py-2 rounded-lg border transition-colors ${sendingReminderByTaskId[String(task.id || '')]
-                                                                    ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-                                                                    : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100'
+                                                                onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                                                                disabled={!canMarkTaskDone(task)}
+                                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${canMarkTaskDone(task)
+                                                                    ? task.status === 'completed'
+                                                                        ? 'text-amber-600 hover:bg-amber-50'
+                                                                        : 'text-emerald-600 hover:bg-emerald-50'
+                                                                    : 'text-gray-400 cursor-not-allowed'
                                                                     }`}
                                                             >
-                                                                <Bell className="h-4 w-4" />
+                                                                {task.status === 'completed' ? (
+                                                                    <>
+                                                                        <RotateCcw className="h-3 w-3" />
+                                                                        <span>Mark Pending</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <CheckCircle className="h-3 w-3" />
+                                                                        <span>Mark Done</span>
+                                                                    </>
+                                                                )}
                                                             </button>
-                                                        )}
-                                                        {isSbmUser ? (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenTaskCommentSidebar(task)}
-                                                                title="Comments"
-                                                                className="px-3 py-2 rounded-lg border transition-colors bg-gray-50 text-gray-600 border-gray-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
-                                                            >
-                                                                <MessageSquare className="h-4 w-4" />
-                                                            </button>
-                                                        ) : null}
-                                                    </div>
-                                                    <div className="absolute top-4 right-4">
-                                                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                                                            <Tag className="h-3 w-3" />
-                                                            {task.taskType}
-                                                        </span>
+
+                                                            {canEditDeleteTask(task) && (
+                                                                <button
+                                                                    onClick={() => handleDeleteTask(task.id)}
+                                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200"
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+
+                                                            {canSendReminderForTask(task) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleSendReminder(task)}
+                                                                    disabled={Boolean(sendingReminderByTaskId[String(task.id || '')])}
+                                                                    className={`p-1.5 rounded-lg transition-all duration-200 ${sendingReminderByTaskId[String(task.id || '')]
+                                                                        ? 'text-gray-300 cursor-not-allowed'
+                                                                        : 'text-gray-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5'
+                                                                        }`}
+                                                                    title="Send reminder"
+                                                                >
+                                                                    <Bell className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+
+                                                            {isSbmUser && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleOpenTaskCommentSidebar(task)}
+                                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all duration-200"
+                                                                    title="Comments"
+                                                                >
+                                                                    <MessageSquare className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     ) : viewMode === 'list' ? (
-                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                             <div className="overflow-x-auto">
                                                 <table className="min-w-full">
-                                                    <thead className="bg-gray-50">
-                                                        <tr className="text-left text-sm font-semibold text-gray-700">
-                                                            <th className="px-6 py-4">Task</th>
-                                                            <th className="px-6 py-4">Status</th>
-                                                            <th className="px-6 py-4">Priority</th>
-                                                            <th className="px-6 py-4">Due Date</th>
-                                                            <th className="px-6 py-4">Assign To</th>
-                                                            <th className="px-6 py-4">Assign By</th>
-                                                            {showListActionsColumn ? (
-                                                                <th className="px-6 py-4 text-right">Actions</th>
-                                                            ) : null}
-                                                         </tr>
+                                                    <thead className="bg-gray-50/50">
+                                                        <tr className="text-left text-xs font-medium text-gray-500">
+                                                            <th className="px-4 py-3">Task</th>
+                                                            <th className="px-4 py-3">Status</th>
+                                                            <th className="px-4 py-3">Priority</th>
+                                                            <th className="px-4 py-3">Due Date</th>
+                                                            <th className="px-4 py-3">Brand</th>
+                                                            <th className="px-4 py-3">Assigned To</th>
+                                                            <th className="px-4 py-3 text-right">Actions</th>
+                                                        </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-gray-100">
+                                                    <tbody className="divide-y divide-gray-50">
                                                         {paginatedTasks.map((task: Task) => (
-                                                            <tr key={task.id} className="hover:bg-gray-50">
-                                                                <td className="px-6 py-5">
-                                                                    <div className="font-semibold text-gray-900">{task.title}</div>
+                                                            <tr key={task.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                                                                        <div>
+                                                                            <div className="text-sm font-medium text-black group-hover:text-[#3b82f6] transition-colors">
+                                                                                {task.title}
+                                                                            </div>
+                                                                            {task.completedApproval && (
+                                                                                <span className="inline-flex items-center gap-1 text-[9px] text-[#3b82f6] mt-0.5">
+                                                                                    <CheckCircle className="h-2 w-2" />
+                                                                                    Approved by Admin
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
                                                                 </td>
-                                                                <td className="px-6 py-5">
-                                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(task.status)}`}>
-                                                                        {task.status}
+                                                                <td className="px-4 py-3">
+                                                                    <span className={`text-xs font-medium ${task.status === 'completed' ? 'text-emerald-600' : task.status === 'in-progress' ? 'text-amber-600' : 'text-blue-600'}`}>
+                                                                        {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
                                                                     </span>
                                                                 </td>
-                                                                <td className="px-6 py-5">
-                                                                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(task.priority || 'medium')}`}>
+                                                                <td className="px-4 py-3">
+                                                                    <span className={`text-xs font-medium ${task.priority === 'high' ? 'text-rose-600' : task.priority === 'medium' ? 'text-amber-600' : 'text-emerald-600'}`}>
                                                                         {task.priority || 'medium'}
                                                                     </span>
                                                                 </td>
-                                                                <td className="px-6 py-5 text-sm text-gray-700">
-                                                                    {formatDate(task.dueDate)}
+                                                                <td className={`px-4 py-3 text-xs ${isOverdue(task.dueDate, task.status) ? 'text-rose-600 font-medium' : 'text-gray-600'}`}>
+                                                                    {task.dueDate ? formatDate(task.dueDate) : '—'}
                                                                 </td>
-                                                                <td className="px-6 py-5">
-                                                                    <div className="font-semibold text-gray-900">
-                                                                        {(() => {
-                                                                            const info = getAssignedUserInfo(task);
-                                                                            const email = (info as any)?.email ? stripDeletedEmailSuffix(String((info as any).email)) : '';
-                                                                            const name = (info as any)?.name ? String((info as any).name) : '';
-                                                                            const displayName = (name || (email ? email.split('@')[0] : '') || email || '—').toString();
-                                                                            return (
-                                                                                <span className="block truncate" title={email}>
-                                                                                    {displayName}
-                                                                                </span>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
+                                                                <td className="px-4 py-3 text-xs text-gray-600">
+                                                                    {_formatBrandWithGroupNumber(task) || '—'}
                                                                 </td>
-                                                                <td className="px-6 py-5">
-                                                                    <div className="font-semibold text-gray-900">
-                                                                        {(() => {
-                                                                            const assignedByUser: any = (task as any)?.assignedByUser;
-                                                                            const assignedBy: any = (task as any)?.assignedBy;
-                                                                            const email = stripDeletedEmailSuffix(assignedByUser?.email || (typeof assignedBy === 'string' ? assignedBy : assignedBy?.email) || '').toString();
-                                                                            const name = (assignedByUser?.name || (typeof assignedBy === 'object' ? assignedBy?.name : '') || '').toString();
-                                                                            const match = !name && email
-                                                                                ? (users || []).find((u: any) => (u?.email || '').toLowerCase() === email.toLowerCase())
-                                                                                : null;
-                                                                            const displayName = (name || match?.name || (email ? email.split('@')[0] : '') || email || '—').toString();
-                                                                            return (
-                                                                                <span className="block truncate" title={email}>
-                                                                                    {displayName}
-                                                                                </span>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
+                                                                <td className="px-4 py-3 text-xs text-gray-600 truncate max-w-[150px]">
+                                                                    {(() => {
+                                                                        const info = getAssignedUserInfo(task);
+                                                                        const email = (info as any)?.email ? stripDeletedEmailSuffix(String((info as any).email)) : '';
+                                                                        const name = (info as any)?.name ? String((info as any).name) : '';
+                                                                        return name || (email ? email.split('@')[0] : '') || email || '—';
+                                                                    })()}
                                                                 </td>
-                                                                {showListActionsColumn ? (
-                                                                    <td className="px-6 py-5 text-right">
-                                                                        {canEditTask(task) && (
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        {canEditTask(task) && !task?.completedApproval && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => handleOpenEditModal(task)}
-                                                                                disabled={Boolean(task?.completedApproval)}
-                                                                                className={`inline-flex items-center justify-center w-9 h-9 rounded-lg ${Boolean(task?.completedApproval)
-                                                                                    ? 'text-gray-300 cursor-not-allowed'
-                                                                                    : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-                                                                                    }`}
-                                                                                title={Boolean(task?.completedApproval) ? 'Editing not allowed for permanently approved tasks' : 'Edit'}
+                                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all duration-200"
+                                                                                title="Edit"
                                                                             >
-                                                                                <Edit className="h-4 w-4" />
+                                                                                <Edit className="h-3.5 w-3.5" />
                                                                             </button>
                                                                         )}
                                                                         {canEditDeleteTask(task) && (
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => handleDeleteTask(task.id)}
-                                                                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:text-rose-700 hover:bg-rose-50"
-                                                                                title="Delete" >
-                                                                                <Trash2 className="h-4 w-4" />
+                                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <Trash2 className="h-3.5 w-3.5" />
                                                                             </button>
                                                                         )}
-                                                                        {isSbmUser ? (
+                                                                        {canSendReminderForTask(task) && (
                                                                             <button
                                                                                 type="button"
-                                                                                onClick={() => handleOpenTaskCommentSidebar(task)}
-                                                                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:text-blue-700 hover:bg-blue-50"
-                                                                                title="Comments"
+                                                                                onClick={() => handleSendReminder(task)}
+                                                                                disabled={Boolean(sendingReminderByTaskId[String(task.id || '')])}
+                                                                                className={`p-1.5 rounded-lg transition-all duration-200 ${sendingReminderByTaskId[String(task.id || '')]
+                                                                                    ? 'text-gray-300 cursor-not-allowed'
+                                                                                    : 'text-gray-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5'
+                                                                                    }`}
+                                                                                title="Send reminder"
                                                                             >
-                                                                                <MessageSquare className="h-4 w-4" />
+                                                                                <Bell className="h-3.5 w-3.5" />
                                                                             </button>
-                                                                        ) : null}
-                                                                    </td>
-                                                                ) : null}
+                                                                        )}
+                                                                    </div>
+                                                                </td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -6543,10 +6593,11 @@ const DashboardPage = () => {
                                             </div>
                                         </div>
                                     ) : null}
+
                                     {displayTasks.length > 0 && totalTaskPages > 1 && (
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6">
-                                            <div className="text-sm text-gray-600">
-                                                <div className="flex items-center gap-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
+                                            <div className="text-xs text-gray-500">
+                                                <div className="flex items-center gap-2">
                                                     <span>Page {taskPage} of {totalTaskPages}</span>
                                                     <select
                                                         value={String(tasksPerPage)}
@@ -6556,7 +6607,7 @@ const DashboardPage = () => {
                                                             setTasksPerPage(next);
                                                             setTaskPage(1);
                                                         }}
-                                                        className="px-3 py-1.5 text-sm rounded-lg border bg-white hover:bg-gray-50"
+                                                        className="px-2 py-1 text-xs rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-black focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
                                                     >
                                                         {PAGE_SIZE_OPTIONS.map((n) => (
                                                             <option key={n} value={String(n)}>
@@ -6566,12 +6617,12 @@ const DashboardPage = () => {
                                                     </select>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5">
                                                 <button
                                                     type="button"
                                                     onClick={() => setTaskPage((p) => Math.max(1, p - 1))}
                                                     disabled={taskPage <= 1}
-                                                    className="px-3 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                                    className="px-2.5 py-1 text-xs font-medium bg-white border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 text-black transition-colors"
                                                 >
                                                     Previous
                                                 </button>
@@ -6581,9 +6632,9 @@ const DashboardPage = () => {
                                                             key={p}
                                                             type="button"
                                                             onClick={() => setTaskPage(p)}
-                                                            className={`w-9 h-9 text-sm font-medium rounded-lg border transition-colors ${p === taskPage
-                                                                ? 'bg-blue-600 text-white border-blue-600'
-                                                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                                            className={`w-6 h-6 text-xs font-medium rounded-md border transition-colors ${p === taskPage
+                                                                ? 'bg-[#3b82f6] text-white border-[#3b82f6]'
+                                                                : 'bg-white text-black border-gray-200 hover:bg-gray-50'
                                                                 }`}
                                                         >
                                                             {p}
@@ -6594,7 +6645,7 @@ const DashboardPage = () => {
                                                     type="button"
                                                     onClick={() => setTaskPage((p) => Math.min(totalTaskPages, p + 1))}
                                                     disabled={taskPage >= totalTaskPages}
-                                                    className="px-3 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                                                    className="px-2.5 py-1 text-xs font-medium bg-white border border-gray-200 rounded-md hover:bg-gray-50 disabled:opacity-50 text-black transition-colors"
                                                 >
                                                     Next
                                                 </button>
@@ -6909,7 +6960,9 @@ const DashboardPage = () => {
                 const isMdImpexUser = currentUserCompany.includes('mdimpex') ||
                     currentUserCompany.includes('md_impex') ||
                     currentUserCompany.includes('md impex') ||
-                    currentUserRole === 'md_manager';
+                    currentUserRole === 'md_manager' ||
+                    currentUserRole === 'assistant' ||
+                    currentUserRole === 'assistance';
                 if (isMdImpexUser) {
                     return (
                         <MdImpexAddTaskModal
@@ -6925,6 +6978,7 @@ const DashboardPage = () => {
                             isSubmitting={isCreatingTask}
                             currentUserEmail={String(currentUser?.email || '')}
                             currentUserRole={String(currentUser?.role || '')}
+                            currentUserId={String((currentUser as any)?.id || (currentUser as any)?._id || '')}
                             canBulkAddTaskTypes={canBulkAddTaskTypes}
                             onBulkAddTaskTypes={handleAddTaskTypeClick}
                         />

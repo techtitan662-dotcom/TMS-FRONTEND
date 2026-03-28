@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as echarts from 'echarts';
-import { Trash2, PlusCircle, Filter, Calendar, Building2, BarChart3, CheckCircle2, Clock, AlertCircle, Users, Download, CalendarClock } from 'lucide-react';
+import { Trash2, PlusCircle, Filter, Calendar, Building2, BarChart3, CheckCircle2, Clock, AlertCircle, Users, Download, CalendarClock, Zap, Award, Target, } from 'lucide-react';
 import ManagerAnalysisChart from '../Components/ManagerAnalysisChart';
 import type { Task } from '../Types/Types';
+
+// Color theme
+const colors = {
+    primary: {
+        main: '#1e3a8a',
+        light: '#3b82f6',
+        ultralight: '#dbeafe'
+    }
+};
 
 type ChartType =
     | 'bar'
@@ -242,7 +251,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const [performanceGroupBy, setPerformanceGroupBy] = useState<'company' | 'brand'>('company');
     const [performanceStartDate, setPerformanceStartDate] = useState<string>('');
     const [performanceEndDate, setPerformanceEndDate] = useState<string>('');
-    
+
     // Global Filters
     const [globalCompany, setGlobalCompany] = useState<string>('all');
     const [globalTimePeriod, setGlobalTimePeriod] = useState<'daily' | 'weekly' | 'monthly' | 'all' | 'custom'>('all');
@@ -283,7 +292,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         // Custom metrics will be added here
     ]);
     const [showAddMetricModal, setShowAddMetricModal] = useState(false);
-    const [newMetricLabel, setNewMetricLabel] = useState(''); // Only display label
+    const [newMetricLabel, setNewMetricLabel] = useState('');
 
     const getInitialRecommended = () => {
         if (typeof window === 'undefined') return { cols: 2, reason: 'Default' };
@@ -298,6 +307,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const [chartsPerRow, setChartsPerRow] = useState<1 | 2 | 3 | 4>(initRec.cols as 1 | 2 | 3 | 4);
     const [recommendCols, setRecommendCols] = useState<number>(initRec.cols);
     const [recommendReason, setRecommendReason] = useState<string>(initRec.reason);
+    void recommendReason;
+    void setRecommendReason;
     const [userHasChangedChartsPerRow, setUserHasChangedChartsPerRow] = useState(false);
     const gridRef = useRef<HTMLDivElement>(null);
 
@@ -373,11 +384,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     };
 
     const getMetricLabel = (metric: MetricKey): string => {
-        // First check additional metrics
         const customMetric = additionalMetrics.find((m) => m.value === metric);
         if (customMetric) return customMetric.label;
-
-        // Then check standard options
         return ALL_METRIC_OPTIONS.find((o) => o.value === metric)?.label || metric;
     };
 
@@ -408,7 +416,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             if (metric === 'upcoming') return completion === 'Upcoming' ? 1 : null;
             if (metric === 'unscheduled') return completion === 'Unscheduled' ? 1 : null;
 
-            // Check additional custom metrics
             const isCustomMetric = additionalMetrics.some(m => m.value === metric);
             if (isCustomMetric) {
                 const customMetricValue = (t as any)?.[metric];
@@ -559,13 +566,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             const raw = normalizeText(t.companyName || t.company);
             if (!raw) return;
             const key = raw.toLowerCase();
-            // Keep the version that has more uppercase letters, or just the first one.
-            // Actually, let's just keep the first one but prefer one with capital letters if possible.
             if (!map.has(key)) {
                 map.set(key, raw);
             } else {
                 const existing = map.get(key)!;
-                // If the new one has more uppercase letters, it might be the "official" name
                 const existingUpper = (existing.match(/[A-Z]/g) || []).length;
                 const newUpper = (raw.match(/[A-Z]/g) || []).length;
                 if (newUpper > existingUpper) {
@@ -589,7 +593,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             end.setHours(23, 59, 59, 999);
         } else if (globalTimePeriod === 'weekly') {
             const day = start.getDay();
-            const diff = start.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+            const diff = start.getDate() - day + (day === 0 ? -6 : 1);
             start.setDate(diff);
             start.setHours(0, 0, 0, 0);
             end.setDate(start.getDate() + 6);
@@ -615,7 +619,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const filteredTasksByGlobalDates = useMemo(() => {
         let list = tasks || [];
 
-        // Filter by Company
         if (globalCompany !== 'all') {
             list = list.filter((t: any) => {
                 const c = normalizeText(t.companyName || t.company).toLowerCase();
@@ -623,7 +626,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             });
         }
 
-        // Filter by Date Range
         const { start, end } = effectiveDateRange;
         if (start || end) {
             list = list.filter((t: any) => {
@@ -659,7 +661,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const smartInsights = useMemo(() => {
         if (!filteredTasksByGlobalDates.length) return null;
 
-        // Bottleneck detection (Status)
         const statusMap: Record<string, number> = {};
         const typeMap: Record<string, number> = {};
         const userMap: Record<string, number> = {};
@@ -722,7 +723,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const userReportData = useMemo(() => {
         const userMap: Record<string, { name: string; total: number; completed: number; pending: number; overdue: number }> = {};
-        
+
         let reportTasks = filteredTasksByGlobalDates;
         if (reportFilterCompany !== 'all') {
             reportTasks = reportTasks.filter(t => {
@@ -736,17 +737,17 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             if (!userMap[u]) {
                 userMap[u] = { name: u, total: 0, completed: 0, pending: 0, overdue: 0 };
             }
-            
+
             userMap[u].total++;
             const status = normalizeText(t.status).toLowerCase();
             if (status === 'completed') userMap[u].completed++;
             else if (status === 'pending') userMap[u].pending++;
-            
+
             if (getCompletionStatus(t) === 'Overdue') {
                 userMap[u].overdue++;
             }
         });
-        
+
         return Object.values(userMap)
             .map(u => ({
                 ...u,
@@ -757,7 +758,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const handleExportReport = () => {
         if (!userReportData.length) return;
-        
+
         const headers = ['User', 'Total Tasks', 'Completed', 'Pending', 'Overdue', 'Success Rate (%)'];
         const rows = userReportData.map(r => [
             r.name,
@@ -767,17 +768,17 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             r.overdue,
             r.rate
         ]);
-        
+
         const csvContent = [
             headers.join(','),
             ...rows.map(row => row.join(','))
         ].join('\n');
-        
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const filename = `User_Performance_Report_${reportFilterCompany === 'all' ? 'All' : reportFilterCompany}_${globalMonth}.csv`;
-        
+
         link.setAttribute('href', url);
         link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
@@ -788,7 +789,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const overdueByCompany = useMemo(() => {
         const counts: Record<string, number> = {};
-        
+
         filteredTasksByGlobalDates.forEach(t => {
             if (getCompletionStatus(t) === 'Overdue') {
                 const taskCompany = normalizeText(t.companyName || t.company) || 'Unknown';
@@ -798,7 +799,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                 counts[u] = (counts[u] || 0) + 1;
             }
         });
-        
+
         return Object.entries(counts)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
@@ -865,6 +866,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         return { q: v };
     };
 
+    // Load custom widgets from localStorage
     useEffect(() => {
         try {
             const raw = localStorage.getItem(CUSTOM_WIDGETS_STORAGE_KEY);
@@ -899,7 +901,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
                     const allowedMetrics = METRIC_OPTIONS_BY_ENTITY[yEntity] || [];
                     if (!allowedMetrics.some((m) => m.value === metric)) {
-                        // Check if it's a custom metric
                         if (!additionalMetrics.some((m) => m.value === metric)) return null;
                     }
 
@@ -1053,7 +1054,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         const isArea = chartType === 'area';
         const isLine = chartType === 'line' || chartType === 'burnup' || chartType === 'burndown' || isArea;
         const seriesType: 'bar' | 'line' = isLine ? 'line' : 'bar';
-        chartType === 'grouped_bar' || chartType === 'clustered_bar';
         const totalValue = values.reduce((acc, v) => acc + (Number(v) || 0), 0);
 
         if (isNumber) {
@@ -1172,7 +1172,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         };
     };
 
-
     const buildOptionForWidget = (widget: CustomWidget): echarts.EChartsOption => {
         const forceRotateXAxis = widget.chartType === 'bar_label_rotation';
         const effectiveChartType: ChartType = widget.chartType === 'column' || forceRotateXAxis ? 'bar' : widget.chartType;
@@ -1228,10 +1227,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             }
 
             if (assigneeFilter !== 'all') {
-                const candidate =
-                    typeof trendsOptions?.getAssigneeKey === 'function'
-                        ? trendsOptions.getAssigneeKey(t)
-                        : extractUserLabel((t as any)?.assignedTo, (t as any)?.assignedToName);
+                const candidate = extractUserLabel((t as any)?.assignedTo, (t as any)?.assignedToName);
                 if ((candidate || '').toString().trim().toLowerCase() !== assigneeFilter) return false;
             }
 
@@ -1254,7 +1250,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                 const d = getDateValueForFilter(t);
                 if (!d) return false;
                 if (start && d < start) return false;
-
                 if (end && d > end) return false;
             }
             return true;
@@ -1299,8 +1294,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             const hasData = xCats.length > 0 && metrics.some((m) => filteredTasks.some((t) => getMetricValue(t, widget.yEntity, m) !== null));
             const emptyTitle = getEmptyTitle(hasData, 'No data');
             const isArea = effectiveChartType === 'area';
-            const isLine =
-                effectiveChartType === 'line' || effectiveChartType === 'burnup' || effectiveChartType === 'burndown' || isArea;
+            const isLine = effectiveChartType === 'line' || effectiveChartType === 'burnup' || effectiveChartType === 'burndown' || isArea;
             const seriesType: 'bar' | 'line' = isLine ? 'line' : 'bar';
             const isGroupedOrClustered = effectiveChartType === 'grouped_bar' || effectiveChartType === 'clustered_bar';
 
@@ -1417,16 +1411,12 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         const hasData = xCats.length > 0 && total > 0;
         const emptyTitle = getEmptyTitle(hasData, 'No data');
         const isArea = effectiveChartType === 'area';
-        const isLine =
-            effectiveChartType === 'line' || effectiveChartType === 'burnup' || effectiveChartType === 'burndown' || isArea;
+        const isLine = effectiveChartType === 'line' || effectiveChartType === 'burnup' || effectiveChartType === 'burndown' || isArea;
         const seriesType: 'bar' | 'line' = isLine ? 'line' : 'bar';
         const useStack = effectiveChartType === 'stacked_bar';
         const isGroupedOrClustered = effectiveChartType === 'grouped_bar' || effectiveChartType === 'clustered_bar';
-        const showPercent =
-            Boolean(widget.showPercent) &&
-            seriesType === 'bar' &&
-            effectiveGroupBy !== 'none' &&
-            (effectiveChartType === 'grouped_bar' || effectiveChartType === 'clustered_bar');
+        const showPercent = Boolean(widget.showPercent) && seriesType === 'bar' && effectiveGroupBy !== 'none' && (effectiveChartType === 'grouped_bar' || effectiveChartType === 'clustered_bar');
+
         if (effectiveGroupBy === 'none') {
             const totalsByX = xCats.map((x) => {
                 const row = acc.get(x);
@@ -1527,61 +1517,330 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         };
     };
 
+    // Add Widget Preview Effect
     useEffect(() => {
-        const update = () => {
-            let best = 1;
-            let reason = '';
+        if (!isAddWidgetOpen) return;
+        const dom = addWidgetPreviewRef.current;
+        if (!dom) return;
 
-            if (gridRef.current) {
-                const containerWidth = gridRef.current.offsetWidth;
-                const gap = 24; // gap-6 = 1.5rem = 24px
-                const idealChartWidth = 420; // ideal width for readability
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        addWidgetPreviewChartRef.current = chart;
 
-                // Try 4 columns
-                if (containerWidth >= 4 * idealChartWidth + 3 * gap) {
-                    best = 4;
-                    reason = 'Plenty of space for 4 charts';
-                }
-                // Try 3 columns
-                else if (containerWidth >= 3 * idealChartWidth + 2 * gap) {
-                    best = 3;
-                    reason = 'Good fit for 3 charts';
-                }
-                // Try 2 columns
-                else if (containerWidth >= 2 * idealChartWidth + gap) {
-                    best = 2;
-                    reason = 'Comfortable for 2 charts';
-                }
-                // Fallback to 1
-                else {
-                    best = 1;
-                    reason = 'Narrow screen, 1 chart per row best';
-                }
-            } else {
-                // Fallback to screen-width based recommendation when container not yet mounted
-                const w = window.innerWidth;
-                if (w < 768) { best = 1; reason = 'Narrow screen, 1 chart per row best'; }
-                else if (w < 1024) { best = 2; reason = 'Comfortable for 2 charts'; }
-                else if (w < 1280) { best = 3; reason = 'Good fit for 3 charts'; }
-                else { best = 4; reason = 'Plenty of space for 4 charts'; }
-            }
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
 
-            setRecommendCols(best);
-            setRecommendReason(reason);
-            if (!userHasChangedChartsPerRow) {
-                setChartsPerRow(best as 1 | 2 | 3 | 4);
-            }
-        };
-        update();
-        const ro = new ResizeObserver(update);
-        if (gridRef.current) ro.observe(gridRef.current);
-        window.addEventListener('resize', update);
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
         return () => {
-            ro.disconnect();
-            window.removeEventListener('resize', update);
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            addWidgetPreviewChartRef.current = null;
         };
-    }, [userHasChangedChartsPerRow]);
+    }, [isAddWidgetOpen]);
 
+    useEffect(() => {
+        if (!isAddWidgetOpen) return;
+        const chart = addWidgetPreviewChartRef.current;
+        if (!chart) return;
+
+        const computedTitle = getAutoWidgetTitle({
+            xAxis: newWidgetXAxis,
+            groupBy: newWidgetGroupBy,
+            metrics: newWidgetMetrics,
+        });
+
+        const option = buildOptionForWidget({
+            id: '__preview__',
+            title: computedTitle,
+            chartType: newWidgetChartType,
+            xAxis: newWidgetXAxis,
+            groupBy: newWidgetGroupBy,
+            yEntity: 'task',
+            metrics: newWidgetMetrics,
+            showPercent: newWidgetShowPercent,
+            filters: {
+                status: newWidgetFilterStatus,
+                priority: newWidgetFilterPriority,
+                assignee: newWidgetFilterAssignee,
+                taskType: newWidgetFilterTaskType,
+                company: newWidgetFilterCompany,
+                brand: newWidgetFilterBrand,
+                dateField: newWidgetDateField,
+                startDate: newWidgetStartDate,
+                endDate: newWidgetEndDate,
+            },
+        });
+        chart.setOption(option, true);
+        requestAnimationFrame(() => chart.resize());
+    }, [
+        isAddWidgetOpen,
+        newWidgetTitle,
+        newWidgetChartType,
+        newWidgetXAxis,
+        newWidgetGroupBy,
+        newWidgetMetrics,
+        newWidgetShowPercent,
+        newWidgetFilterStatus,
+        newWidgetFilterPriority,
+        newWidgetFilterAssignee,
+        newWidgetFilterTaskType,
+        newWidgetFilterCompany,
+        newWidgetFilterBrand,
+        newWidgetDateField,
+        newWidgetStartDate,
+        newWidgetEndDate,
+        tasks,
+        filteredTasksByGlobalDates,
+    ]);
+
+    // Custom Widgets Effect
+    useEffect(() => {
+        const existingIds = new Set(customWidgets.map((w) => w.id));
+
+        for (const [id, chart] of customWidgetChartRef.current.entries()) {
+            if (!existingIds.has(id)) {
+                chart.dispose();
+                customWidgetChartRef.current.delete(id);
+                customWidgetDomRef.current.delete(id);
+            }
+        }
+
+        customWidgets.forEach((w) => {
+            const dom = customWidgetDomRef.current.get(w.id);
+            if (!dom) return;
+            const chart = customWidgetChartRef.current.get(w.id) ?? (echarts.getInstanceByDom(dom) ?? echarts.init(dom));
+            customWidgetChartRef.current.set(w.id, chart);
+            chart.setOption(buildOptionForWidget(w), true);
+            chart.off('click');
+            chart.on('click', (params: any) => {
+                const xValue = (params?.name || '').toString();
+                const seriesName = (params?.seriesName || '').toString();
+
+                const activeMetrics = (Array.isArray(w.metrics) && w.metrics.length
+                    ? w.metrics
+                    : [w.metric || 'count']) as MetricKey[];
+                const hasMultiMetrics = activeMetrics.length > 1;
+
+                const effectiveGroupBy =
+                    hasMultiMetrics
+                        ? ('none' as const)
+                        : w.groupBy === 'none' && (w.chartType === 'stacked_bar' || w.chartType === 'grouped_bar' || w.chartType === 'clustered_bar')
+                            ? ('status' as DimensionKey)
+                            : w.groupBy;
+
+                const fromX = mapDimensionToFilters(w.xAxis, xValue);
+                const metricKeyFromSeries = hasMultiMetrics
+                    ? activeMetrics.find((m) => getMetricLabel(m) === seriesName)
+                    : undefined;
+                const fromMetric =
+                    metricKeyFromSeries === 'completed' ||
+                        metricKeyFromSeries === 'pending' ||
+                        metricKeyFromSeries === 'in_progress' ||
+                        metricKeyFromSeries === 'on_hold' ||
+                        metricKeyFromSeries === 'cancelled'
+                        ? mapDimensionToFilters('status', getMetricLabel(metricKeyFromSeries))
+                        : metricKeyFromSeries === 'overdue' || metricKeyFromSeries === 'upcoming' || metricKeyFromSeries === 'unscheduled'
+                            ? mapDimensionToFilters('completion_status', getMetricLabel(metricKeyFromSeries))
+                            : {};
+                const fromG =
+                    !hasMultiMetrics && effectiveGroupBy !== 'none' && seriesName && seriesName !== 'Tasks'
+                        ? mapDimensionToFilters(effectiveGroupBy, seriesName)
+                        : {};
+
+                navigateToTasks({
+                    q: appendQ(appendQ(fromX.q || '', fromG.q || ''), fromMetric.q || ''),
+                    status: fromMetric.status || fromG.status || fromX.status,
+                    priority: fromG.priority || fromX.priority,
+                    company: fromG.company || fromX.company,
+                    brand: fromG.brand || fromX.brand,
+                    taskType: fromG.taskType || fromX.taskType,
+                    date: fromMetric.date || fromG.date || fromX.date,
+                });
+            });
+            requestAnimationFrame(() => chart.resize());
+        });
+    }, [customWidgets, filteredTasksByGlobalDates]);
+
+    // Resize Observer for all charts
+    useEffect(() => {
+        const onResize = () => {
+            for (const chart of customWidgetChartRef.current.values()) {
+                chart.resize();
+            }
+        };
+        window.addEventListener('resize', onResize);
+        return () => {
+            window.removeEventListener('resize', onResize);
+        };
+    }, []);
+
+    // Chart initialization effects
+    useEffect(() => {
+        if (!chartRef.current) return;
+
+        const dom = chartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        chartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            chartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!assignedChartRef.current) return;
+
+        const dom = assignedChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        assignedChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            assignedChartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!assignedToChartRef.current) return;
+
+        const dom = assignedToChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        assignedToChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            assignedToChartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!trendsChartRef.current) return;
+
+        const dom = trendsChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        trendsChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            trendsChartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!leaderboardChartRef.current) return;
+
+        const dom = leaderboardChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        leaderboardChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            leaderboardChartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!performanceChartRef.current) return;
+
+        const dom = performanceChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        performanceChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            performanceChartInstanceRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!overdueByCompanyChartRef.current) return;
+
+        const dom = overdueByCompanyChartRef.current;
+        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
+        overdueByCompanyChartInstanceRef.current = chart;
+
+        const onResize = () => chart.resize();
+        window.addEventListener('resize', onResize);
+
+        const resizeObserver = new ResizeObserver(() => {
+            chart.resize();
+        });
+        resizeObserver.observe(dom);
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            resizeObserver.disconnect();
+            chart.dispose();
+            overdueByCompanyChartInstanceRef.current = null;
+        };
+    }, []);
+
+    // Get data for charts
     const createdByCounts = useMemo(() => {
         const getCreatorLabel = (t: Task): string => {
             const assignedByName = (t as any)?.assignedByName;
@@ -1904,325 +2163,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         return { categories, series };
     }, [filteredTasksByGlobalDates, trendsOptions, performanceGroupBy, performanceStartDate, performanceEndDate]);
 
-    useEffect(() => {
-        if (!isAddWidgetOpen) return;
-        const dom = addWidgetPreviewRef.current;
-        if (!dom) return;
-
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        addWidgetPreviewChartRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            addWidgetPreviewChartRef.current = null;
-        };
-    }, [isAddWidgetOpen]);
-
-    useEffect(() => {
-        if (!isAddWidgetOpen) return;
-        const chart = addWidgetPreviewChartRef.current;
-        if (!chart) return;
-
-        const computedTitle = getAutoWidgetTitle({
-            xAxis: newWidgetXAxis,
-            groupBy: newWidgetGroupBy,
-            metrics: newWidgetMetrics,
-        });
-
-        const option = buildOptionForWidget({
-            id: '__preview__',
-            title: computedTitle,
-            chartType: newWidgetChartType,
-            xAxis: newWidgetXAxis,
-            groupBy: newWidgetGroupBy,
-            yEntity: 'task',
-            metrics: newWidgetMetrics,
-            showPercent: newWidgetShowPercent,
-            filters: {
-                status: newWidgetFilterStatus,
-                priority: newWidgetFilterPriority,
-                assignee: newWidgetFilterAssignee,
-                taskType: newWidgetFilterTaskType,
-                company: newWidgetFilterCompany,
-                brand: newWidgetFilterBrand,
-                dateField: newWidgetDateField,
-                startDate: newWidgetStartDate,
-                endDate: newWidgetEndDate,
-            },
-        });
-        chart.setOption(option, true);
-        requestAnimationFrame(() => chart.resize());
-    }, [
-        isAddWidgetOpen,
-        newWidgetTitle,
-        newWidgetChartType,
-        newWidgetXAxis,
-        newWidgetGroupBy,
-        newWidgetMetrics,
-        newWidgetShowPercent,
-        newWidgetFilterStatus,
-        newWidgetFilterPriority,
-        newWidgetFilterAssignee,
-        newWidgetFilterTaskType,
-        newWidgetFilterCompany,
-        newWidgetFilterBrand,
-        newWidgetDateField,
-        newWidgetStartDate,
-        newWidgetEndDate,
-        tasks,
-        filteredTasksByGlobalDates,
-    ]);
-
-    useEffect(() => {
-        const existingIds = new Set(customWidgets.map((w) => w.id));
-
-        for (const [id, chart] of customWidgetChartRef.current.entries()) {
-            if (!existingIds.has(id)) {
-                chart.dispose();
-                customWidgetChartRef.current.delete(id);
-                customWidgetDomRef.current.delete(id);
-            }
-        }
-
-        customWidgets.forEach((w) => {
-            const dom = customWidgetDomRef.current.get(w.id);
-            if (!dom) return;
-            const chart = customWidgetChartRef.current.get(w.id) ?? (echarts.getInstanceByDom(dom) ?? echarts.init(dom));
-            customWidgetChartRef.current.set(w.id, chart);
-            chart.setOption(buildOptionForWidget(w), true);
-            chart.off('click');
-            chart.on('click', (params: any) => {
-                const xValue = (params?.name || '').toString();
-                const seriesName = (params?.seriesName || '').toString();
-
-                const activeMetrics = (Array.isArray(w.metrics) && w.metrics.length
-                    ? w.metrics
-                    : [w.metric || 'count']) as MetricKey[];
-                const hasMultiMetrics = activeMetrics.length > 1;
-
-                const effectiveGroupBy =
-                    hasMultiMetrics
-                        ? ('none' as const)
-                        : w.groupBy === 'none' && (w.chartType === 'stacked_bar' || w.chartType === 'grouped_bar' || w.chartType === 'clustered_bar')
-                            ? ('status' as DimensionKey)
-                            : w.groupBy;
-
-                const fromX = mapDimensionToFilters(w.xAxis, xValue);
-                const metricKeyFromSeries = hasMultiMetrics
-                    ? activeMetrics.find((m) => getMetricLabel(m) === seriesName)
-                    : undefined;
-                const fromMetric =
-                    metricKeyFromSeries === 'completed' ||
-                        metricKeyFromSeries === 'pending' ||
-                        metricKeyFromSeries === 'in_progress' ||
-                        metricKeyFromSeries === 'on_hold' ||
-                        metricKeyFromSeries === 'cancelled'
-                        ? mapDimensionToFilters('status', getMetricLabel(metricKeyFromSeries))
-                        : metricKeyFromSeries === 'overdue' || metricKeyFromSeries === 'upcoming' || metricKeyFromSeries === 'unscheduled'
-                            ? mapDimensionToFilters('completion_status', getMetricLabel(metricKeyFromSeries))
-                            : {};
-                const fromG =
-                    !hasMultiMetrics && effectiveGroupBy !== 'none' && seriesName && seriesName !== 'Tasks'
-                        ? mapDimensionToFilters(effectiveGroupBy, seriesName)
-                        : {};
-
-                navigateToTasks({
-                    q: appendQ(appendQ(fromX.q || '', fromG.q || ''), fromMetric.q || ''),
-                    status: fromMetric.status || fromG.status || fromX.status,
-                    priority: fromG.priority || fromX.priority,
-                    company: fromG.company || fromX.company,
-                    brand: fromG.brand || fromX.brand,
-                    taskType: fromG.taskType || fromX.taskType,
-                    date: fromMetric.date || fromG.date || fromX.date,
-                });
-            });
-            requestAnimationFrame(() => chart.resize());
-        });
-    }, [customWidgets, filteredTasksByGlobalDates]);
-
-    useEffect(() => {
-        const onResize = () => {
-            for (const chart of customWidgetChartRef.current.values()) {
-                chart.resize();
-            }
-        };
-        window.addEventListener('resize', onResize);
-        return () => {
-            window.removeEventListener('resize', onResize);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!chartRef.current) return;
-
-        const dom = chartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        chartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            chartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!leaderboardChartRef.current) return;
-
-        const dom = leaderboardChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        leaderboardChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            leaderboardChartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!performanceChartRef.current) return;
-
-        const dom = performanceChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        performanceChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            performanceChartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!overdueByCompanyChartRef.current) return;
-
-        const dom = overdueByCompanyChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        overdueByCompanyChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            overdueByCompanyChartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!trendsChartRef.current) return;
-
-        const dom = trendsChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        trendsChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            trendsChartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!assignedToChartRef.current) return;
-
-        const dom = assignedToChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        assignedToChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            assignedToChartInstanceRef.current = null;
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!assignedChartRef.current) return;
-
-        const dom = assignedChartRef.current;
-        const chart = echarts.getInstanceByDom(dom) ?? echarts.init(dom);
-        assignedChartInstanceRef.current = chart;
-
-        const onResize = () => chart.resize();
-        window.addEventListener('resize', onResize);
-
-        const resizeObserver = new ResizeObserver(() => {
-            chart.resize();
-        });
-        resizeObserver.observe(dom);
-
-        return () => {
-            window.removeEventListener('resize', onResize);
-            resizeObserver.disconnect();
-            chart.dispose();
-            assignedChartInstanceRef.current = null;
-        };
-    }, []);
-
+    // Chart update effects
     useEffect(() => {
         const chart = chartInstanceRef.current;
         if (!chart) return;
@@ -2395,7 +2336,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                 textStyle: { color: '#9ca3af', fontSize: 14, fontWeight: 400 },
             };
 
-        const colors = ['#3b82f6', '#10b981'];
+        const colors_ = ['#3b82f6', '#10b981'];
 
         const isPie = assignedChartType === 'pie' || assignedChartType === 'donut';
         const isNumber = assignedChartType === 'number';
@@ -2455,8 +2396,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                             radius: assignedChartType === 'donut' ? ['40%', '70%'] : '70%',
                             label: { show: true, formatter: '{b}: {c}' },
                             data: [
-                                { name: labels[0], value: values[0], itemStyle: { color: colors[0] } },
-                                { name: labels[1], value: values[1], itemStyle: { color: colors[1] } },
+                                { name: labels[0], value: values[0], itemStyle: { color: colors_[0] } },
+                                { name: labels[1], value: values[1], itemStyle: { color: colors_[1] } },
                             ],
                         },
                     ],
@@ -2475,7 +2416,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 data: values,
                                 barWidth: 2,
                                 itemStyle: {
-                                    color: (params: any) => colors[params?.dataIndex] || colors[0],
+                                    color: (params: any) => colors_[params?.dataIndex] || colors_[0],
                                 },
                             },
                             {
@@ -2484,7 +2425,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 data: values,
                                 symbolSize: 14,
                                 itemStyle: {
-                                    color: (params: any) => colors[params?.dataIndex] || colors[0],
+                                    color: (params: any) => colors_[params?.dataIndex] || colors_[0],
                                 },
                                 label: { show: true, position: 'top' },
                             },
@@ -2501,9 +2442,9 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 smooth: seriesType === 'line',
                                 symbolSize: 10,
                                 itemStyle: {
-                                    color: (params: any) => colors[params?.dataIndex] || colors[0],
+                                    color: (params: any) => colors_[params?.dataIndex] || colors_[0],
                                 },
-                                lineStyle: { color: colors[0], width: 3 },
+                                lineStyle: { color: colors_[0], width: 3 },
                                 areaStyle: isArea ? { opacity: 0.25 } : undefined,
                                 label: { show: true, position: 'top' },
                             },
@@ -2529,48 +2470,6 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     }, [assignedSummary, assignedChartType]);
 
     useEffect(() => {
-        const chart = overdueByCompanyChartInstanceRef.current;
-        if (!chart || hiddenBuiltinSet.has('overdue_by_company')) return;
-
-        const hasData = overdueByCompany.length > 0;
-        const emptyTitle = hasData ? undefined : {
-            text: 'No Overdue Tasks Found',
-            left: 'center',
-            top: 'middle',
-            textStyle: { color: '#9ca3af', fontSize: 14, fontWeight: 400 }
-        };
-
-        const option: echarts.EChartsOption = {
-            title: emptyTitle,
-            tooltip: { trigger: 'axis' },
-            grid: { left: 40, right: 20, top: 30, bottom: 80 },
-            xAxis: {
-                type: 'category',
-                data: overdueByCompany.map(x => x.name),
-                axisLabel: { rotate: 30 },
-            },
-            yAxis: {
-                type: 'value',
-                minInterval: 1,
-            },
-            series: [
-                {
-                    name: 'Overdue Tasks',
-                    data: overdueByCompany.map(x => x.count),
-                    type: 'bar',
-                    itemStyle: { color: '#ef4444' },
-                    label: { show: true, position: 'top' }
-                }
-            ]
-        };
-
-        chart.setOption(option, true);
-        requestAnimationFrame(() => {
-            chart.resize();
-        });
-    }, [overdueByCompany, hiddenBuiltinSet]);
-
-    useEffect(() => {
         const chart = assignedToChartInstanceRef.current;
         if (!chart) return;
 
@@ -2586,8 +2485,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
         const isNumber = assignedToChartType === 'number';
         const isLollipop = assignedToChartType === 'lollipop';
         const isArea = assignedToChartType === 'area';
-        const isLine =
-            assignedToChartType === 'line' || assignedToChartType === 'burnup' || assignedToChartType === 'burndown' || isArea;
+        const isLine = assignedToChartType === 'line' || assignedToChartType === 'burnup' || assignedToChartType === 'burndown' || isArea;
         const seriesType: 'bar' | 'line' = isLine ? 'line' : 'bar';
         const isGroupedOrClustered = assignedToChartType === 'grouped_bar' || assignedToChartType === 'clustered_bar';
 
@@ -2868,33 +2766,58 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     }, [performanceData]);
 
     useEffect(() => {
+        const chart = overdueByCompanyChartInstanceRef.current;
+        if (!chart || hiddenBuiltinSet.has('overdue_by_company')) return;
+
+        const hasData = overdueByCompany.length > 0;
+        const emptyTitle = hasData ? undefined : {
+            text: 'No Overdue Tasks Found',
+            left: 'center',
+            top: 'middle',
+            textStyle: { color: '#9ca3af', fontSize: 14, fontWeight: 400 }
+        };
+
+        const option: echarts.EChartsOption = {
+            title: emptyTitle,
+            tooltip: { trigger: 'axis' },
+            grid: { left: 40, right: 20, top: 30, bottom: 80 },
+            xAxis: {
+                type: 'category',
+                data: overdueByCompany.map(x => x.name),
+                axisLabel: { rotate: 30 },
+            },
+            yAxis: {
+                type: 'value',
+                minInterval: 1,
+            },
+            series: [
+                {
+                    name: 'Overdue Tasks',
+                    data: overdueByCompany.map(x => x.count),
+                    type: 'bar',
+                    itemStyle: { color: '#ef4444' },
+                    label: { show: true, position: 'top' }
+                }
+            ]
+        };
+
+        chart.setOption(option, true);
         requestAnimationFrame(() => {
-            chartInstanceRef.current?.resize();
-            assignedChartInstanceRef.current?.resize();
-            assignedToChartInstanceRef.current?.resize();
-            trendsChartInstanceRef.current?.resize();
-            leaderboardChartInstanceRef.current?.resize();
-            performanceChartInstanceRef.current?.resize();
-            for (const chart of customWidgetChartRef.current.values()) {
-                chart.resize();
-            }
+            chart.resize();
         });
-    }, [chartsPerRow]);
+    }, [overdueByCompany, hiddenBuiltinSet]);
 
     const handleAddMetric = () => {
-        // Display Label માંથી internal name બનાવો
         const metricName = newMetricLabel
             .toLowerCase()
-            .replace(/[^\w\s]/gi, '') // special characters હટાવો
-            .replace(/\s+/g, '_'); // spaces ને underscores માં બદલો
+            .replace(/[^\w\s]/gi, '')
+            .replace(/\s+/g, '_');
 
-        // Validate
         if (!newMetricLabel.trim()) {
             alert('Please enter a metric label');
             return;
         }
 
-        // Check if metric already exists
         const exists = additionalMetrics.some(
             (m) => m.value === metricName || m.label.toLowerCase() === newMetricLabel.toLowerCase().trim()
         );
@@ -2904,891 +2827,939 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             return;
         }
 
-        // Add new metric to additionalMetrics
         const newMetric = {
-            value: metricName, // internal name
-            label: newMetricLabel.trim(), // display label
+            value: metricName,
+            label: newMetricLabel.trim(),
         };
 
         setAdditionalMetrics(prev => [...prev, newMetric]);
 
-        // Also add to newWidgetMetrics if not already there
         if (!newWidgetMetrics.includes(metricName as MetricKey)) {
             setNewWidgetMetrics(prev => [...prev, metricName as MetricKey]);
         }
 
-        // Reset and close modal
         setNewMetricLabel('');
         setShowAddMetricModal(false);
     };
 
+    // Layout container with reduced width
+    const containerClasses = "max-w-7xl mx-auto px-4 sm:px-6 py-6";
+
+    // Grid resize effect
+    useEffect(() => {
+        const update = () => {
+            let best = 1;
+            let reason = '';
+
+            if (gridRef.current) {
+                const containerWidth = gridRef.current.offsetWidth;
+                const gap = 20;
+                const idealChartWidth = 420;
+
+                if (containerWidth >= 4 * idealChartWidth + 3 * gap) {
+                    best = 4;
+                    reason = 'Plenty of space for 4 charts';
+                } else if (containerWidth >= 3 * idealChartWidth + 2 * gap) {
+                    best = 3;
+                    reason = 'Good fit for 3 charts';
+                } else if (containerWidth >= 2 * idealChartWidth + gap) {
+                    best = 2;
+                    reason = 'Comfortable for 2 charts';
+                } else {
+                    best = 1;
+                    reason = 'Narrow screen, 1 chart per row best';
+                }
+            } else {
+                const w = window.innerWidth;
+                if (w < 768) { best = 1; reason = 'Narrow screen, 1 chart per row best'; }
+                else if (w < 1024) { best = 2; reason = 'Comfortable for 2 charts'; }
+                else if (w < 1280) { best = 3; reason = 'Good fit for 3 charts'; }
+                else { best = 4; reason = 'Plenty of space for 4 charts'; }
+            }
+
+            setRecommendCols(best);
+            setRecommendReason(reason);
+            if (!userHasChangedChartsPerRow) {
+                setChartsPerRow(best as 1 | 2 | 3 | 4);
+            }
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        if (gridRef.current) ro.observe(gridRef.current);
+        window.addEventListener('resize', update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', update);
+        };
+    }, [userHasChangedChartsPerRow]);
+
+    // Final JSX return - same as before but with updated styling
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Analyze</h1>
-                    <p className="text-gray-600">Task analytics overview</p>
-                </div>
-
-                <div className="hidden sm:flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-2 scrollbar-none">
-                    <div className="text-sm font-medium text-gray-500 whitespace-nowrap">Charts per row:</div>
-                    <div className="flex bg-gray-100 p-1 rounded-xl items-center flex-nowrap">
-                        {[1, 2, 3, 4].map((n) => (
-                            <button
-                                key={n}
-                                onClick={() => {
-                                    setChartsPerRow(n as any);
-                                    setUserHasChangedChartsPerRow(true);
-                                }}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${chartsPerRow === n
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                                    }`}
-                            >
-                                {n}
-                            </button>
-                        ))}
-                    </div>
-                    {!userHasChangedChartsPerRow && (
-                        <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full" title={recommendReason}>
-                            Rec: {recommendCols}
-                        </span>
-                    )}
-
-                    {isAdminUser && (
-                        <button
-                            type="button"
-                            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700 transition shadow-sm flex items-center gap-2"
-                            onClick={() => {
-                                setNewWidgetTitle('');
-                                setNewWidgetChartType('bar');
-                                setNewWidgetXAxis('task_type');
-                                setNewWidgetGroupBy('status');
-                                setNewWidgetMetrics(['count']);
-                                setNewWidgetFilterStatus('all');
-                                setNewWidgetFilterPriority('all');
-                                setNewWidgetFilterAssignee('all');
-                                setNewWidgetFilterTaskType('all');
-                                setNewWidgetFilterCompany('all');
-                                setNewWidgetFilterBrand('all');
-                                setNewWidgetDateField('createdAt');
-                                setNewWidgetStartDate('');
-                                setNewWidgetEndDate('');
-                                setIsAddWidgetOpen(true);
-                            }}
-                        >
-                            <PlusCircle className="h-4 w-4" />
-                            Add Chart
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Global Filters */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
-                <div className="flex flex-col gap-1 min-w-[200px]">
-                    <div className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <Building2 className="h-3 w-3" />
-                        Company
-                    </div>
-                    <select
-                        value={globalCompany}
-                        onChange={(e) => setGlobalCompany(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="all">All Companies</option>
-                        {companies.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="flex flex-col gap-1 min-w-[150px]">
-                    <div className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <Calendar className="h-3 w-3" />
-                        Time Period
-                    </div>
-                    <select
-                        value={globalTimePeriod}
-                        onChange={(e) => setGlobalTimePeriod(e.target.value as any)}
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="all">All Time</option>
-                        <option value="daily">Today</option>
-                        <option value="weekly">This Week</option>
-                        <option value="monthly">This Month</option>
-                        <option value="custom">Custom Range</option>
-                    </select>
-                </div>
-
-                {globalTimePeriod === 'monthly' && (
-                    <div className="flex flex-col gap-1 min-w-[150px]">
-                        <div className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                            <CalendarClock className="h-3 w-3" />
-                            Select Month
-                        </div>
-                        <input
-                            type="month"
-                            value={globalMonth}
-                            onChange={(e) => setGlobalMonth(e.target.value)}
-                            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-                )}
-
-                <div className="flex flex-col gap-1 min-w-[150px]">
-                    <div className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        <Filter className="h-3 w-3" />
-                        Date Field
-                    </div>
-                    <select
-                        value={globalDateField}
-                        onChange={(e) => setGlobalDateField(e.target.value as any)}
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        <option value="createdAt">Created Date</option>
-                        <option value="dueDate">Due Date</option>
-                        <option value="completedAt">Completed Date</option>
-                        <option value="updatedAt">Updated Date</option>
-                    </select>
-                </div>
-
-                {globalTimePeriod === 'custom' && (
-                    <>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Date</label>
-                            <input
-                                type="date"
-                                value={globalStartDate}
-                                onChange={(e) => setGlobalStartDate(e.target.value)}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">End Date</label>
-                            <input
-                                type="date"
-                                value={globalEndDate}
-                                onChange={(e) => setGlobalEndDate(e.target.value)}
-                                className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        </div>
-                    </>
-                )}
-
-                <div className="flex-grow" />
-
-                <button
-                    onClick={() => {
-                        setGlobalCompany('all');
-                        setGlobalTimePeriod('all');
-                        setGlobalStartDate('');
-                        setGlobalEndDate('');
-                        setGlobalDateField('createdAt');
-                        setGlobalMonth(new Date().toISOString().substring(0, 7));
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                    Clear All
-                </button>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <BarChart3 className="h-12 w-12 text-blue-600" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-500 mb-1">Total Tasks</span>
-                    <span className="text-2xl font-bold text-gray-900">{globalSummary.total}</span>
-                    <div className="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }} />
-                    </div>
-                </div>
-                
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <CheckCircle2 className="h-12 w-12 text-emerald-600" />
-                    </div>
-                    <span className="text-sm font-medium text-emerald-600 mb-1">Completed</span>
-                    <span className="text-2xl font-bold text-gray-900">{globalSummary.completed}</span>
-                    <div className="mt-4 h-1.5 w-full bg-emerald-50 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${globalSummary.rate}%` }} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Clock className="h-12 w-12 text-amber-600" />
-                    </div>
-                    <span className="text-sm font-medium text-amber-600 mb-1">Pending</span>
-                    <span className="text-2xl font-bold text-gray-900">{globalSummary.pending}</span>
-                    <div className="mt-4 h-1.5 w-full bg-amber-50 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 rounded-full" style={{ width: `${globalSummary.total > 0 ? (globalSummary.pending / globalSummary.total) * 100 : 0}%` }} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <AlertCircle className="h-12 w-12 text-red-600" />
-                    </div>
-                    <span className="text-sm font-medium text-red-600 mb-1">Overdue</span>
-                    <span className="text-2xl font-bold text-gray-900">{globalSummary.overdue}</span>
-                    <div className="mt-4 h-1.5 w-full bg-red-50 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${globalSummary.total > 0 ? (globalSummary.overdue / globalSummary.total) * 100 : 0}%` }} />
-                    </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col bg-emerald-50/20">
-                    <span className="text-sm font-medium text-emerald-700 mb-1">Completion Rate</span>
-                    <span className="text-3xl font-bold text-emerald-700">{globalSummary.rate}%</span>
-                    <div className="mt-4 h-2 w-full bg-white rounded-full overflow-hidden border border-emerald-100">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${globalSummary.rate}%` }} />
-                    </div>
-                    <p className="text-[10px] text-emerald-600 mt-2 font-medium uppercase tracking-tighter">Overall Efficiency</p>
-                </div>
-            </div>
-            
-            {/* Smart Analysis Summary */}
-            {smartInsights && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-4">
-                            <BarChart3 className="h-5 w-5 text-blue-600" />
-                            <h3 className="text-lg font-bold text-gray-900">Overall Analysis Summary</h3>
-                        </div>
-                        <div className="space-y-4">
-                            <p className="text-gray-600 leading-relaxed text-sm">
-                                {globalCompany === 'all' ? 'Across all companies' : `For ${globalCompany}`}, 
-                                the overall team health is <span className={`font-bold ${smartInsights.health === 'Good' ? 'text-emerald-600' : smartInsights.health === 'Critical' ? 'text-red-600' : 'text-amber-600'}`}>
-                                {smartInsights.health}</span>. 
-                                {globalSummary.total > 0 && (
-                                    <>
-                                        {' '}With a completion rate of <span className="font-bold text-gray-900">{globalSummary.rate}%</span>, 
-                                        the primary bottleneck is currently tasks in <span className="font-bold text-gray-900 capitalize">"{smartInsights.bottleneckStatus || 'N/A'}"</span> status. 
-                                        Most task activities are related to <span className="font-bold text-gray-900">"{smartInsights.bottleneckType || 'N/A'}"</span>.
-                                        The majority of tasks are categorized as <span className="font-bold text-gray-900 capitalize">"{smartInsights.topPriority || 'N/A'}"</span> priority.
-                                    </>
-                                )}
-                            </p>
-                            <div className="flex flex-wrap gap-3">
-                                {smartInsights.topPerformer && (
-                                    <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 inline-flex items-center gap-2">
-                                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                        <span className="text-xs text-emerald-800">
-                                            <span className="font-bold">{smartInsights.topPerformer}</span> is the top performer ({smartInsights.performerCount} completions)
-                                        </span>
-                                    </div>
-                                )}
-                                {globalSummary.overdue > 0 && (
-                                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 inline-flex items-center gap-2">
-                                        <AlertCircle className="h-4 w-4 text-red-600" />
-                                        <div className="flex flex-col">
-                                            <span className="text-xs text-red-800 font-medium">
-                                                <span className="font-bold">{globalSummary.overdue}</span> critical tasks are overdue
-                                            </span>
-                                            {smartInsights.overdueHighPriority > 0 && (
-                                                <span className="text-[10px] text-red-700 font-bold uppercase tracking-wider">
-                                                    Includes {smartInsights.overdueHighPriority} High/Urgent tasks
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+            <div className={containerClasses}>
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2.5 rounded-xl" style={{ backgroundColor: colors.primary.ultralight }}>
+                                <BarChart3 className="h-6 w-6" style={{ color: colors.primary.main }} />
                             </div>
+                            <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
                         </div>
+                        <p className="text-sm text-gray-500">Comprehensive task analytics and performance insights</p>
                     </div>
-                    <div className="w-full md:w-64 flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-6">
-                        <div className="text-center mb-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Overall Progress</span>
-                        </div>
-                        <div className="relative h-32 w-32 mx-auto flex items-center justify-center">
-                            <svg className="h-40 w-40 transform -rotate-90">
-                                <circle
-                                    cx="80"
-                                    cy="80"
-                                    r="70"
-                                    fill="transparent"
-                                    stroke="#f3f4f6"
-                                    strokeWidth="12"
-                                />
-                                <circle
-                                    cx="80"
-                                    cy="80"
-                                    r="70"
-                                    fill="transparent"
-                                    stroke={smartInsights.health === 'Good' ? '#10b981' : smartInsights.health === 'Critical' ? '#ef4444' : '#f59e0b'}
-                                    strokeWidth="12"
-                                    strokeDasharray={439.8}
-                                    strokeDashoffset={439.8 - (439.8 * globalSummary.rate) / 100}
-                                    strokeLinecap="round"
-                                    className="transition-all duration-1000 ease-out"
-                                />
-                            </svg>
-                            <div className="absolute flex flex-col items-center">
-                                <span className="text-3xl font-bold text-gray-900">{globalSummary.rate}%</span>
-                                <span className="text-[10px] text-gray-400 font-medium">DONE</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Detailed User Performance Report */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-                <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <Users className="h-5 w-5 text-blue-600" />
+                        <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
+                            {[1, 2, 3, 4].map((n) => (
+                                <button
+                                    key={n}
+                                    onClick={() => {
+                                        setChartsPerRow(n as any);
+                                        setUserHasChangedChartsPerRow(true);
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${chartsPerRow === n
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    style={chartsPerRow === n ? { color: colors.primary.main } : {}}
+                                >
+                                    {n}
+                                </button>
+                            ))}
                         </div>
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900">Detailed User Performance Report</h3>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {globalMonth} • {reportFilterCompany === 'all' ? (globalCompany === 'all' ? 'All Companies' : globalCompany) : reportFilterCompany}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative group">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                            <select
-                                value={reportFilterCompany}
-                                onChange={(e) => setReportFilterCompany(e.target.value)}
-                                className="pl-9 pr-8 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-gray-300 transition-all appearance-none cursor-pointer"
+                        {!userHasChangedChartsPerRow && (
+                            <span className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: colors.primary.ultralight, color: colors.primary.main }}>
+                                Rec: {recommendCols}
+                            </span>
+                        )}
+
+                        {isAdminUser && (
+                            <button
+                                type="button"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white shadow-md hover:shadow-lg transition-all duration-200"
+                                style={{ backgroundColor: colors.primary.main }}
+                                onClick={() => {
+                                    setNewWidgetTitle('');
+                                    setNewWidgetChartType('bar');
+                                    setNewWidgetXAxis('task_type');
+                                    setNewWidgetGroupBy('status');
+                                    setNewWidgetMetrics(['count']);
+                                    setNewWidgetFilterStatus('all');
+                                    setNewWidgetFilterPriority('all');
+                                    setNewWidgetFilterAssignee('all');
+                                    setNewWidgetFilterTaskType('all');
+                                    setNewWidgetFilterCompany('all');
+                                    setNewWidgetFilterBrand('all');
+                                    setNewWidgetDateField('createdAt');
+                                    setNewWidgetStartDate('');
+                                    setNewWidgetEndDate('');
+                                    setIsAddWidgetOpen(true);
+                                }}
                             >
-                                <option value="all">Company: All</option>
-                                {companies.map((c) => (
-                                    <option key={c} value={c}>
-                                        {c}
-                                    </option>
+                                <PlusCircle className="h-4 w-4" />
+                                Add Chart
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Global Filters - Modern Design */}
+                <div className="bg-white rounded-2xl shadow-sm border p-5 mb-6" style={{ borderColor: `${colors.primary.main}15` }}>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: `${colors.primary.main}05` }}>
+                            <Filter className="h-4 w-4" style={{ color: colors.primary.main }} />
+                            <span className="text-xs font-medium text-gray-600">Filters</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1 min-w-[180px]">
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                Company
+                            </label>
+                            <select
+                                value={globalCompany}
+                                onChange={(e) => setGlobalCompany(e.target.value)}
+                                className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                style={{ borderColor: `${colors.primary.main}20` }}
+                            >
+                                <option value="all">All Companies</option>
+                                {companies.map(c => (
+                                    <option key={c} value={c}>{c}</option>
                                 ))}
                             </select>
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
-                            </div>
                         </div>
-                        <button 
-                            onClick={handleExportReport}
-                            disabled={userReportData.length === 0}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm shadow-blue-200 transition-all active:scale-95"
+
+                        <div className="flex flex-col gap-1 min-w-[140px]">
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Period
+                            </label>
+                            <select
+                                value={globalTimePeriod}
+                                onChange={(e) => setGlobalTimePeriod(e.target.value as any)}
+                                className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                style={{ borderColor: `${colors.primary.main}20` }}
+                            >
+                                <option value="all">All Time</option>
+                                <option value="daily">Today</option>
+                                <option value="weekly">This Week</option>
+                                <option value="monthly">This Month</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+
+                        {globalTimePeriod === 'monthly' && (
+                            <div className="flex flex-col gap-1 min-w-[140px]">
+                                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Month</label>
+                                <input
+                                    type="month"
+                                    value={globalMonth}
+                                    onChange={(e) => setGlobalMonth(e.target.value)}
+                                    className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                    style={{ borderColor: `${colors.primary.main}20` }}
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-1 min-w-[140px]">
+                            <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                                <CalendarClock className="h-3 w-3" />
+                                Date Field
+                            </label>
+                            <select
+                                value={globalDateField}
+                                onChange={(e) => setGlobalDateField(e.target.value as any)}
+                                className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                style={{ borderColor: `${colors.primary.main}20` }}
+                            >
+                                <option value="createdAt">Created Date</option>
+                                <option value="dueDate">Due Date</option>
+                                <option value="completedAt">Completed Date</option>
+                                <option value="updatedAt">Updated Date</option>
+                            </select>
+                        </div>
+
+                        {globalTimePeriod === 'custom' && (
+                            <>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Start</label>
+                                    <input
+                                        type="date"
+                                        value={globalStartDate}
+                                        onChange={(e) => setGlobalStartDate(e.target.value)}
+                                        className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">End</label>
+                                    <input
+                                        type="date"
+                                        value={globalEndDate}
+                                        onChange={(e) => setGlobalEndDate(e.target.value)}
+                                        className="bg-gray-50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 transition-all"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        <button
+                            onClick={() => {
+                                setGlobalCompany('all');
+                                setGlobalTimePeriod('all');
+                                setGlobalStartDate('');
+                                setGlobalEndDate('');
+                                setGlobalDateField('createdAt');
+                                setGlobalMonth(new Date().toISOString().substring(0, 7));
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ml-auto"
+                            style={{ color: colors.primary.main, backgroundColor: `${colors.primary.main}10` }}
                         >
-                            <Download className="h-4 w-4" />
-                            Export CSV
+                            Clear All
                         </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50/50">
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Total</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-emerald-600">Completed</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-amber-600">Pending</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-red-600">Overdue</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Success Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {userReportData.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400 italic">
-                                        No user data found for this selection
-                                    </td>
-                                </tr>
-                            ) : (
-                                userReportData.map((row) => (
-                                    <tr key={row.name} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
-                                                    {row.name.charAt(0).toUpperCase()}
-                                                </div>
-                                                <span className="text-sm font-semibold text-gray-700">{row.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                                            <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-gray-100 text-sm font-bold text-gray-700">
-                                                {row.total}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
-                                                {row.completed}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
-                                                {row.pending}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center whitespace-nowrap">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 font-mono">
-                                                {row.overdue}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex-grow bg-gray-100 h-2 rounded-full overflow-hidden max-w-[100px]">
-                                                    <div 
-                                                        className={`h-full rounded-full transition-all duration-500 ${
-                                                            row.rate > 75 ? 'bg-emerald-500' : row.rate > 40 ? 'bg-amber-500' : 'bg-red-500'
-                                                        }`}
-                                                        style={{ width: `${row.rate}%` }}
-                                                    />
-                                                </div>
-                                                <span className={`text-xs font-bold ${
-                                                    row.rate > 75 ? 'text-emerald-700' : row.rate > 40 ? 'text-amber-700' : 'text-red-700'
-                                                }`}>
-                                                    {row.rate}%
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+                    <div className="bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium text-gray-500">Total Tasks</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{globalSummary.total}</p>
+                            </div>
+                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                <BarChart3 className="h-5 w-5" style={{ color: colors.primary.main }} />
+                            </div>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: `${colors.primary.main}15` }}>
+                            <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: colors.primary.main }} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium text-emerald-600">Completed</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{globalSummary.completed}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-emerald-50">
+                                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                            </div>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden bg-emerald-100">
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${globalSummary.rate}%` }} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium text-amber-600">Pending</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{globalSummary.pending}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-amber-50">
+                                <Clock className="h-5 w-5 text-amber-600" />
+                            </div>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden bg-amber-100">
+                            <div className="h-full rounded-full bg-amber-500" style={{ width: `${globalSummary.total > 0 ? (globalSummary.pending / globalSummary.total) * 100 : 0}%` }} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium text-red-600">Overdue</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{globalSummary.overdue}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-red-50">
+                                <AlertCircle className="h-5 w-5 text-red-600" />
+                            </div>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden bg-red-100">
+                            <div className="h-full rounded-full bg-red-500" style={{ width: `${globalSummary.total > 0 ? (globalSummary.overdue / globalSummary.total) * 100 : 0}%` }} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: `${colors.primary.main}15`, backgroundColor: `${colors.primary.main}02` }}>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium" style={{ color: colors.primary.main }}>Completion Rate</p>
+                                <p className="text-2xl font-bold mt-1" style={{ color: colors.primary.main }}>{globalSummary.rate}%</p>
+                            </div>
+                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                <Target className="h-5 w-5" style={{ color: colors.primary.main }} />
+                            </div>
+                        </div>
+                        <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: `${colors.primary.main}15` }}>
+                            <div className="h-full rounded-full" style={{ width: `${globalSummary.rate}%`, backgroundColor: colors.primary.main }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Smart Analysis Summary */}
+                {smartInsights && (
+                    <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-6" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="relative p-5">
+                            <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: colors.primary.main }}></div>
+                            <div className="flex flex-col md:flex-row gap-5">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Zap className="h-5 w-5" style={{ color: colors.primary.main }} />
+                                        <h3 className="text-base font-bold text-gray-900">Smart Analysis</h3>
+                                    </div>
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        {globalCompany === 'all' ? 'Across all companies' : `For ${globalCompany}`},
+                                        the overall team health is <span className={`font-bold ${smartInsights.health === 'Good' ? 'text-emerald-600' : smartInsights.health === 'Critical' ? 'text-red-600' : 'text-amber-600'}`}>
+                                            {smartInsights.health}</span>.
+                                        {globalSummary.total > 0 && (
+                                            <>
+                                                {' '}With a completion rate of <span className="font-bold text-gray-900">{globalSummary.rate}%</span>,
+                                                the primary bottleneck is currently tasks in <span className="font-bold text-gray-900 capitalize">"{smartInsights.bottleneckStatus || 'N/A'}"</span> status.
+                                                Most task activities are related to <span className="font-bold text-gray-900">"{smartInsights.bottleneckType || 'N/A'}"</span>.
+                                            </>
+                                        )}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        {smartInsights.topPerformer && (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                <Award className="h-3.5 w-3.5" style={{ color: colors.primary.main }} />
+                                                <span className="text-xs font-medium" style={{ color: colors.primary.main }}>
+                                                    {smartInsights.topPerformer} - {smartInsights.performerCount} completions
                                                 </span>
                                             </div>
+                                        )}
+                                        {globalSummary.overdue > 0 && (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50">
+                                                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                                <span className="text-xs font-medium text-red-700">
+                                                    {smartInsights.overdueHighPriority > 0 ? `${smartInsights.overdueHighPriority} high priority overdue` : `${globalSummary.overdue} tasks overdue`}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-center md:w-36">
+                                    <div className="relative h-24 w-24">
+                                        <svg className="h-24 w-24 transform -rotate-90">
+                                            <circle
+                                                cx="48"
+                                                cy="48"
+                                                r="42"
+                                                fill="transparent"
+                                                stroke="#e5e7eb"
+                                                strokeWidth="8"
+                                            />
+                                            <circle
+                                                cx="48"
+                                                cy="48"
+                                                r="42"
+                                                fill="transparent"
+                                                stroke={smartInsights.health === 'Good' ? '#10b981' : smartInsights.health === 'Critical' ? '#ef4444' : '#f59e0b'}
+                                                strokeWidth="8"
+                                                strokeDasharray={263.89}
+                                                strokeDashoffset={263.89 - (263.89 * globalSummary.rate) / 100}
+                                                strokeLinecap="round"
+                                                className="transition-all duration-1000"
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-xl font-bold text-gray-900">{globalSummary.rate}%</span>
+                                            <span className="text-[9px] text-gray-400 font-medium">RATE</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Detailed User Performance Report */}
+                <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-6" style={{ borderColor: `${colors.primary.main}15` }}>
+                    <div className="p-5 border-b" style={{ borderColor: `${colors.primary.main}10`, backgroundColor: `${colors.primary.main}03` }}>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                    <Users className="h-5 w-5" style={{ color: colors.primary.main }} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-gray-900">User Performance Report</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        {globalMonth} • {reportFilterCompany === 'all' ? (globalCompany === 'all' ? 'All Companies' : globalCompany) : reportFilterCompany}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="relative">
+                                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                                    <select
+                                        value={reportFilterCompany}
+                                        onChange={(e) => setReportFilterCompany(e.target.value)}
+                                        className="pl-9 pr-8 py-1.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                    >
+                                        <option value="all">All Companies</option>
+                                        {companies.map((c) => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={handleExportReport}
+                                    disabled={userReportData.length === 0}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{ backgroundColor: colors.primary.main }}
+                                >
+                                    <Download className="h-3.5 w-3.5" />
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="border-b" style={{ borderColor: `${colors.primary.main}10`, backgroundColor: `${colors.primary.main}05` }}>
+                                <tr>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Total</th>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-emerald-600">Completed</th>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-amber-600">Pending</th>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-red-600">Overdue</th>
+                                    <th className="px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Success Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y" style={{ borderColor: `${colors.primary.main}10` }}>
+                                {userReportData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-5 py-10 text-center text-gray-400 italic">
+                                            No user data found for this selection
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    userReportData.map((row) => (
+                                        <tr key={row.name} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-5 py-3 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.primary.light})` }}>
+                                                        {row.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-sm font-medium text-gray-700">{row.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-5 py-3 text-center whitespace-nowrap">
+                                                <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg text-sm font-bold text-gray-700" style={{ backgroundColor: `${colors.primary.main}10` }}>
+                                                    {row.total}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center whitespace-nowrap">
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
+                                                    {row.completed}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center whitespace-nowrap">
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
+                                                    {row.pending}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 text-center whitespace-nowrap">
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700">
+                                                    {row.overdue}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3 whitespace-nowrap min-w-[140px]">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-grow bg-gray-100 h-1.5 rounded-full overflow-hidden max-w-[80px]">
+                                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${row.rate}%`, backgroundColor: row.rate > 75 ? '#10b981' : row.rate > 40 ? '#f59e0b' : '#ef4444' }} />
+                                                    </div>
+                                                    <span className={`text-xs font-bold ${row.rate > 75 ? 'text-emerald-600' : row.rate > 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                                                        {row.rate}%
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            {isAdminUser && (hiddenBuiltinCharts.length > 0 || hiddenCustomWidgetIds.length > 0) && (
-                <div className="bg-white border border-gray-200 rounded-xl px-4 py-3">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Hidden charts</div>
-                    <div className="flex flex-wrap gap-2">
-                        {BUILTIN_CHARTS.filter((c) => hiddenBuiltinSet.has(c.key)).map((c) => (
-                            <button
-                                key={c.key}
-                                type="button"
-                                className="text-xs px-3 py-1.5 rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
-                                onClick={() => toggleBuiltinChart(c.key)}
-                            >
-                                Show {c.label}
-                            </button>
-                        ))}
-                        {customWidgets
-                            .filter((w) => hiddenCustomWidgetSet.has(w.id))
-                            .map((w) => (
+                {/* Hidden Charts Section */}
+                {isAdminUser && (hiddenBuiltinCharts.length > 0 || hiddenCustomWidgetIds.length > 0) && (
+                    <div className="bg-white border rounded-xl px-4 py-3 mb-6" style={{ borderColor: `${colors.primary.main}15` }}>
+                        <div className="text-sm font-medium text-gray-700 mb-2">Hidden charts</div>
+                        <div className="flex flex-wrap gap-2">
+                            {BUILTIN_CHARTS.filter((c) => hiddenBuiltinSet.has(c.key)).map((c) => (
                                 <button
-                                    key={w.id}
+                                    key={c.key}
                                     type="button"
-                                    className="text-xs px-3 py-1.5 rounded-full border border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
-                                    onClick={() => toggleCustomWidgetHidden(w.id)}
+                                    className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:bg-gray-50"
+                                    style={{ borderColor: `${colors.primary.main}20`, color: colors.primary.main }}
+                                    onClick={() => toggleBuiltinChart(c.key)}
                                 >
-                                    Show{' '}
+                                    Show {c.label}
+                                </button>
+                            ))}
+                            {customWidgets
+                                .filter((w) => hiddenCustomWidgetSet.has(w.id))
+                                .map((w) => (
+                                    <button
+                                        key={w.id}
+                                        type="button"
+                                        className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:bg-gray-50"
+                                        style={{ borderColor: `${colors.primary.main}20`, color: colors.primary.main }}
+                                        onClick={() => toggleCustomWidgetHidden(w.id)}
+                                    >
+                                        Show{' '}
+                                        {w.title ||
+                                            getAutoWidgetTitle({
+                                                xAxis: w.xAxis,
+                                                groupBy: w.groupBy,
+                                                metrics: (w.metrics && w.metrics.length ? w.metrics : [w.metric || 'count']) as MetricKey[],
+                                            })}
+                                    </button>
+                                ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Charts Grid */}
+                <div
+                    ref={gridRef}
+                    className={`grid grid-cols-1 ${chartsPerRow === 2 ? 'md:grid-cols-2' : chartsPerRow === 3 ? 'lg:grid-cols-3' : chartsPerRow === 4 ? 'xl:grid-cols-4' : 'lg:grid-cols-1'} gap-5`}
+                >
+                    {/* Overdue by Company Chart */}
+                    {!hiddenBuiltinSet.has('overdue_by_company') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5 text-red-600" />
+                                    <h2 className="text-base font-semibold text-gray-900">Overdue Tasks by User</h2>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {isAdminUser && (
+                                        <select
+                                            value={overdueChartCompany}
+                                            onChange={(e) => setOverdueChartCompany(e.target.value)}
+                                            className="border rounded-lg px-2 py-1 text-xs"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
+                                        >
+                                            <option value="all">All Companies</option>
+                                            {companies.map(c => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('overdue_by_company')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={overdueByCompanyChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Assign By Chart */}
+                    {!hiddenBuiltinSet.has('assign_by') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-base font-semibold text-gray-900">Assign By</h2>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1">
+                                        Chart
+                                        <select
+                                            className="ml-1 border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
+                                            value={chartType}
+                                            onChange={(e) => setChartType(e.target.value as ChartType)}
+                                        >
+                                            {CHART_TYPE_OPTIONS.map((o) => (
+                                                <option key={o.value} value={o.value}>{o.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <div className="text-xs text-gray-500">Total: {(tasks || []).length}</div>
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('assign_by')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={chartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Assigned Chart */}
+                    {!hiddenBuiltinSet.has('assigned') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-base font-semibold text-gray-900">Assigned</h2>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1">
+                                        Chart
+                                        <select
+                                            className="ml-1 border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
+                                            value={assignedChartType}
+                                            onChange={(e) => setAssignedChartType(e.target.value as ChartType)}
+                                        >
+                                            {CHART_TYPE_OPTIONS.map((o) => (
+                                                <option key={o.value} value={o.value}>{o.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <div className="text-xs text-gray-500">Assigned by/to you</div>
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('assigned')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={assignedChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Assigned To Chart */}
+                    {!hiddenBuiltinSet.has('assigned_to') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-base font-semibold text-gray-900">Assigned To</h2>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs text-gray-500 flex items-center gap-1">
+                                        Chart
+                                        <select
+                                            className="ml-1 border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
+                                            value={assignedToChartType}
+                                            onChange={(e) => setAssignedToChartType(e.target.value as ChartType)}
+                                        >
+                                            {CHART_TYPE_OPTIONS.map((o) => (
+                                                <option key={o.value} value={o.value}>{o.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('assigned_to')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={assignedToChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Completion Trends Chart */}
+                    {!hiddenBuiltinSet.has('completion_trends') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                <h2 className="text-base font-semibold text-gray-900">Completion trends</h2>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsGranularity}
+                                        onChange={(e) => setTrendsGranularity(e.target.value as any)}
+                                    >
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsAssignee}
+                                        onChange={(e) => setTrendsAssignee(e.target.value)}
+                                    >
+                                        {(trendsOptions.assignees || []).map((a) => (
+                                            <option key={a} value={a}>{a === 'all' ? 'All assignees' : a}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsCompany}
+                                        onChange={(e) => setTrendsCompany(e.target.value)}
+                                    >
+                                        {(trendsOptions.companies || []).map((c) => (
+                                            <option key={c} value={c}>{c === 'all' ? 'All companies' : c}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsBrand}
+                                        onChange={(e) => setTrendsBrand(e.target.value)}
+                                    >
+                                        {(trendsOptions.brands || []).map((b) => (
+                                            <option key={b} value={b}>{b === 'all' ? 'All brands' : b}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsStartDate}
+                                        onChange={(e) => setTrendsStartDate(e.target.value)}
+                                    />
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={trendsEndDate}
+                                        onChange={(e) => setTrendsEndDate(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('completion_trends')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={trendsChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Manager Analysis Chart */}
+                    {!hiddenBuiltinSet.has('manager_analysis') && (
+                        <ManagerAnalysisChart
+                            tasks={filteredTasksByGlobalDates}
+                            canDelete={isAdminUser}
+                            onDelete={() => toggleBuiltinChart('manager_analysis')}
+                        />
+                    )}
+
+                    {/* Leaderboard Chart */}
+                    {!hiddenBuiltinSet.has('leaderboard') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                <h2 className="text-base font-semibold text-gray-900">Leaderboard</h2>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardMetric}
+                                        onChange={(e) => setLeaderboardMetric(e.target.value as any)}
+                                    >
+                                        <option value="completed">Completed</option>
+                                        <option value="rate">Completion rate</option>
+                                    </select>
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardCompany}
+                                        onChange={(e) => setLeaderboardCompany(e.target.value)}
+                                    >
+                                        {(trendsOptions.companies || []).map((c) => (
+                                            <option key={c} value={c}>{c === 'all' ? 'All companies' : c}</option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardBrand}
+                                        onChange={(e) => setLeaderboardBrand(e.target.value)}
+                                    >
+                                        {(trendsOptions.brands || []).map((b) => (
+                                            <option key={b} value={b}>{b === 'all' ? 'All brands' : b}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardStartDate}
+                                        onChange={(e) => setLeaderboardStartDate(e.target.value)}
+                                    />
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardEndDate}
+                                        onChange={(e) => setLeaderboardEndDate(e.target.value)}
+                                    />
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs w-[70px]"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={leaderboardTopN}
+                                        onChange={(e) => setLeaderboardTopN(Number(e.target.value) || 5)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('leaderboard')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={leaderboardChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Status Breakdown Chart */}
+                    {!hiddenBuiltinSet.has('status_breakdown') && (
+                        <div className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                                <h2 className="text-base font-semibold text-gray-900">Status breakdown</h2>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <select
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={performanceGroupBy}
+                                        onChange={(e) => setPerformanceGroupBy(e.target.value as any)}
+                                    >
+                                        <option value="company">Group by Company</option>
+                                        <option value="brand">Group by Brand</option>
+                                    </select>
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={performanceStartDate}
+                                        onChange={(e) => setPerformanceStartDate(e.target.value)}
+                                    />
+                                    <input
+                                        type="date"
+                                        className="border rounded-lg px-2 py-1 text-gray-700 bg-white text-xs"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
+                                        value={performanceEndDate}
+                                        onChange={(e) => setPerformanceEndDate(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                                        disabled={!isAdminUser}
+                                        onClick={() => toggleBuiltinChart('status_breakdown')}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div ref={performanceChartRef} className="w-full" style={{ height: 320 }} />
+                        </div>
+                    )}
+
+                    {/* Custom Widgets */}
+                    {customWidgets.filter((w) => !hiddenCustomWidgetSet.has(w.id)).map((w) => (
+                        <div key={w.id} className="bg-white rounded-2xl shadow-sm border p-5" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="flex items-center justify-between mb-4 gap-3">
+                                <h2 className="text-base font-semibold text-gray-900 line-clamp-1">
                                     {w.title ||
                                         getAutoWidgetTitle({
                                             xAxis: w.xAxis,
                                             groupBy: w.groupBy,
                                             metrics: (w.metrics && w.metrics.length ? w.metrics : [w.metric || 'count']) as MetricKey[],
                                         })}
-                                </button>
-                            ))}
-                    </div>
-                </div>
-            )}
-
-            <div
-                ref={gridRef}
-                className={`grid grid-cols-1 ${chartsPerRow === 2 ? 'lg:grid-cols-2' : chartsPerRow === 3 ? 'lg:grid-cols-3' : chartsPerRow === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-6`}
-            >
-                {!hiddenBuiltinSet.has('overdue_by_company') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="h-5 w-5 text-red-600" />
-                                <h2 className="text-lg font-semibold text-gray-900">Overdue Tasks by User</h2>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                {isAdminUser && (
-                                    <select
-                                        value={overdueChartCompany}
-                                        onChange={(e) => setOverdueChartCompany(e.target.value)}
-                                        className="border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white"
-                                    >
-                                        <option value="all">All Companies</option>
-                                        {companies.map(c => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                )}
+                                </h2>
                                 <button
                                     type="button"
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        isAdminUser
-                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                            : 'text-gray-300 cursor-not-allowed'
-                                    }`}
-                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    className={`p-1.5 rounded-lg transition-colors ${isAdminUser ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
                                     disabled={!isAdminUser}
-                                    onClick={() => toggleBuiltinChart('overdue_by_company')}
+                                    onClick={() => toggleCustomWidgetHidden(w.id)}
                                 >
-                                    <Trash2 className="h-5 w-5" />
+                                    <Trash2 className="h-4 w-4" />
                                 </button>
                             </div>
-                        </div>
-                        <div ref={overdueByCompanyChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-                {!hiddenBuiltinSet.has('assign_by') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Assign By </h2>
-                            <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={chartType}
-                                    onChange={(e) => setChartType(e.target.value as ChartType)}
-                                >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <div className="text-sm text-gray-500">Total: {(tasks || []).length}</div>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assign_by')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={chartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {!hiddenBuiltinSet.has('assigned') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Assigned</h2>
-                            <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={assignedChartType}
-                                    onChange={(e) => setAssignedChartType(e.target.value as ChartType)}
-                                >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <div className="text-sm text-gray-500">Assigned by/to you</div>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assigned')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={assignedChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {!hiddenBuiltinSet.has('assigned_to') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold text-gray-900">Assigned To </h2>
-                            <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={assignedToChartType}
-                                    onChange={(e) => setAssignedToChartType(e.target.value as ChartType)}
-                                >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assigned_to')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={assignedToChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {!hiddenBuiltinSet.has('completion_trends') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4 gap-3">
-                            <h2 className="text-lg font-semibold text-gray-900">Completion trends</h2>
-                            <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsGranularity}
-                                onChange={(e) => setTrendsGranularity(e.target.value as any)}
-                            >
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsAssignee}
-                                onChange={(e) => setTrendsAssignee(e.target.value)}
-                            >
-                                {(trendsOptions.assignees || []).map((a) => (
-                                    <option key={a} value={a}>
-                                        {a === 'all' ? 'All assignees' : a}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsCompany}
-                                onChange={(e) => setTrendsCompany(e.target.value)}
-                            >
-                                {(trendsOptions.companies || []).map((c) => (
-                                    <option key={c} value={c}>
-                                        {c === 'all' ? 'All companies' : c}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsBrand}
-                                onChange={(e) => setTrendsBrand(e.target.value)}
-                            >
-                                {(trendsOptions.brands || []).map((b) => (
-                                    <option key={b} value={b}>
-                                        {b === 'all' ? 'All brands' : b}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsStartDate}
-                                onChange={(e) => setTrendsStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsEndDate}
-                                onChange={(e) => setTrendsEndDate(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('completion_trends')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={trendsChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {!hiddenBuiltinSet.has('manager_analysis') && (
-                    <ManagerAnalysisChart
-                        tasks={filteredTasksByGlobalDates}
-                        canDelete={isAdminUser}
-                        onDelete={() => toggleBuiltinChart('manager_analysis')}
-                    />
-                )}
-
-                {!hiddenBuiltinSet.has('leaderboard') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4 gap-3">
-                            <h2 className="text-lg font-semibold text-gray-900">Leaderboard</h2>
-                            <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardMetric}
-                                onChange={(e) => setLeaderboardMetric(e.target.value as any)}
-                            >
-                                <option value="completed">Completed</option>
-                                <option value="rate">Completion rate</option>
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardCompany}
-                                onChange={(e) => setLeaderboardCompany(e.target.value)}
-                            >
-                                {(trendsOptions.companies || []).map((c) => (
-                                    <option key={c} value={c}>
-                                        {c === 'all' ? 'All companies' : c}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardBrand}
-                                onChange={(e) => setLeaderboardBrand(e.target.value)}
-                            >
-                                {(trendsOptions.brands || []).map((b) => (
-                                    <option key={b} value={b}>
-                                        {b === 'all' ? 'All brands' : b}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardStartDate}
-                                onChange={(e) => setLeaderboardStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardEndDate}
-                                onChange={(e) => setLeaderboardEndDate(e.target.value)}
-                            />
-                            <input
-                                type="number"
-                                min={1}
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm w-[80px]"
-                                value={leaderboardTopN}
-                                onChange={(e) => setLeaderboardTopN(Number(e.target.value) || 5)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('leaderboard')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={leaderboardChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {!hiddenBuiltinSet.has('status_breakdown') && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4 gap-3">
-                            <h2 className="text-lg font-semibold text-gray-900">Status breakdown</h2>
-                            <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceGroupBy}
-                                onChange={(e) => setPerformanceGroupBy(e.target.value as any)}
-                            >
-                                <option value="company">Group by Company</option>
-                                <option value="brand">Group by Brand</option>
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceStartDate}
-                                onChange={(e) => setPerformanceStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceEndDate}
-                                onChange={(e) => setPerformanceEndDate(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('status_breakdown')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
-                        </div>
-                        <div ref={performanceChartRef} className="w-full" style={{ height: 360 }} />
-                    </div>
-                )}
-
-                {customWidgets.filter((w) => !hiddenCustomWidgetSet.has(w.id)).map((w) => (
-                    <div key={w.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-                        <div className="flex items-center justify-between mb-4 gap-3">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                {w.title ||
-                                    getAutoWidgetTitle({
-                                        xAxis: w.xAxis,
-                                        groupBy: w.groupBy,
-                                        metrics: (w.metrics && w.metrics.length ? w.metrics : [w.metric || 'count']) as MetricKey[],
-                                    })}
-                            </h2>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => {
-                                    if (!isAdminUser) return;
-                                    toggleCustomWidgetHidden(w.id);
+                            <div
+                                ref={(el) => {
+                                    if (el) customWidgetDomRef.current.set(w.id, el);
+                                    else customWidgetDomRef.current.delete(w.id);
                                 }}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
+                                className="w-full"
+                                style={{ height: 320 }}
+                            />
                         </div>
-                        <div
-                            ref={(el) => {
-                                if (el) customWidgetDomRef.current.set(w.id, el);
-                                else customWidgetDomRef.current.delete(w.id);
-                            }}
-                            className="w-full"
-                            style={{ height: 360 }}
-                        />
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
 
+            {/* Add Widget Modal */}
             {isAdminUser && isAddWidgetOpen && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -3796,10 +3767,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         if (e.target === e.currentTarget) setIsAddWidgetOpen(false);
                     }}
                 >
-                    <div className="bg-white w-full max-w-6xl h-[80vh] rounded-2xl shadow-lg overflow-hidden flex">
+                    <div className="bg-white w-full max-w-6xl h-[85vh] rounded-2xl shadow-lg overflow-hidden flex">
                         <div className="flex-1 p-6 border-r border-gray-200 flex flex-col">
                             <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold text-gray-900">Add chart</h2>
+                                <h2 className="text-xl font-semibold text-gray-900">Add custom chart</h2>
                                 <button
                                     type="button"
                                     className="text-gray-500 hover:text-gray-700"
@@ -3808,61 +3779,53 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                     ✕
                                 </button>
                             </div>
-                            <div ref={addWidgetPreviewRef} className="w-full flex-1" />
+                            <div ref={addWidgetPreviewRef} className="w-full flex-1 min-h-0" />
                         </div>
-                        <div className="w-80 p-6 flex flex-col">
-                            <div className="flex-1 overflow-auto space-y-4">
+                        <div className="w-80 p-6 flex flex-col overflow-y-auto">
+                            <div className="flex-1 space-y-4">
                                 <div>
                                     <div className="text-sm font-medium text-gray-700 mb-1">Chart title</div>
                                     <input
                                         type="text"
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                        className="w-full border rounded-lg px-3 py-2 text-gray-800 bg-white text-sm"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
                                         placeholder="e.g., Tasks by Status"
                                         value={newWidgetTitle}
                                         onChange={(e) => setNewWidgetTitle(e.target.value)}
                                     />
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Leave empty to use an auto-generated title.
-                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">Leave empty to auto-generate</div>
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-gray-700 mb-1">Chart type</div>
                                     <select
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                        className="w-full border rounded-lg px-3 py-2 text-gray-800 bg-white text-sm"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
                                         value={newWidgetChartType}
                                         onChange={(e) => {
                                             const nextType = e.target.value as ChartType;
                                             setNewWidgetChartType(nextType);
-                                            const nextXAxis =
-                                                nextType === 'clustered_bar' ? ('created_year_range' as DimensionKey) : newWidgetXAxis;
-
+                                            const nextXAxis = nextType === 'clustered_bar' ? ('created_year_range' as DimensionKey) : newWidgetXAxis;
                                             if (nextType === 'clustered_bar') {
                                                 setNewWidgetShowPercent(true);
                                                 setNewWidgetXAxis(nextXAxis);
                                             } else if (nextType !== 'grouped_bar') {
                                                 setNewWidgetShowPercent(false);
                                             }
-
-                                            if (
-                                                (nextType === 'stacked_bar' || nextType === 'grouped_bar' || nextType === 'clustered_bar') &&
-                                                newWidgetGroupBy === 'none'
-                                            ) {
+                                            if ((nextType === 'stacked_bar' || nextType === 'grouped_bar' || nextType === 'clustered_bar') && newWidgetGroupBy === 'none') {
                                                 setNewWidgetGroupBy(nextXAxis === 'status' ? 'priority' : 'status');
                                             }
                                         }}
                                     >
                                         {ADD_WIDGET_CHART_TYPE_OPTIONS.map((o) => (
-                                            <option key={o.value} value={o.value}>
-                                                {o.label}
-                                            </option>
+                                            <option key={o.value} value={o.value}>{o.label}</option>
                                         ))}
                                     </select>
                                 </div>
-
                                 <div>
                                     <div className="text-sm font-medium text-gray-700 mb-1">X-axis</div>
                                     <select
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                        className="w-full border rounded-lg px-3 py-2 text-gray-800 bg-white text-sm"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
                                         value={newWidgetXAxis}
                                         onChange={(e) => {
                                             const v = e.target.value as DimensionKey;
@@ -3873,47 +3836,40 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                         }}
                                     >
                                         {DIMENSION_OPTIONS.map((o) => (
-                                            <option key={o.value} value={o.value}>
-                                                {o.label}
-                                            </option>
+                                            <option key={o.value} value={o.value}>{o.label}</option>
                                         ))}
                                     </select>
                                 </div>
-
                                 <div>
                                     <div className="text-sm font-medium text-gray-700 mb-1">Group by</div>
                                     <select
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                        className="w-full border rounded-lg px-3 py-2 text-gray-800 bg-white text-sm"
+                                        style={{ borderColor: `${colors.primary.main}20` }}
                                         value={newWidgetGroupBy}
                                         onChange={(e) => setNewWidgetGroupBy(e.target.value as any)}
                                     >
                                         <option value="none">None</option>
                                         {DIMENSION_OPTIONS.filter((o) => o.value !== newWidgetXAxis).map((o) => (
-                                            <option key={o.value} value={o.value}>
-                                                {o.label}
-                                            </option>
+                                            <option key={o.value} value={o.value}>{o.label}</option>
                                         ))}
                                     </select>
                                 </div>
-
                                 <div>
-                                    <div className="text-sm text-gray-500 mb-1">Y-axis metrics</div>
-                                    <div className="border border-gray-200 rounded-lg p-2 max-h-[220px] overflow-auto">
-                                        <div className="space-y-2">
+                                    <div className="text-sm text-gray-700 mb-1">Y-axis metrics</div>
+                                    <div className="border rounded-lg p-2 max-h-[200px] overflow-auto" style={{ borderColor: `${colors.primary.main}20` }}>
+                                        <div className="space-y-1.5">
                                             {[...TASK_METRIC_OPTIONS, ...additionalMetrics].map((o) => {
                                                 const checked = newWidgetMetrics.includes(o.value as MetricKey);
                                                 return (
                                                     <label key={o.value} className="flex items-center gap-2 text-sm text-gray-700">
                                                         <input
                                                             type="checkbox"
-                                                            className="h-4 w-4"
+                                                            className="h-3.5 w-3.5"
                                                             checked={checked}
                                                             onChange={() => {
                                                                 setNewWidgetMetrics((prev) => {
                                                                     const exists = prev.includes(o.value as MetricKey);
-                                                                    const next = exists
-                                                                        ? prev.filter((m) => m !== (o.value as MetricKey))
-                                                                        : [...prev, o.value as MetricKey];
+                                                                    const next = exists ? prev.filter((m) => m !== (o.value as MetricKey)) : [...prev, o.value as MetricKey];
                                                                     const safe = next.length ? next : (['count'] as MetricKey[]);
                                                                     if (safe.length > 1) setNewWidgetGroupBy('none');
                                                                     return safe;
@@ -3934,14 +3890,14 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                         </button>
                                     </div>
                                 </div>
-
-                                <div>
-                                    <div className="text-sm text-gray-500 mb-1">Filters</div>
-                                    <div className="space-y-2">
+                                <details className="text-sm">
+                                    <summary className="text-sm font-medium text-gray-700 cursor-pointer">Filters</summary>
+                                    <div className="mt-3 space-y-2">
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Status</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterStatus}
                                                 onChange={(e) => setNewWidgetFilterStatus(e.target.value as any)}
                                             >
@@ -3953,11 +3909,11 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 <option value="cancelled">Cancelled</option>
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Priority</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterPriority}
                                                 onChange={(e) => setNewWidgetFilterPriority(e.target.value as any)}
                                             >
@@ -3968,11 +3924,11 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 <option value="urgent">Urgent</option>
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Assigned</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterAssignee}
                                                 onChange={(e) => setNewWidgetFilterAssignee(e.target.value)}
                                             >
@@ -3983,31 +3939,27 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 ))}
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Type</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterTaskType}
                                                 onChange={(e) => setNewWidgetFilterTaskType(e.target.value)}
                                             >
                                                 <option value="all">All Types</option>
-                                                {Array.from(
-                                                    new Set((tasks || []).map((t) => normalizeText((t as any)?.taskType || (t as any)?.type) || 'Unknown'))
-                                                )
+                                                {Array.from(new Set((tasks || []).map((t) => normalizeText((t as any)?.taskType || (t as any)?.type) || 'Unknown')))
                                                     .sort((a, b) => a.localeCompare(b))
                                                     .map((tt) => (
-                                                        <option key={tt} value={(tt || 'Unknown').toLowerCase()}>
-                                                            {tt}
-                                                        </option>
+                                                        <option key={tt} value={(tt || 'Unknown').toLowerCase()}>{tt}</option>
                                                     ))}
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Company</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterCompany}
                                                 onChange={(e) => setNewWidgetFilterCompany(e.target.value)}
                                             >
@@ -4018,11 +3970,11 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 ))}
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Brand</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetFilterBrand}
                                                 onChange={(e) => setNewWidgetFilterBrand(e.target.value)}
                                             >
@@ -4033,11 +3985,11 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 ))}
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Date Field</div>
                                             <select
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetDateField}
                                                 onChange={(e) => setNewWidgetDateField(e.target.value as any)}
                                             >
@@ -4047,48 +3999,47 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 <option value="updatedAt">Updated Date</option>
                                             </select>
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">Start Date</div>
                                             <input
                                                 type="date"
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetStartDate}
                                                 onChange={(e) => setNewWidgetStartDate(e.target.value)}
                                             />
                                         </div>
-
                                         <div>
                                             <div className="text-xs text-gray-500 mb-1">End Date</div>
                                             <input
                                                 type="date"
-                                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                                className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                                 value={newWidgetEndDate}
                                                 onChange={(e) => setNewWidgetEndDate(e.target.value)}
                                             />
                                         </div>
                                     </div>
-                                </div>
+                                </details>
                             </div>
-
-                            <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
+                            <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2 mt-4">
                                 <button
                                     type="button"
-                                    className="border border-gray-300 rounded-lg px-4 py-2 text-gray-700 bg-white hover:bg-gray-50"
+                                    className="border rounded-lg px-4 py-2 text-gray-700 bg-white hover:bg-gray-50 text-sm"
+                                    style={{ borderColor: `${colors.primary.main}20` }}
                                     onClick={() => setIsAddWidgetOpen(false)}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
-                                    className="rounded-lg px-4 py-2 text-white bg-blue-600 hover:bg-blue-700"
+                                    className="rounded-lg px-4 py-2 text-white text-sm"
+                                    style={{ backgroundColor: colors.primary.main }}
                                     onClick={() => {
                                         const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-                                        const effectiveGroupBy =
-                                            newWidgetGroupBy === 'none' &&
-                                                (newWidgetChartType === 'stacked_bar' || newWidgetChartType === 'grouped_bar' || newWidgetChartType === 'clustered_bar')
-                                                ? (newWidgetXAxis === 'status' ? 'priority' : 'status')
-                                                : newWidgetGroupBy;
+                                        const effectiveGroupBy = newWidgetGroupBy === 'none' && (newWidgetChartType === 'stacked_bar' || newWidgetChartType === 'grouped_bar' || newWidgetChartType === 'clustered_bar')
+                                            ? (newWidgetXAxis === 'status' ? 'priority' : 'status')
+                                            : newWidgetGroupBy;
                                         const autoTitle = getAutoWidgetTitle({
                                             xAxis: newWidgetXAxis,
                                             groupBy: effectiveGroupBy,
@@ -4130,6 +4081,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                 </div>
             )}
 
+            {/* Add Metric Modal */}
             {showAddMetricModal && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -4144,7 +4096,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Display Label</label>
                                 <input
                                     type="text"
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                    className="w-full border rounded-lg px-3 py-2 text-gray-800 bg-white"
+                                    style={{ borderColor: `${colors.primary.main}20` }}
                                     placeholder="e.g., Customer Satisfaction"
                                     value={newMetricLabel}
                                     onChange={(e) => setNewMetricLabel(e.target.value)}
@@ -4152,18 +4105,21 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                         if (e.key === 'Enter') handleAddMetric();
                                     }}
                                 />
+                                <p className="text-xs text-gray-500 mt-1">This will appear in metric selection lists</p>
                             </div>
                             <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-2">
                                 <button
                                     type="button"
-                                    className="border border-gray-300 rounded-lg px-4 py-2 text-gray-700 bg-white hover:bg-gray-50"
+                                    className="border rounded-lg px-4 py-2 text-gray-700 bg-white hover:bg-gray-50"
+                                    style={{ borderColor: `${colors.primary.main}20` }}
                                     onClick={() => setShowAddMetricModal(false)}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
-                                    className="rounded-lg px-4 py-2 text-white bg-blue-600 hover:bg-blue-700"
+                                    className="rounded-lg px-4 py-2 text-white"
+                                    style={{ backgroundColor: colors.primary.main }}
                                     onClick={handleAddMetric}
                                 >
                                     Add Metric
