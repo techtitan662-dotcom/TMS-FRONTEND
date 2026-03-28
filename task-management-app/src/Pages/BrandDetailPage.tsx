@@ -18,6 +18,11 @@ import {
     History,
     FileText,
     Trash2,
+    Clock,
+    AlertCircle,
+    BarChart3,
+    Users,
+    CalendarDays
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -26,6 +31,15 @@ import { taskService } from '../Services/Task.services';
 import { brandService } from '../Services/Brand.service';
 import { BrandDetailSkeleton } from '../Components/LoadingSkeletons';
 import { routepath } from '../Routes/route';
+
+// Color theme
+const colors = {
+    primary: {
+        main: '#1e3a8a',
+        light: '#3b82f6',
+        ultralight: '#dbeafe'
+    }
+};
 
 interface BrandDetailPageProps {
     brands?: Brand[];
@@ -41,7 +55,7 @@ interface BrandDetailPageProps {
 const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
     brands = [],
     currentUser,
-    isSidebarCollapsed = false,
+    isSidebarCollapsed: _isSidebarCollapsed = false,
     brandId: brandIdProp,
     onBack,
     availableUsers = [],
@@ -94,11 +108,9 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
 
     // Get brand from props or API using brandId
     useEffect(() => {
-        // Reset tasks and API flag when brand changes
         setTasks([]);
         setTasksFromAPI(false);
         
-        // Only show loading if we need to fetch data
         const needsLoading = brands.length === 0 || !brandId;
         setLoading(needsLoading);
 
@@ -140,7 +152,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         }
     }, [brands, brandId]);
 
-    // Helper functions for assignee names - FIXED VERSION
     const getAssignedByName = useCallback((task: Task): string => {
         if ((task as any).assignedByName) {
             return (task as any).assignedByName;
@@ -153,7 +164,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         if (typeof task.assignedBy === 'string') {
             const user = availableUsers.find(u => u.email === task.assignedBy || u.id === task.assignedBy);
             if (user) return user.name;
-            // FIX: Use optional chaining before split
             return task.assignedBy?.split('@')[0] || 'Unknown';
         }
 
@@ -172,7 +182,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         if (typeof task.assignedTo === 'string') {
             const user = availableUsers.find(u => u.email === task.assignedTo || u.id === task.assignedTo);
             if (user) return user.name;
-            // FIX: Use optional chaining before split
             return task.assignedTo?.split('@')[0] || 'Unknown';
         }
 
@@ -249,7 +258,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
             return;
         }
 
-        // If we already have globalTasks, don't show loading
         if (globalTasks.length > 0 && !tasksFromAPI) {
             const brandTasks = globalTasks.filter(task =>
                 String(task.brandId) === String(localBrand.id) ||
@@ -260,10 +268,8 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
             return;
         }
 
-        // Only show loading if we need to fetch from API
         setLoading(true);
         try {
-            // If tasks were already provided by the API getBrandById response, keep them.
             if (!tasksFromAPI) {
                 const brandTasks = globalTasks.filter(task =>
                     String(task.brandId) === String(localBrand.id) ||
@@ -279,12 +285,11 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         }
     }, [localBrand, globalTasks, tasksFromAPI]);
 
-    // Fetch full task history on demand (same as All Tasks page)
+    // Fetch full task history on demand
     useEffect(() => {
         const taskId = selectedTaskForHistory;
         if (!taskId) return;
 
-        // Avoid refetching if we already have it
         if (Array.isArray(historyByTaskId[taskId]) && historyByTaskId[taskId].length > 0) {
             return;
         }
@@ -370,14 +375,11 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                 if (!matchesTitle && !matchesAssignee) return false;
             }
 
-            // Handle status filter with special case for 'overdue'
             if (statusFilter !== 'all') {
                 if (statusFilter === 'overdue') {
-                    // Overdue: not completed and due date has passed
                     const isOverdue = task.status !== 'completed' && new Date(task.dueDate) < new Date();
                     if (!isOverdue) return false;
                 } else {
-                    // Regular status filter
                     if (task.status !== statusFilter) return false;
                 }
             }
@@ -406,7 +408,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                 })));
             }
 
-            // Add task creation as history
             allHistory.push({
                 id: `task-created-${task.id}`,
                 action: 'task_created',
@@ -426,7 +427,7 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         );
     }, [tasks, getAssignedByName, localBrand]);
 
-    // Get specific task history (when a task is selected)
+    // Get specific task history
     const selectedTaskHistory = useMemo(() => {
         if (!selectedTaskForHistory) return [];
 
@@ -435,7 +436,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
 
         const taskHistory: any[] = [];
 
-        // Derived overdue timeline item (to avoid "Unknown / Invalid Date" noise and still show overdue context)
         try {
             const due = new Date(task.dueDate);
             const now = new Date();
@@ -460,7 +460,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
             // ignore
         }
 
-        // Add task history (prefer fetched history; fallback to task.history)
         const historyList = (historyByTaskId[selectedTaskForHistory] && Array.isArray(historyByTaskId[selectedTaskForHistory]))
             ? historyByTaskId[selectedTaskForHistory]
             : (Array.isArray((task as any).history) ? (task as any).history : []);
@@ -478,7 +477,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
             })));
         }
 
-        // Add task creation
         taskHistory.push({
             id: `task-created-${task.id}`,
             action: 'task_created',
@@ -497,49 +495,49 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
         );
     }, [selectedTaskForHistory, tasks, getAssignedByName, localBrand, historyByTaskId, getAssignedToName]);
 
-    // Get displayed history based on selection
+    // Get displayed history
     const displayedHistory = useMemo(() => {
         return selectedTaskForHistory ? selectedTaskHistory : allTaskHistory;
     }, [selectedTaskForHistory, selectedTaskHistory, allTaskHistory]);
 
     const getStatusColor = useCallback((status: string) => {
         switch (status) {
-            case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-            case 'in-progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-            case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'overdue': return 'bg-red-100 text-red-800 border-red-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200';
+            case 'completed': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+            case 'in-progress': return 'bg-blue-50 text-blue-700 border-blue-100';
+            case 'pending': return 'bg-amber-50 text-amber-700 border-amber-100';
+            case 'overdue': return 'bg-rose-50 text-rose-700 border-rose-100';
+            default: return 'bg-gray-50 text-gray-600 border-gray-100';
         }
     }, []);
 
     const getPriorityColor = useCallback((priority: string | undefined) => {
         switch (priority) {
-            case 'high': return 'bg-red-100 text-red-800 border-red-200';
-            case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200'; // default for undefined
+            case 'high': return 'bg-rose-50 text-rose-700 border-rose-100';
+            case 'medium': return 'bg-amber-50 text-amber-700 border-amber-100';
+            case 'low': return 'bg-blue-50 text-blue-700 border-blue-100';
+            default: return 'bg-gray-50 text-gray-600 border-gray-100';
         }
     }, []);
 
     const getActionIcon = useCallback((action: string) => {
         switch (action) {
-            case 'task_created': return <FileText className="h-4 w-4" />;
-            case 'task_completed': return <CheckCircle className="h-4 w-4" />;
-            case 'task_updated': return <Edit className="h-4 w-4" />;
-            case 'status_changed': return <Activity className="h-4 w-4" />;
-            case 'comment_added': return <MessageSquare className="h-4 w-4" />;
+            case 'task_created': return <FileText className="h-3.5 w-3.5" />;
+            case 'task_completed': return <CheckCircle className="h-3.5 w-3.5" />;
+            case 'task_updated': return <Edit className="h-3.5 w-3.5" />;
+            case 'status_changed': return <Activity className="h-3.5 w-3.5" />;
+            case 'comment_added': return <MessageSquare className="h-3.5 w-3.5" />;
             case 'brand_created':
             case 'created':
-                return <Building className="h-4 w-4" />;
+                return <Building className="h-3.5 w-3.5" />;
             case 'brand_updated':
             case 'updated':
-                return <Edit className="h-4 w-4" />;
+                return <Edit className="h-3.5 w-3.5" />;
             case 'brand_deleted':
             case 'deleted':
-                return <Trash2 className="h-4 w-4" />;
+                return <Trash2 className="h-3.5 w-3.5" />;
             case 'restored':
-                return <Activity className="h-4 w-4" />;
-            default: return <Activity className="h-4 w-4" />;
+                return <Activity className="h-3.5 w-3.5" />;
+            default: return <Activity className="h-3.5 w-3.5" />;
         }
     }, []);
 
@@ -573,7 +571,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                     break;
             }
 
-            // Use updateTask method with the updated task object
             const result = await taskService.updateTask(taskId, {
                 ...task,
                 status: newStatus
@@ -581,7 +578,6 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
 
             if (result.success) {
                 toast.success(`Task ${action}ed successfully`);
-                // Update local task state
                 setTasks(prev => prev.map(t =>
                     t.id === taskId ? { ...t, status: newStatus } : t
                 ));
@@ -600,8 +596,8 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
     }, []);
 
     const containerClasses = useMemo(() => {
-        return `w-full max-w-full mx-auto px-4 sm:px-6 md:px-8 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'lg:px-6' : 'lg:px-8'}`;
-    }, [isSidebarCollapsed]);
+        return `max-w-6xl mx-auto px-4 sm:px-6 transition-all duration-300 ease-in-out`;
+    }, []);
 
     if (brandLoading) {
         return <BrandDetailSkeleton containerClassName={containerClasses} />;
@@ -609,12 +605,12 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
 
     if (!localBrand) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-12">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-12">
                 <div className="text-center">
                     <Building className="h-16 w-16 text-gray-300 mx-auto mb-6" />
                     <h3 className="text-2xl font-bold text-gray-900 mb-4">Brand not found</h3>
-                    <button onClick={handleBack} className="inline-flex items-center text-blue-600 font-bold hover:underline">
-                        <ArrowLeft className="h-4 w-4 mr-2" /> Back to Brands
+                    <button onClick={handleBack} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl transition-colors" style={{ backgroundColor: colors.primary.ultralight, color: colors.primary.main }}>
+                        <ArrowLeft className="h-4 w-4" /> Back to Brands
                     </button>
                 </div>
             </div>
@@ -622,33 +618,38 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 pb-12">
+            {/* Header with Gradient Border */}
+            <div className="relative bg-white border-b sticky top-0 z-20 shadow-sm" style={{ borderColor: `${colors.primary.main}15` }}>
+                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `linear-gradient(90deg, ${colors.primary.main}, ${colors.primary.light})` }}></div>
                 <div className={containerClasses}>
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between py-6 gap-4">
-                        <div className="flex items-center gap-5">
-                            <button onClick={handleBack} className="p-2 bg-gray-100 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between py-5 gap-4">
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={handleBack} 
+                                className="p-2 rounded-xl hover:bg-gray-100 transition-all duration-200"
+                                style={{ color: colors.primary.main }}
+                            >
                                 <ArrowLeft className="h-5 w-5" />
                             </button>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 {localBrand.logo ? (
-                                    <img src={localBrand.logo} alt={localBrand.name} className="h-12 w-12 rounded-xl object-cover border border-gray-200" />
+                                    <img src={localBrand.logo} alt={localBrand.name} className="h-11 w-11 rounded-xl object-cover border" style={{ borderColor: `${colors.primary.main}20` }} />
                                 ) : (
-                                    <div className="h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center text-white">
-                                        <Building className="h-6 w-6" />
+                                    <div className="h-11 w-11 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${colors.primary.main}, ${colors.primary.light})` }}>
+                                        <Building className="h-5 w-5 text-white" />
                                     </div>
                                 )}
                                 <div>
-                                    <h1 className="text-2xl font-bold text-gray-900">{localBrand.name}</h1>
-                                    <p className="text-gray-500 text-sm">{localBrand.company} • {brandStats.totalTasks} Tasks</p>
+                                    <h1 className="text-xl font-bold text-gray-900">{localBrand.name}</h1>
+                                    <p className="text-sm text-gray-500">{localBrand.company} • {brandStats.totalTasks} Tasks</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div className="flex gap-8">
+                    <div className="flex gap-6">
                         {['tasks', 'history'].map((tab) => (
                             <button
                                 key={tab}
@@ -658,11 +659,13 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                         setSelectedTaskForHistory(null);
                                     }
                                 }}
-                                className={`py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                                className={`py-2.5 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                                style={activeTab === tab ? { borderColor: colors.primary.main, color: colors.primary.main } : {}}
                             >
+                                {tab === 'tasks' ? <BarChart3 className="h-4 w-4" /> : <History className="h-4 w-4" />}
                                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                                 {tab === 'history' && (brandHistory.length > 0 || displayedHistory.length > 0) && (
-                                    <span className="bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded-full">
+                                    <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}>
                                         {brandHistory.length + displayedHistory.length}
                                     </span>
                                 )}
@@ -673,88 +676,76 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
             </div>
 
             <div className={containerClasses}>
-                <div className="py-8">
+                <div className="py-6">
                     {activeTab === 'tasks' ? (
                         <div className="w-full">
-                            {/* Stats Row - Clickable Cards */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                                <button
-                                    onClick={() => setStatusFilter('all')}
-                                    className={`bg-white p-4 rounded-xl border-2 shadow-sm text-left transition-all hover:shadow-md ${statusFilter === 'all' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'}`}
-                                >
-                                    <p className="text-xs text-gray-500 font-medium mb-1">Total Tasks</p>
-                                    <p className="text-2xl font-bold text-gray-900">{brandStats.totalTasks}</p>
-                                    {statusFilter === 'all' && (
-                                        <p className="text-xs text-blue-600 font-medium mt-1">● Active Filter</p>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setStatusFilter('completed')}
-                                    className={`bg-white p-4 rounded-xl border-2 shadow-sm text-left transition-all hover:shadow-md ${statusFilter === 'completed' ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-200 hover:border-gray-300'}`}
-                                >
-                                    <p className="text-xs text-gray-500 font-medium mb-1">Completed</p>
-                                    <p className="text-2xl font-bold text-green-600">{brandStats.completedTasks}</p>
-                                    {statusFilter === 'completed' && (
-                                        <p className="text-xs text-green-600 font-medium mt-1">● Active Filter</p>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setStatusFilter('in-progress')}
-                                    className={`bg-white p-4 rounded-xl border-2 shadow-sm text-left transition-all hover:shadow-md ${statusFilter === 'in-progress' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'}`}
-                                >
-                                    <p className="text-xs text-gray-500 font-medium mb-1">In Progress</p>
-                                    <p className="text-2xl font-bold text-blue-600">{brandStats.inProgressTasks}</p>
-                                    {statusFilter === 'in-progress' && (
-                                        <p className="text-xs text-blue-600 font-medium mt-1">● Active Filter</p>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={() => setStatusFilter('overdue')}
-                                    className={`bg-white p-4 rounded-xl border-2 shadow-sm text-left transition-all hover:shadow-md ${statusFilter === 'overdue' ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-200 hover:border-gray-300'}`}
-                                >
-                                    <p className="text-xs text-gray-500 font-medium mb-1">Overdue</p>
-                                    <p className="text-2xl font-bold text-red-600">{brandStats.overdueTasks}</p>
-                                    {statusFilter === 'overdue' && (
-                                        <p className="text-xs text-red-600 font-medium mt-1">● Active Filter</p>
-                                    )}
-                                </button>
+                            {/* Stats Row - Modern Cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                                {[
+                                    { key: 'all', label: 'Total Tasks', value: brandStats.totalTasks, color: colors.primary.main, icon: BarChart3 },
+                                    { key: 'completed', label: 'Completed', value: brandStats.completedTasks, color: '#10b981', icon: CheckCircle },
+                                    { key: 'in-progress', label: 'In Progress', value: brandStats.inProgressTasks, color: '#3b82f6', icon: Activity },
+                                    { key: 'overdue', label: 'Overdue', value: brandStats.overdueTasks, color: '#ef4444', icon: AlertCircle }
+                                ].map((stat) => (
+                                    <button
+                                        key={stat.key}
+                                        onClick={() => setStatusFilter(stat.key === 'all' ? 'all' : stat.key)}
+                                        className={`group bg-white rounded-xl border p-3 text-left transition-all duration-200 hover:shadow-md ${statusFilter === stat.key ? 'ring-2' : 'hover:border-gray-300'}`}
+                                        style={{ 
+                                            borderColor: statusFilter === stat.key ? stat.color : '#e5e7eb'
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs font-medium text-gray-500">{stat.label}</p>
+                                                <p className="text-xl font-bold mt-0.5" style={{ color: stat.color }}>{stat.value}</p>
+                                            </div>
+                                            <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${stat.color}10` }}>
+                                                <stat.icon className="h-4 w-4" style={{ color: stat.color }} />
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
 
                             {/* Filters Section */}
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
-                                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="relative flex-1">
+                            <div className="bg-white rounded-xl border p-4 shadow-sm mb-6" style={{ borderColor: `${colors.primary.main}15` }}>
+                                <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+                                    <div className="flex items-center gap-3 w-full md:w-auto">
+                                        <div className="relative flex-1 md:w-64">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                             <input
                                                 type="text"
                                                 placeholder="Search tasks..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
+                                                className="w-full pl-9 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                             />
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5 bg-gray-100 rounded-lg p-1">
                                             <button
                                                 onClick={() => setViewMode('grid')}
-                                                className={`p-2 rounded-lg ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-500'}`}
+                                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+                                                style={viewMode === 'grid' ? { color: colors.primary.main } : {}}
                                             >
-                                                <Grid className="h-4 w-4" />
+                                                <Grid className="h-3.5 w-3.5" />
                                             </button>
                                             <button
                                                 onClick={() => setViewMode('list')}
-                                                className={`p-2 rounded-lg ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-500'}`}
+                                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+                                                style={viewMode === 'list' ? { color: colors.primary.main } : {}}
                                             >
-                                                <List className="h-4 w-4" />
+                                                <List className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-
                                         <select
                                             value={priorityFilter}
                                             onChange={(e) => setPriorityFilter(e.target.value)}
-                                            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            className="px-3 py-1.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
                                         >
                                             <option value="all">All Priority</option>
                                             <option value="high">High</option>
@@ -764,7 +755,8 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                         <select
                                             value={taskTypeFilter}
                                             onChange={(e) => setTaskTypeFilter(e.target.value)}
-                                            className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                            className="px-3 py-1.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all"
+                                            style={{ borderColor: `${colors.primary.main}20` }}
                                         >
                                             <option value="all">All Types</option>
                                             <option value="regular">Regular</option>
@@ -779,54 +771,57 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                             {/* Tasks Grid/List */}
                             {loading ? (
                                 <div className="flex items-center justify-center h-64">
-                                    <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+                                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: colors.primary.main }} />
                                 </div>
                             ) : filteredTasks.length > 0 ? (
                                 viewMode === 'grid' ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {filteredTasks.map((task) => (
                                             <div
                                                 key={task.id}
-                                                className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+                                                className="group bg-white rounded-xl border p-4 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col cursor-pointer"
+                                                style={{ borderColor: `${colors.primary.main}15` }}
+                                                onClick={() => handleViewTask(task.id)}
                                             >
-                                                <div className="flex justify-between items-start mb-4">
+                                                <div className="flex justify-between items-start mb-3">
                                                     <div className="flex-1">
-                                                        <h3 className="font-semibold text-gray-900 mb-2 text-lg line-clamp-1">{task.title}</h3>
+                                                        <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{task.title}</h3>
                                                     </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <button
-                                                            onClick={() => handleViewTaskHistory(task.id)}
-                                                            className="text-gray-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="View History"
-                                                        >
-                                                            <History className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleViewTaskHistory(task.id);
+                                                        }}
+                                                        className="text-gray-400 hover:text-blue-600 p-1 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="View History"
+                                                    >
+                                                        <History className="h-3.5 w-3.5" />
+                                                    </button>
                                                 </div>
 
-                                                <div className="flex flex-wrap items-center gap-2 mb-5">
-                                                    <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
+                                                <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
                                                         {task.status}
                                                     </span>
-                                                    <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority || 'low')}`}>
+                                                    <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority || 'low')}`}>
                                                         {task.priority}
                                                     </span>
                                                     {task.taskType && (
-                                                        <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-800 flex items-center gap-1">
-                                                            <Tag className="h-3 w-3" />
+                                                        <span className="px-2 py-0.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 flex items-center gap-1">
+                                                            <Tag className="h-2.5 w-2.5" />
                                                             {task.taskType}
                                                         </span>
                                                     )}
                                                 </div>
 
-                                                <div className="mt-auto pt-4 border-t border-gray-100">
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                            <Calendar className="h-4 w-4" />
+                                                <div className="mt-auto pt-3 border-t" style={{ borderColor: `${colors.primary.main}10` }}>
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <div className="flex items-center gap-1.5 text-gray-500">
+                                                            <Calendar className="h-3 w-3" />
                                                             <span>{new Date(task.dueDate).toLocaleDateString()}</span>
                                                         </div>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                            <UserCheck className="h-4 w-4" />
+                                                        <div className="flex items-center gap-1.5 text-gray-500">
+                                                            <UserCheck className="h-3 w-3" />
                                                             <span className="font-medium">{getAssignedToName(task)}</span>
                                                         </div>
                                                     </div>
@@ -835,80 +830,73 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50 border-b border-gray-200">
-                                                <tr>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Task</th>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Status</th>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Priority</th>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Due Date</th>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Assignee</th>
-                                                    <th className="py-3 px-6 text-left text-sm font-medium text-gray-700">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-200">
-                                                {filteredTasks.map((task) => (
-                                                    <tr key={task.id} className="hover:bg-gray-50">
-                                                        <td className="py-4 px-6">
-                                                            <div>
-                                                                <div className="font-medium text-gray-900 mb-1">{task.title}</div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-4 px-6">
-                                                            <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
-                                                                {task.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-4 px-6">
-                                                            <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority || 'low')}`}>
-                                                                {task.priority}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-4 px-6 text-sm text-gray-700">
-                                                            {new Date(task.dueDate).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="py-4 px-6">
-                                                            <div className="font-medium text-gray-900">{getAssignedToName(task)}</div>
-                                                        </td>
-                                                        <td className="py-4 px-6">
-                                                            <div className="flex items-center gap-2">
-                                                                <button
-                                                                    onClick={() => handleViewTaskHistory(task.id)}
-                                                                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                    title="View History"
-                                                                >
-                                                                    <History className="h-4 w-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleViewTask(task.id)}
-                                                                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                                                                    title="View Details"
-                                                                >
-
-                                                                </button>
-                                                                {task.status === 'pending' && (
-                                                                    <button
-                                                                        onClick={() => handleTaskAction(task.id, 'start')}
-                                                                        className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                                                                        title="Start Task"
-                                                                    >
-                                                                        <Play className="h-4 w-4" />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
+                                    <div className="bg-white rounded-xl border overflow-hidden" style={{ borderColor: `${colors.primary.main}15` }}>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="border-b" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}10` }}>
+                                                    <tr>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Task</th>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Status</th>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Priority</th>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Due Date</th>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Assignee</th>
+                                                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-600">Actions</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y" style={{ borderColor: `${colors.primary.main}10` }}>
+                                                    {filteredTasks.map((task) => (
+                                                        <tr key={task.id} className="hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => handleViewTask(task.id)}>
+                                                            <td className="py-3 px-4">
+                                                                <div className="font-medium text-gray-900 text-sm">{task.title}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
+                                                                    {task.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority || 'low')}`}>
+                                                                    {task.priority}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-sm text-gray-600">
+                                                                {new Date(task.dueDate).toLocaleDateString()}
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <span className="text-sm text-gray-700">{getAssignedToName(task)}</span>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                                    <button
+                                                                        onClick={() => handleViewTaskHistory(task.id)}
+                                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                                        title="View History"
+                                                                    >
+                                                                        <History className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                    {task.status === 'pending' && (
+                                                                        <button
+                                                                            onClick={() => handleTaskAction(task.id, 'start')}
+                                                                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                                                            title="Start Task"
+                                                                        >
+                                                                            <Play className="h-3.5 w-3.5" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 )
                             ) : (
-                                <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
-                                    <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                                    <h3 className="text-xl font-medium text-gray-900 mb-2">No tasks found</h3>
-                                    <p className="text-gray-500 mb-6">Try adjusting your filters or search terms</p>
+                                <div className="bg-white rounded-xl border py-16 text-center" style={{ borderColor: `${colors.primary.main}15` }}>
+                                    <Search className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
+                                    <p className="text-sm text-gray-500 mb-5">Try adjusting your filters or search terms</p>
                                     <button
                                         onClick={() => {
                                             setSearchTerm('');
@@ -916,7 +904,8 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                             setPriorityFilter('all');
                                             setTaskTypeFilter('all');
                                         }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                        style={{ backgroundColor: colors.primary.main, color: 'white' }}
                                     >
                                         Clear All Filters
                                     </button>
@@ -924,22 +913,23 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                             )}
                         </div>
                     ) : (
-                        // History Tab - Full Width History View (ONLY SPECIFIC TASK HISTORY)
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-                            <div className="p-6 border-b border-gray-200">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        // History Tab - Modern Design
+                        <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ borderColor: `${colors.primary.main}15` }}>
+                            <div className="p-5 border-b" style={{ borderColor: `${colors.primary.main}10`, backgroundColor: `${colors.primary.main}03` }}>
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="text-xl font-semibold text-gray-900">
+                                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                            <History className="h-5 w-5" style={{ color: colors.primary.main }} />
                                             History
                                         </h3>
-                                        <p className="text-sm text-gray-500 mt-1">
+                                        <p className="text-sm text-gray-500 mt-0.5">
                                             {selectedTaskForHistory
                                                 ? `Complete history for "${tasks.find(t => t.id === selectedTaskForHistory)?.title || 'selected task'}"`
                                                 : 'Brand activity timeline'
                                             }
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                         {!selectedTaskForHistory && tasks.length > 0 && (
                                             <select
                                                 value={selectedTaskForHistory || ''}
@@ -949,7 +939,8 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                                         setSelectedTaskForHistory(v);
                                                     }
                                                 }}
-                                                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                                className="px-3 py-1.5 text-sm border rounded-lg bg-white focus:outline-none focus:ring-2 transition-all"
+                                                style={{ borderColor: `${colors.primary.main}20` }}
                                             >
                                                 <option value="">View a task history…</option>
                                                 {tasks.map((t) => (
@@ -958,320 +949,189 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
                                             </select>
                                         )}
                                         {selectedTaskForHistory && (
-                                            <>
-                                                <button
-                                                    onClick={() => setActiveTab('tasks')}
-                                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                                                >
-                                                    <ArrowLeft className="h-4 w-4" />
-                                                    Back to Tasks
-                                                </button>
-                                            </>
+                                            <button
+                                                onClick={() => setActiveTab('tasks')}
+                                                className="px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center gap-1.5"
+                                                style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}
+                                            >
+                                                <ArrowLeft className="h-3.5 w-3.5" />
+                                                Back to Tasks
+                                            </button>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-6">
+                            <div className="p-5">
                                 {selectedTaskForHistory ? (
                                     <>
-                                        {/* Task Details Card */}
+                                        {/* Task Details Cards */}
                                         {(() => {
                                             const task = tasks.find(t => t.id === selectedTaskForHistory);
                                             if (!task) return null;
 
-                                            // Calculate overdue days
                                             const now = new Date();
                                             const dueDate = new Date(task.dueDate);
                                             const isOverdue = task.status !== 'completed' && dueDate < now;
 
-                                            // Calculate time taken if completed
                                             const createdTime = task.createdAt ? new Date(task.createdAt).getTime() : null;
                                             const completedTime = task.status === 'completed' && task.updatedAt && createdTime
                                                 ? new Date(task.updatedAt).getTime() - createdTime
                                                 : null;
 
-                                            // Format time taken function - INSIDE the IIFE
                                             const formatTimeTaken = (ms: number) => {
                                                 if (!ms) return 'Unknown';
-
                                                 const days = Math.floor(ms / (1000 * 60 * 60 * 24));
                                                 const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                                                 const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-
-                                                if (days > 0) {
-                                                    return `${days} day${days !== 1 ? 's' : ''} ${hours} hour${hours !== 1 ? 's' : ''}`;
-                                                } else if (hours > 0) {
-                                                    return `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-                                                } else {
-                                                    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
-                                                }
+                                                if (days > 0) return `${days}d ${hours}h`;
+                                                if (hours > 0) return `${hours}h ${minutes}m`;
+                                                return `${minutes}m`;
                                             };
 
                                             return (
-                                                <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {/* Task Basic Info */}
-                                                    <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <FileText className="h-5 w-5 text-blue-600" />
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                                    <div className="rounded-xl p-4" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}15` }}>
+                                                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                                                            <FileText className="h-4 w-4" style={{ color: colors.primary.main }} />
                                                             Task Information
                                                         </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Task Title:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{task.title}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Task Type:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{task.taskType || 'Not specified'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Brand:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{localBrand?.name || task.brand}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Company:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{localBrand?.company || task.company}</span>
-                                                            </div>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex justify-between"><span className="text-gray-500">Title:</span><span className="font-medium text-gray-800">{task.title}</span></div>
+                                                            <div className="flex justify-between"><span className="text-gray-500">Type:</span><span className="font-medium text-gray-800">{task.taskType || 'Not specified'}</span></div>
+                                                            <div className="flex justify-between"><span className="text-gray-500">Brand:</span><span className="font-medium text-gray-800">{localBrand?.name}</span></div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Task Status & Timing */}
-                                                    <div className="bg-green-50 p-5 rounded-xl border border-green-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <Calendar className="h-5 w-5 text-green-600" />
+                                                    <div className="rounded-xl p-4" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}15` }}>
+                                                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                                                            <Clock className="h-4 w-4" style={{ color: colors.primary.main }} />
                                                             Status & Timing
                                                         </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Current Status:</span>
-                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(task.status)}`}>
-                                                                    {task.status}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Priority:</span>
-                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                                                                    {task.priority}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Created On:</span>
-                                                                <span className="text-sm font-medium text-gray-900">
-                                                                    {task.createdAt ? new Date(task.createdAt).toLocaleString() : 'Unknown'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Last Updated:</span>
-                                                                <span className="text-sm font-medium text-gray-900">
-                                                                    {task.updatedAt ? new Date(task.updatedAt).toLocaleString() : 'Never'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Due Date:</span>
-                                                                <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                                                                    {new Date(task.dueDate).toLocaleDateString()}
-                                                                </span>
-                                                            </div>
-                                                            {task.status === 'completed' && completedTime && completedTime > 0 && (
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-sm text-green-600">Time Taken:</span>
-                                                                    <span className="text-sm font-medium text-green-600">
-                                                                        {formatTimeTaken(completedTime)}
-                                                                    </span>
-                                                                </div>
-                                                            )}
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex justify-between"><span className="text-gray-500">Status:</span><span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>{task.status}</span></div>
+                                                            <div className="flex justify-between"><span className="text-gray-500">Priority:</span><span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span></div>
+                                                            <div className="flex justify-between"><span className="text-gray-500">Due:</span><span className={isOverdue ? 'text-rose-600' : 'text-gray-800'}>{new Date(task.dueDate).toLocaleDateString()}</span></div>
+                                                            {task.status === 'completed' && completedTime && <div className="flex justify-between"><span className="text-emerald-600">Time taken:</span><span className="font-medium text-emerald-600">{formatTimeTaken(completedTime)}</span></div>}
                                                         </div>
                                                     </div>
 
-                                                    {/* People Involved */}
-                                                    <div className="bg-purple-50 p-5 rounded-xl border border-purple-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <UserCheck className="h-5 w-5 text-purple-600" />
-                                                            People Involved
+                                                    <div className="rounded-xl p-4" style={{ backgroundColor: `${colors.primary.main}05`, borderColor: `${colors.primary.main}15` }}>
+                                                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 text-sm">
+                                                            <Users className="h-4 w-4" style={{ color: colors.primary.main }} />
+                                                            People
                                                         </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Assigned By:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{getAssignedByName(task)}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Assigned To:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{getAssignedToName(task)}</span>
-                                                            </div>
-                                                            {task.status === 'completed' && (
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-sm text-gray-600">Completed By:</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{getAssignedToName(task)}</span>
-                                                                </div>
-                                                            )}
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex justify-between"><span className="text-gray-500">Assigned By:</span><span className="font-medium text-gray-800">{getAssignedByName(task)}</span></div>
+                                                            <div className="flex justify-between"><span className="text-gray-500">Assigned To:</span><span className="font-medium text-gray-800">{getAssignedToName(task)}</span></div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
                                         })()}
 
-                                        {/* Activity Timeline Header */}
-                                        <div className="mb-6 flex items-center justify-between">
-                                            <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                <History className="h-5 w-5" />
+                                        {/* Activity Timeline */}
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h4 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                                <History className="h-4 w-4" style={{ color: colors.primary.main }} />
                                                 Activity Timeline
                                             </h4>
-                                            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
-                                                {selectedTaskHistory.length} {selectedTaskHistory.length === 1 ? 'activity' : 'activities'}
+                                            <div className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}>
+                                                {selectedTaskHistory.length} activities
                                             </div>
                                         </div>
 
-                                        {/* Task History List */}
-                                        <div className="space-y-6">
+                                        <div className="space-y-4">
                                             {selectedTaskHistory.length > 0 ? (
                                                 selectedTaskHistory.map((item, index) => (
-                                                    <div key={`${item.id}-${index}`} className="relative pb-6 pl-10">
-                                                        <div className="absolute left-4 top-3 h-6 w-6 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center">
+                                                    <div key={`${item.id}-${index}`} className="relative pl-8">
+                                                        <div className="absolute left-0 top-1 h-5 w-5 rounded-full flex items-center justify-center bg-white border-2" style={{ borderColor: colors.primary.main }}>
                                                             {getActionIcon(item.action)}
                                                         </div>
                                                         {index < selectedTaskHistory.length - 1 && (
-                                                            <div className="absolute left-[27px] top-9 bottom-0 w-0.5 bg-gray-200"></div>
+                                                            <div className="absolute left-2.5 top-6 bottom-0 w-px bg-gray-200"></div>
                                                         )}
 
-                                                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-medium text-gray-900">{getActorLabel(item)}</span>
-                                                                        {getActionLabel(item?.action) && (
-                                                                            <>
-                                                                                <span className="text-xs text-gray-500">•</span>
-                                                                                <div className={`px-2 py-1 rounded text-xs font-medium ${item.action === 'task_created' ? 'bg-green-100 text-green-600' : item.action === 'task_completed' ? 'bg-blue-100 text-blue-600' : item.action === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
-                                                                                    {getActionLabel(item?.action)}
-                                                                                </div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
+                                                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                                                                 <div className="flex items-center gap-2">
-                                                                    {formatDateTimeSafe(item?.timestamp) && (
-                                                                        <>
-                                                                            <Calendar className="h-3 w-3 text-gray-400" />
-                                                                            <span className="text-xs text-gray-500">
-                                                                                {formatDateTimeSafe(item?.timestamp)}
-                                                                            </span>
-                                                                        </>
+                                                                    <span className="text-sm font-medium text-gray-800">{getActorLabel(item)}</span>
+                                                                    {getActionLabel(item?.action) && (
+                                                                        <div className={`px-2 py-0.5 rounded text-xs font-medium ${item.action === 'task_created' ? 'bg-emerald-100 text-emerald-600' : item.action === 'task_completed' ? 'bg-blue-100 text-blue-600' : item.action === 'overdue' ? 'bg-rose-100 text-rose-600' : 'bg-gray-100 text-gray-600'}`}>
+                                                                            {getActionLabel(item?.action)}
+                                                                        </div>
                                                                     )}
                                                                 </div>
+                                                                {formatDateTimeSafe(item?.timestamp) && (
+                                                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                                        <CalendarDays className="h-3 w-3" />
+                                                                        {formatDateTimeSafe(item?.timestamp)}
+                                                                    </div>
+                                                                )}
                                                             </div>
-
                                                             {getHistoryDescription(item) && (
-                                                                <p className="text-sm text-gray-700 mb-3">{getHistoryDescription(item)}</p>
-                                                            )}
-                                                            {item.action === 'task_completed' && (
-                                                                <div className="text-xs text-green-600 mt-2 font-medium">
-                                                                    ✓ Task was marked as completed
-                                                                </div>
-                                                            )}
-                                                            {item.action === 'status_changed' && (
-                                                                <div className="text-xs text-blue-600 mt-2">
-                                                                    Status changed by {item.userName}
-                                                                </div>
+                                                                <p className="text-sm text-gray-700">{getHistoryDescription(item)}</p>
                                                             )}
                                                         </div>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="text-center py-12">
-                                                    <History className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                                                    <h4 className="text-lg font-medium text-gray-900 mb-2">No activity history</h4>
-                                                    <p className="text-gray-500">This task doesn't have any recorded activity yet</p>
+                                                <div className="text-center py-10">
+                                                    <History className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                                    <p className="text-sm text-gray-500">No activity recorded for this task</p>
                                                 </div>
                                             )}
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="mb-6 flex items-center justify-between">
-                                            <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                <History className="h-5 w-5" />
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h4 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                                <History className="h-4 w-4" style={{ color: colors.primary.main }} />
                                                 Task Activity History
                                             </h4>
-                                            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
-                                                {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+                                            <div className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: `${colors.primary.main}10`, color: colors.primary.main }}>
+                                                {tasks.length} tasks
                                             </div>
                                         </div>
 
-                                        <div className="space-y-8">
+                                        <div className="space-y-4">
                                             {tasks.map((task) => {
                                                 const taskHist = Array.isArray((task as any)?.history) ? (task as any).history : [];
                                                 const hasHistory = taskHist.length > 0;
 
                                                 return (
-                                                    <div key={task.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                                                        <div className="flex items-center justify-between mb-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-3 h-3 rounded-full ${task.status === 'completed' ? 'bg-green-500' : task.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-400'}`}></div>
-                                                                <h5 className="font-semibold text-gray-900">{task.title}</h5>
-                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${task.status === 'completed' ? 'bg-green-100 text-green-600' : task.status === 'in-progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
-                                                                    {task.status}
-                                                                </span>
+                                                    <div key={task.id} className="bg-white border rounded-lg overflow-hidden" style={{ borderColor: `${colors.primary.main}15` }}>
+                                                        <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50/50 transition-colors" style={{ backgroundColor: `${colors.primary.main}03` }}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`w-2 h-2 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-blue-500' : 'bg-amber-500'}`}></div>
+                                                                <span className="font-medium text-gray-800 text-sm">{task.title}</span>
+                                                                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getStatusColor(task.status)}`}>{task.status}</span>
                                                             </div>
-                                                            <div className="text-xs text-gray-500">
-                                                                {hasHistory ? `${taskHist.length} activities` : 'No activity'}
-                                                            </div>
+                                                            <div className="text-xs text-gray-500">{hasHistory ? `${taskHist.length} activities` : 'No activity'}</div>
                                                         </div>
 
-                                                        {hasHistory ? (
-                                                            <div className="space-y-4">
-                                                                {taskHist.map((item: any, index: number) => (
-                                                                    <div key={`${item.id}-${index}`} className="relative pb-4 pl-8 border-l-2 border-gray-100 last:border-0">
-                                                                        <div className="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-white border-2 border-blue-400 flex items-center justify-center">
-                                                                            <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-                                                                        </div>
-
-                                                                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <span className="text-sm font-medium text-gray-900">{getActorLabel(item)}</span>
-                                                                                    {getActionLabel(item?.action) && (
-                                                                                        <>
-                                                                                            <span className="text-xs text-gray-400">•</span>
-                                                                                            <div className={`px-2 py-0.5 rounded text-xs font-medium ${item.action === 'task_created' ? 'bg-green-100 text-green-600' : item.action === 'task_completed' ? 'bg-blue-100 text-blue-600' : item.action === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
-                                                                                                {getActionLabel(item?.action)}
-                                                                                            </div>
-                                                                                        </>
-                                                                                    )}
-                                                                                </div>
-                                                                                <div className="flex items-center gap-1">
-                                                                                    {formatDateTimeSafe(item?.timestamp) && (
-                                                                                        <>
-                                                                                            <Calendar className="h-3 w-3 text-gray-400" />
-                                                                                            <span className="text-xs text-gray-500">
-                                                                                                {formatDateTimeSafe(item?.timestamp)}
-                                                                                            </span>
-                                                                                        </>
-                                                                                    )}
-                                                                                </div>
+                                                        {hasHistory && (
+                                                            <div className="p-3 space-y-3 border-t" style={{ borderColor: `${colors.primary.main}10` }}>
+                                                                {taskHist.slice(0, 3).map((item: any, idx: number) => (
+                                                                    <div key={`${item.id}-${idx}`} className="flex items-start gap-2 text-sm">
+                                                                        <div className="mt-0.5">{getActionIcon(item.action)}</div>
+                                                                        <div className="flex-1">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className="text-xs font-medium text-gray-700">{getActorLabel(item)}</span>
+                                                                                <span className="text-xs text-gray-400">•</span>
+                                                                                <span className={`text-xs px-1.5 py-0.5 rounded ${item.action === 'task_created' ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-600'}`}>{getActionLabel(item?.action)}</span>
+                                                                                <span className="text-xs text-gray-400">{formatDateTimeSafe(item?.timestamp)}</span>
                                                                             </div>
-
-                                                                            {getHistoryDescription(item) && (
-                                                                                <p className="text-sm text-gray-700">{getHistoryDescription(item)}</p>
-                                                                            )}
-                                                                            {item.action === 'task_completed' && (
-                                                                                <div className="text-xs text-green-600 mt-1 font-medium">
-                                                                                    ✓ Task was marked as completed
-                                                                                </div>
-                                                                            )}
-                                                                            {item.action === 'status_changed' && (
-                                                                                <div className="text-xs text-blue-600 mt-1">
-                                                                                    Status changed by {item.userName}
-                                                                                </div>
-                                                                            )}
+                                                                            {getHistoryDescription(item) && <p className="text-xs text-gray-600 mt-1">{getHistoryDescription(item)}</p>}
                                                                         </div>
                                                                     </div>
                                                                 ))}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="text-center py-8">
-                                                                <History className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                                                                <p className="text-sm text-gray-500">No activity recorded for this task</p>
+                                                                {taskHist.length > 3 && (
+                                                                    <button onClick={() => handleViewTaskHistory(task.id)} className="text-xs font-medium mt-1" style={{ color: colors.primary.main }}>
+                                                                        View all {taskHist.length} activities →
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -1289,4 +1149,4 @@ const BrandDetailPage: React.FC<BrandDetailPageProps> = ({
     );
 };
 
-export default BrandDetailPage;  
+export default BrandDetailPage;

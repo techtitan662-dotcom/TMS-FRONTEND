@@ -5,6 +5,15 @@ import type { UserType } from '../Types/Types';
 import { accessService } from '../Services/Access.Services';
 import mdImpexAccessService from '../Services/MdImpexAccess.services';
 
+// Theme colors matching the app
+const theme = {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2a6e',
+    primaryLight: '#3b82f6',
+    primaryLighter: '#60a5fa',
+    primaryUltralight: '#dbeafe',
+};
+
 type PermissionValue = 'allow' | 'deny';
 
 type AccessRow = {
@@ -56,7 +65,7 @@ const PermissionChoice: React.FC<{
     const isSelected = selected === value;
 
     const getButtonStyles = () => {
-        const base = 'inline-flex items-center justify-center px-3 py-2 rounded-lg border text-sm font-medium  ';
+        const base = 'inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all';
 
         if (disabled) {
             return `${base} opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200`;
@@ -64,13 +73,13 @@ const PermissionChoice: React.FC<{
 
         if (isSelected) {
             const colorMap: Record<PermissionValue, string> = {
-                allow: 'bg-emerald-100 text-emerald-700 border-emerald-300 shadow-sm shadow-emerald-100',
-                deny: 'bg-rose-100 text-rose-700 border-rose-300 shadow-sm shadow-rose-100',
+                allow: `bg-emerald-100 text-emerald-700 border-emerald-300`,
+                deny: 'bg-rose-100 text-rose-700 border-rose-300',
             };
             return `${base} ${colorMap[value]}`;
         }
 
-        return `${base} bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm`;
+        return `${base} bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300`;
     };
 
     return (
@@ -83,17 +92,14 @@ const PermissionChoice: React.FC<{
             disabled={disabled}
             className={getButtonStyles()}
         >
-            <span className={`mr-2 inline-flex items-center justify-center h-4 w-4 rounded border transition-colors ${isSelected
+            <span className={`mr-1.5 inline-flex items-center justify-center h-3 w-3 rounded border transition-colors ${isSelected
                 ? value === 'allow' ? 'border-emerald-400 bg-emerald-200' :
                     'border-rose-400 bg-rose-200'
                 : 'border-gray-300 bg-white'
                 }`}
             >
                 {isSelected ? (
-                    <Check className={`h-3 w-3 ${value === 'allow' ? 'text-emerald-600' :
-                        'text-rose-600'
-                        }`}
-                    />
+                    <Check className={`h-2 w-2 ${value === 'allow' ? 'text-emerald-600' : 'text-rose-600'}`} />
                 ) : null}
             </span>
             {permissionLabel[value]}
@@ -109,7 +115,7 @@ const PermissionSelect: React.FC<{
         <select
             value={value}
             onChange={(e) => onChange(e.target.value as PermissionValue)}
-            className="w-full px-4 py-2.5 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 hover:border-gray-300 shadow-sm"
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
             <option value="allow" className="text-emerald-600">Allow</option>
             <option value="deny" className="text-rose-600">Deny</option>
@@ -134,10 +140,10 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
 
     if (!canOpenAccessPage) {
         return (
-            <div className="bg-white rounded-xl border border-gray-200 p-8">
-                <div className="text-lg font-semibold text-gray-900">Access denied</div>
-                <div className="mt-2 text-sm text-gray-600">
-                    You do not have permission to view this page. {isMdManager && 'I need to give the item manager access to the role of Perfectland Impex.'}
+            <div className={`bg-white rounded-lg border border-gray-200 p-6 shadow-sm`}>
+                <div className="text-sm font-semibold text-gray-900">Access denied</div>
+                <div className="mt-1 text-xs text-gray-600">
+                    You do not have permission to view this page.
                 </div>
             </div>
         );
@@ -211,7 +217,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                 }))
                 .filter((r: any) => Boolean(r?.id));
 
-            // Filter modules for MD Manager - only show specific modules
             let filtered = mapped;
             if (isMdManager) {
                 const allowedModuleIds = [
@@ -274,17 +279,15 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
             toast.error(`${status ? `(${status}) ` : ''}${message || 'Failed to load modules'}`);
             setRows([]);
         }
-    }, []);
+    }, [isMdManager]);
 
     const loadRoles = useCallback(async () => {
         try {
-            // If MD Manager, load MD Impex-specific roles
             if (isMdManager) {
                 const mdRes = await mdImpexAccessService.getAllRoles();
                 const mdList = Array.isArray((mdRes as any)?.data) ? (mdRes as any).data : [];
                 
                 if (mdList && mdList.length > 0) {
-                    // Whitelist specific role patterns for MD Manager
                     const allowedRolePatterns = ['md_manager', 'ob_manager', 'manager', 'assistant', 'sub_assistance', 'sbm', 'troubleshoot_manager'];
                     
                     const mdMapped: RoleItem[] = mdList
@@ -294,7 +297,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                             return { roleKey, roleName };
                         })
                         .filter(({ roleKey }: { roleKey: string }) => {
-                            // Check if roleKey matches any allowed pattern
                             return allowedRolePatterns.some(pattern => 
                                 roleKey === pattern || roleKey.includes(pattern)
                             );
@@ -311,7 +313,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                     }
                 }
                 
-                // Fallback if no MD Impex roles found
                 setRoles([
                     { key: 'md_manager', name: 'MD Manager' },
                     { key: 'ob_manager', name: 'OB Manager' },
@@ -323,7 +324,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                 return;
             }
 
-            // Admin flow - load generic roles
             const res = await accessService.getRoles();
             const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
             const mapped: RoleItem[] = list
@@ -353,12 +353,7 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
 
             setRoles(Array.from(uniq.values()));
         } catch (e: any) {
-            const status = e?.response?.status;
-            const message = e?.response?.data?.message || e?.response?.data?.msg || e?.message;
             console.error('Load roles error:', e);
-            toast.error(`${status ? `(${status}) ` : ''}${message || 'Failed to load roles'}`);
-            
-            // For MD Manager, show MD Impex roles even on error
             if (isMdManager) {
                 setRoles([
                     { key: 'md_manager', name: 'MD Manager' },
@@ -404,7 +399,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
     const effectiveUsers = useMemo(() => {
         let list = (Array.isArray(users) && users.length > 0) ? users : [currentUser];
         
-        // Filter to MD Impex users only if MD Manager
         if (isMdManager) {
             const normalizeCompanyKey = (value: unknown) => String(value || '')
                 .toLowerCase()
@@ -429,7 +423,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
     useEffect(() => {
         if (roles.length === 0) return;
         
-        // For MD Manager, default to first MD Impex role
         if (isMdManager && selectedRoleTemplate === 'assistant') {
             const firstMdRole = roles.length > 0 ? roles[0]?.key : 'assistant';
             setSelectedRoleTemplate(firstMdRole);
@@ -549,7 +542,6 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
     const getUserModuleValue = useCallback((userId: string, moduleId: string): PermissionValue => {
         const found = access.find(a => a.userId === userId && a.moduleId === moduleId);
         if (found?.value) return normalizePermission(found.value);
-
         return 'deny';
     }, [access]);
 
@@ -559,7 +551,7 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
         const meId = (currentUser?.id || (currentUser as any)?._id || '').toString();
         if (meId && meId === userId) {
             const ok = window.confirm(
-                'You are changing your own access permissions. This may affect what you can access in the system. Do you want to continue?'
+                'You are changing your own access permissions. This may affect what you can access. Do you want to continue?'
             );
             if (!ok) return;
         }
@@ -612,7 +604,7 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
         const meId = (currentUser?.id || (currentUser as any)?._id || '').toString();
         if (meId && meId === uid) {
             const ok = window.confirm(
-                'You are applying a permission template to your own account. This can change multiple permissions and may affect what you can access. Do you want to continue?'
+                'You are applying a permission template to your own account. This can change multiple permissions. Do you want to continue?'
             );
             if (!ok) return;
         }
@@ -930,91 +922,86 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
     }, [roles]);
 
     return (
-        <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 p-4 md:p-6">
-            <div className="w-full">
-                <div className="mb-8">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="h-14 w-14 bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                                <Shield className="h-7 w-7 text-white" />
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Access Management</h1>
-                                </div>
-                                <p className="text-gray-600">Fine-grained control over user permissions and system access</p>
-                            </div>
+        <div className="w-full min-h-screen bg-gray-50 p-3 md:p-4">
+            <div className="w-full max-w-7xl mx-auto space-y-4">
+                {/* Header - Compact */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                        <div className={`p-1.5 bg-gradient-to-r from-[${theme.primaryDark}] to-[${theme.primary}] rounded-lg shadow-sm`}>
+                            <Shield className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-bold text-gray-900 tracking-tight">Access Management</h1>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Fine-grained control over user permissions</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                            <input
+                                type="search"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search modules..."
+                                className="w-48 pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <div className="relative flex-1 max-w-md">
-                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                                <input
-                                    type="search"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Search modules..."
-                                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-                                />
+                        {isAdminUser && (
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={openAddModule}
+                                    className={`inline-flex items-center px-2.5 py-1.5 bg-[${theme.primary}] text-white text-[11px] font-medium rounded-lg hover:bg-[${theme.primaryDark}] transition-colors`}
+                                >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Module
+                                </button>
+                                <button
+                                    onClick={openAddUser}
+                                    className="inline-flex items-center px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <UserPlus className="h-3 w-3 mr-1" />
+                                    User
+                                </button>
+                                <button
+                                    onClick={openAddRole}
+                                    className="inline-flex items-center px-2.5 py-1.5 bg-emerald-600 text-white text-[11px] font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                                >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    Role
+                                </button>
                             </div>
+                        )}
+                    </div>
+                </div>
 
-                            {isAdminUser && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={openAddModule}
-                                        className="inline-flex items-center px-4 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Access Module
-                                    </button>
-                                    <button
-                                        onClick={openAddUser}
-                                        className="inline-flex items-center px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                                    >
-                                        <UserPlus className="h-4 w-4 mr-2" />
-                                        Add User
-                                    </button>
-                                    <button
-                                        onClick={openAddRole}
-                                        className="inline-flex items-center px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Role
-                                    </button>
+                {/* Role & User Selection - Compact */}
+                <div className={`bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden`}>
+                    <div className={`px-3 py-2 border-b border-gray-100 bg-[${theme.primaryUltralight}]`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                                <p className="text-[10px] font-semibold tracking-wide text-blue-600 uppercase">Role & User Selection</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5">Choose a role template and target user</p>
+                            </div>
+                            {selectedUser && (
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                    <Shield className="h-3 w-3 text-blue-500" />
+                                    <span className="font-medium text-gray-800">{selectedUser.name || selectedUser.email || 'Selected user'}</span>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
 
-                <div className="mb-8 bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 via-white to-transparent">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-indigo-600 uppercase">Role &amp; User Selection</p>
-                                <p className="text-sm text-gray-600 mt-1">Choose a role template and target user to quickly apply permission presets.</p>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <Shield className="h-4 w-4 text-indigo-500" />
-                                {selectedUser && (
-                                    <span className="hidden sm:inline">
-                                        Applying to <span className="font-semibold text-gray-800">{selectedUser.name || selectedUser.email || 'Selected user'}</span>
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="p-3">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                             <div className="lg:col-span-4">
-                                <label className="block text-sm font-semibold text-gray-900 flex items-center gap-2 mb-1">
-                                    <Filter className="h-4 w-4 text-indigo-600" />
-                                    Select Role Template
+                                <label className="block text-[11px] font-medium text-gray-700 flex items-center gap-1 mb-1">
+                                    <Filter className="h-3 w-3 text-blue-600" />
+                                    Role Template
                                 </label>
-                                <p className="text-xs text-gray-500 mb-3">Step 1: Pick a base role whose permissions you want to start from.</p>
-                                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-3">
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/80 p-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                                         {(roles.length > 0 ? roles : [{ key: 'admin', name: 'Administrator' }, { key: 'manager', name: 'Manager' }, { key: 'assistant', name: 'Assistant' }]).map((r) => {
                                             const key = normalizeRole(r.key);
                                             const isCore = key === 'admin' || key === 'manager' || key === 'assistant';
@@ -1023,15 +1010,15 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                                                     <button
                                                         type="button"
                                                         onClick={() => setSelectedRoleTemplate(r.key)}
-                                                        className={`group relative w-full px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${isAdminUser && !isCore ? 'pr-16' : ''} ${normalizeRole(selectedRoleTemplate) === normalizeRole(r.key)
-                                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-600'
-                                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-indigo-200'
+                                                        className={`group relative w-full px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all ${isAdminUser && !isCore ? 'pr-12' : ''} ${normalizeRole(selectedRoleTemplate) === normalizeRole(r.key)
+                                                            ? `bg-[${theme.primary}] text-white border border-[${theme.primary}]`
+                                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                                                             }`}
                                                     >
-                                                        <span className="capitalize  ">{(r.name || r.key)}</span>
+                                                        <span className="capitalize">{(r.name || r.key).substring(0, 12)}</span>
 
                                                         {isAdminUser && !isCore && (
-                                                            <span className="absolute top-1 right-1 flex items-center gap-1">
+                                                            <span className="absolute top-0.5 right-0.5 flex items-center gap-0.5">
                                                                 <button
                                                                     type="button"
                                                                     onClick={(e) => {
@@ -1039,10 +1026,9 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                                                                         e.stopPropagation();
                                                                         openEditRole(r);
                                                                     }}
-                                                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 hover:bg-white border border-gray-200 text-indigo-600"
-                                                                    title="Edit role"
+                                                                    className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/80 hover:bg-white border border-gray-200 text-blue-600"
                                                                 >
-                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                    <Pencil className="h-2.5 w-2.5" />
                                                                 </button>
                                                                 <button
                                                                     type="button"
@@ -1051,10 +1037,9 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                                                                         e.stopPropagation();
                                                                         void deleteRole(r.key);
                                                                     }}
-                                                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 hover:bg-white border border-gray-200 text-rose-600"
-                                                                    title="Delete role"
+                                                                    className="inline-flex items-center justify-center w-5 h-5 rounded bg-white/80 hover:bg-white border border-gray-200 text-rose-600"
                                                                 >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                    <Trash2 className="h-2.5 w-2.5" />
                                                                 </button>
                                                             </span>
                                                         )}
@@ -1067,19 +1052,18 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                             </div>
 
                             <div className="lg:col-span-8">
-                                <label className="block text-sm font-semibold text-gray-900 flex items-center gap-2 mb-1">
-                                    <Users className="h-4 w-4 text-indigo-600" />
+                                <label className="block text-[11px] font-medium text-gray-700 flex items-center gap-1 mb-1">
+                                    <Users className="h-3 w-3 text-blue-600" />
                                     Select User
                                 </label>
-                                <p className="text-xs text-gray-500 mb-3">Step 2: Select the user who should receive these permissions and apply the template.</p>
-                                <div className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-2">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                                         <div className="relative flex-1">
-                                            <ChevronRight className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-indigo-600" />
+                                            <ChevronRight className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-blue-600" />
                                             <select
                                                 value={selectedUserId}
                                                 onChange={(e) => setSelectedUserId(e.target.value)}
-                                                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                                className="w-full pl-7 pr-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 {filteredUsersByRole.map(u => {
                                                     const uid = (u.id || (u as any)._id || '').toString();
@@ -1093,21 +1077,19 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                                         </div>
 
                                         {isAdminUser && (
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => applyTemplateToSelectedUser({ overwrite: false })}
-                                                    disabled={applyingTemplate || !selectedUser}
-                                                    className={`inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${applyingTemplate || !selectedUser
-                                                        ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm shadow-indigo-200'
-                                                        }`}
-                                                >
-                                                    {applyingTemplate ? (
-                                                        <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" />Applying...</span>
-                                                    ) : 'Apply'}
-                                                </button>
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => applyTemplateToSelectedUser({ overwrite: false })}
+                                                disabled={applyingTemplate || !selectedUser}
+                                                className={`inline-flex items-center justify-center px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${applyingTemplate || !selectedUser
+                                                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                                                    : `bg-[${theme.primary}] text-white hover:bg-[${theme.primaryDark}]`
+                                                    }`}
+                                            >
+                                                {applyingTemplate ? (
+                                                    <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin" />Apply</span>
+                                                ) : 'Apply'}
+                                            </button>
                                         )}
                                     </div>
                                 </div>
@@ -1116,27 +1098,28 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                {/* Permission Matrix - Compact */}
+                <div className={`bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden`}>
+                    <div className={`px-3 py-2 border-b border-gray-100 bg-[${theme.primaryUltralight}]`}>
                         <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-gray-900">Permission Matrix</h3>
-                            <span className="text-sm text-gray-500">{filteredRows.length} modules</span>
+                            <h3 className="text-xs font-semibold text-gray-900">Permission Matrix</h3>
+                            <span className="text-[10px] text-gray-500">{filteredRows.length} modules</span>
                         </div>
                     </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-900 uppercase tracking-wider">Feature / Module</th>
-                                    <th className="text-center px-6 py-4 text-sm font-semibold text-gray-900 uppercase tracking-wider">Permission</th>
+                                <tr className={`bg-[white] border-b border-gray-100`}>
+                                    <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-700 uppercase">Feature / Module</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-700 uppercase">Permission</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredRows.length === 0 ? (
                                     <tr>
-                                        <td className="px-6 py-12 text-center" colSpan={2}>
-                                            <p className="text-gray-500">No modules found</p>
+                                        <td className="px-3 py-6 text-center" colSpan={2}>
+                                            <p className="text-xs text-gray-500">No modules found</p>
                                         </td>
                                     </tr>
                                 ) : (
@@ -1148,70 +1131,64 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                                     ]).map((section) => (
                                         groupedRows[section.key].length > 0 ? (
                                             <React.Fragment key={section.key}>
-                                                <tr className="bg-gray-50">
-                                                    <td colSpan={2} className="px-6 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                <tr className={`bg-[${theme.primaryUltralight}]`}>
+                                                    <td colSpan={2} className="px-3 py-1.5 text-[9px] font-semibold text-gray-600 uppercase">
                                                         {section.title}
                                                     </td>
                                                 </tr>
                                                 {groupedRows[section.key].map((row) => (
-                                                    <tr key={row.id} className="hover:bg-gray-50 transition-all duration-200">
-                                                        <td className="px-6 py-5 font-medium text-gray-900">
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <span>{row.module}</span>
+                                                    <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-3 py-2.5">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <span className="text-xs font-medium text-gray-900">{row.module}</span>
                                                                 {isAdminUser && (
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-1">
                                                                         <button
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.preventDefault();
-                                                                                e.stopPropagation();
                                                                                 openEdit(row);
                                                                             }}
-                                                                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-indigo-600"
-                                                                            title="Edit module"
+                                                                            className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-blue-600"
                                                                         >
-                                                                            <Pencil className="h-4 w-4" />
+                                                                            <Pencil className="h-3 w-3" />
                                                                         </button>
                                                                         <button
                                                                             type="button"
                                                                             onClick={(e) => {
                                                                                 e.preventDefault();
-                                                                                e.stopPropagation();
                                                                                 onDelete(row);
                                                                             }}
-                                                                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 text-rose-600"
-                                                                            title="Delete module"
+                                                                            className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-rose-600"
                                                                         >
-                                                                            <Trash2 className="h-4 w-4" />
+                                                                            <Trash2 className="h-3 w-3" />
                                                                         </button>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-5">
+                                                        <td className="px-3 py-2.5">
                                                             {selectedUser ? (
-                                                                <div className="max-w-md mx-auto">
-                                                                    <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                                                                        {(['allow', 'deny'] as PermissionValue[]).map((v) => (
-                                                                            <PermissionChoice
-                                                                                key={v}
-                                                                                value={v}
-                                                                                selected={getUserModuleValue((selectedUser.id || (selectedUser as any)._id || '').toString(), row.id)}
-                                                                                disabled={!isSelectedUserEditable || (savingPermission?.userId === (selectedUser.id || (selectedUser as any)._id || '').toString() && savingPermission?.moduleId === row.id)}
-                                                                                onSelect={(next) => {
-                                                                                    if (!isSelectedUserEditable) {
-                                                                                        toast.error('You do not have permission to edit this user');
-                                                                                        return;
-                                                                                    }
-                                                                                    const uid = (selectedUser.id || (selectedUser as any)._id || '').toString();
-                                                                                    void setUserModuleValue(uid, row.id, next);
-                                                                                }}
-                                                                            />
-                                                                        ))}
-                                                                    </div>
+                                                                <div className="flex items-center justify-center gap-2">
+                                                                    {(['allow', 'deny'] as PermissionValue[]).map((v) => (
+                                                                        <PermissionChoice
+                                                                            key={v}
+                                                                            value={v}
+                                                                            selected={getUserModuleValue((selectedUser.id || (selectedUser as any)._id || '').toString(), row.id)}
+                                                                            disabled={!isSelectedUserEditable || (savingPermission?.userId === (selectedUser.id || (selectedUser as any)._id || '').toString() && savingPermission?.moduleId === row.id)}
+                                                                            onSelect={(next) => {
+                                                                                if (!isSelectedUserEditable) {
+                                                                                    toast.error('You do not have permission to edit this user');
+                                                                                    return;
+                                                                                }
+                                                                                const uid = (selectedUser.id || (selectedUser as any)._id || '').toString();
+                                                                                void setUserModuleValue(uid, row.id, next);
+                                                                            }}
+                                                                        />
+                                                                    ))}
                                                                 </div>
                                                             ) : (
-                                                                <div className="text-gray-400 text-sm">Select a user to configure permissions</div>
+                                                                <div className="text-gray-400 text-[10px] text-center">Select a user</div>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -1225,53 +1202,52 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                     </div>
                 </div>
 
+                {/* Modals remain with compact styling - keeping existing modal structure but with reduced sizes */}
                 {isAdminUser && showModuleForm && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/30" onClick={() => setShowModuleForm(false)} />
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 px-6 py-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 bg-white/20 rounded-xl">
-                                            <Shield className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-semibold text-white">{editingId ? 'Edit Module' : 'Add Module'}</h3>
-                                            <p className="text-sm text-indigo-100/90 mt-0.5">Set default access levels per role</p>
-                                        </div>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => setShowModuleForm(false)} />
+                        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                            <div className={`px-4 py-3 border-b border-gray-100 bg-[${theme.primaryUltralight}] flex items-center justify-between`}>
+                                <div className="flex items-center gap-2">
+                                    <div className={`p-1.5 bg-[${theme.primary}] rounded-lg`}>
+                                        <Shield className="h-4 w-4 text-white" />
                                     </div>
-                                    <button onClick={() => setShowModuleForm(false)} className="p-2 text-white/90 hover:text-white hover:bg-white/20 rounded-xl">
-                                        <XIcon className="h-5 w-5" />
-                                    </button>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900">{editingId ? 'Edit Module' : 'Add Module'}</h3>
+                                        <p className="text-[10px] text-gray-500">Set default access levels</p>
+                                    </div>
                                 </div>
+                                <button onClick={() => setShowModuleForm(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                                    <XIcon className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div className="px-6 py-6 space-y-6">
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-900">Module Name<span className="text-rose-600 ml-1">*</span></label>
+                            <div className="px-4 py-4 space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Module Name</label>
                                     <input
                                         value={formModule}
                                         onChange={(e) => setFormModule(e.target.value)}
                                         placeholder="e.g., tasks"
-                                        className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Admin Default</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Admin</label>
                                         <PermissionSelect value={formAdmin} onChange={setFormAdmin} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Manager Default</label>
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Manager</label>
                                         <PermissionSelect value={formManager} onChange={setFormManager} />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Assistant Default</label>
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Assistant</label>
                                         <PermissionSelect value={formAssistant} onChange={setFormAssistant} />
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-end gap-3 pt-2">
-                                    <button onClick={() => setShowModuleForm(false)} className="px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50">Cancel</button>
-                                    <button onClick={onSave} className="px-5 py-2.5 text-sm font-medium rounded-xl shadow-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700">
+                                <div className="flex items-center justify-end gap-2 pt-2">
+                                    <button onClick={() => setShowModuleForm(false)} className="px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50">Cancel</button>
+                                    <button onClick={onSave} className={`px-3 py-1.5 text-xs font-medium rounded-lg bg-[${theme.primary}] text-white hover:bg-[${theme.primaryDark}]`}>
                                         {editingId ? 'Update' : 'Create'}
                                     </button>
                                 </div>
@@ -1281,67 +1257,50 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                 )}
 
                 {isAdminUser && showAddUserModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/30" onClick={() => setShowAddUserModal(false)} />
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 px-6 py-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 bg-white/20 rounded-xl">
-                                            <Users className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-semibold text-white">Add New User</h3>
-                                            <p className="text-sm text-blue-100/90 mt-0.5">Create a user and assign permissions</p>
-                                        </div>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddUserModal(false)} />
+                        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+                            <div className="px-4 py-3 border-b border-gray-100 bg-blue-50 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-blue-600 rounded-lg">
+                                        <Users className="h-4 w-4 text-white" />
                                     </div>
-                                    {isAdminUser && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowAddUserModal(false);
-                                                openAddRole();
-                                            }}
-                                            className="hidden sm:inline-flex items-center px-3 py-2 bg-white/15 hover:bg-white/20 text-white text-sm font-medium rounded-xl"
-                                        >
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Role
-                                        </button>
-                                    )}
-                                    <button onClick={() => setShowAddUserModal(false)} className="p-2 text-white/90 hover:text-white hover:bg-white/20 rounded-xl">
-                                        <XIcon className="h-5 w-5" />
-                                    </button>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900">Add New User</h3>
+                                        <p className="text-[10px] text-gray-500">Create a user and assign permissions</p>
+                                    </div>
                                 </div>
+                                <button onClick={() => setShowAddUserModal(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                                    <XIcon className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div className="px-6 py-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Full Name<span className="text-rose-600 ml-1">*</span></label>
-                                        <input value={newUser.name} onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="John Doe" className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <div className="px-4 py-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Full Name</label>
+                                        <input value={newUser.name} onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))} placeholder="John Doe" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Email Address<span className="text-rose-600 ml-1">*</span></label>
-                                        <input type="email" value={newUser.email} onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="john@example.com" className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                                        <input type="email" value={newUser.email} onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))} placeholder="john@example.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Password<span className="text-rose-600 ml-1">*</span></label>
-                                        <input type="password" value={newUser.password} onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Temporary password" className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+                                        <input type="password" value={newUser.password} onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Temporary password" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Role<span className="text-rose-600 ml-1">*</span></label>
-                                        <select value={newUser.role} onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))} className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+                                        <select value={newUser.role} onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs">
                                             {roleOptions.map(opt => (
                                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                                             ))}
                                         </select>
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-end gap-3 pt-8">
-                                    <button onClick={() => setShowAddUserModal(false)} className="px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50">Cancel</button>
-                                    <button onClick={saveNewUser} disabled={addingUser} className={`px-5 py-2.5 text-sm font-medium rounded-xl shadow-lg ${addingUser ? 'bg-blue-300 text-white cursor-not-allowed' : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700'}`}>
-                                        {addingUser ? (
-                                            <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" />Creating...</span>
-                                        ) : 'Create User'}
+                                <div className="flex items-center justify-end gap-2 pt-4">
+                                    <button onClick={() => setShowAddUserModal(false)} className="px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50">Cancel</button>
+                                    <button onClick={saveNewUser} disabled={addingUser} className={`px-3 py-1.5 text-xs font-medium rounded-lg ${addingUser ? 'bg-blue-300 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                                        {addingUser ? 'Creating...' : 'Create User'}
                                     </button>
                                 </div>
                             </div>
@@ -1350,55 +1309,39 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                 )}
 
                 {isAdminUser && showAddRoleModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/30" onClick={() => { if (addingRole) return; setShowAddRoleModal(false); }} />
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 px-6 py-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 bg-white/20 rounded-xl">
-                                            <Users className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-semibold text-white">Add Role</h3>
-                                            <p className="text-sm text-emerald-100/90 mt-0.5">Create a new role (saved permanently)</p>
-                                        </div>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => { if (addingRole) return; setShowAddRoleModal(false); }} />
+                        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                            <div className="px-4 py-3 border-b border-gray-100 bg-emerald-50 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-1.5 bg-emerald-600 rounded-lg">
+                                        <Users className="h-4 w-4 text-white" />
                                     </div>
-                                    <button onClick={() => { if (addingRole) return; setShowAddRoleModal(false); }} className="p-2 text-white/90 hover:text-white hover:bg-white/20 rounded-xl">
-                                        <XIcon className="h-5 w-5" />
-                                    </button>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900">Add Role</h3>
+                                        <p className="text-[10px] text-gray-500">Create a new role</p>
+                                    </div>
                                 </div>
+                                <button onClick={() => { if (addingRole) return; setShowAddRoleModal(false); }} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                                    <XIcon className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div className="px-6 py-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Role Key<span className="text-rose-600 ml-1">*</span></label>
-                                        <input
-                                            value={newRole.key}
-                                            onChange={(e) => setNewRole(prev => ({ ...prev, key: e.target.value }))}
-                                            placeholder="e.g., designer"
-                                            disabled={addingRole}
-                                            className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                        />
-                                        <div className="text-xs text-gray-500">Allowed: a-z, 0-9, _ and -</div>
+                            <div className="px-4 py-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Role Key</label>
+                                        <input value={newRole.key} onChange={(e) => setNewRole(prev => ({ ...prev, key: e.target.value }))} placeholder="e.g., designer" disabled={addingRole} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
+                                        <div className="text-[9px] text-gray-400 mt-0.5">a-z, 0-9, _, -</div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Display Name<span className="text-rose-600 ml-1">*</span></label>
-                                        <input
-                                            value={newRole.name}
-                                            onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))}
-                                            placeholder="e.g., Designer"
-                                            disabled={addingRole}
-                                            className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                        />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Display Name</label>
+                                        <input value={newRole.name} onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g., Designer" disabled={addingRole} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-end gap-3 pt-6">
-                                    <button onClick={() => setShowAddRoleModal(false)} disabled={addingRole} className="px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed">Cancel</button>
-                                    <button onClick={saveNewRole} disabled={addingRole} className={`px-5 py-2.5 text-sm font-medium rounded-xl shadow-lg ${addingRole ? 'bg-emerald-300 text-white cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700'}`}>
-                                        {addingRole ? (
-                                            <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" />Saving...</span>
-                                        ) : 'Create Role'}
+                                <div className="flex items-center justify-end gap-2 pt-4">
+                                    <button onClick={() => setShowAddRoleModal(false)} disabled={addingRole} className="px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50">Cancel</button>
+                                    <button onClick={saveNewRole} disabled={addingRole} className={`px-3 py-1.5 text-xs font-medium rounded-lg ${addingRole ? 'bg-emerald-300 text-white' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
+                                        {addingRole ? 'Saving...' : 'Create Role'}
                                     </button>
                                 </div>
                             </div>
@@ -1407,66 +1350,38 @@ const AccessPage: React.FC<AccessPageProps> = ({ currentUser, users, onAddUser, 
                 )}
 
                 {isAdminUser && showEditRoleModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/30" onClick={() => { if (savingRoleEdit) return; setShowEditRoleModal(false); }} />
-                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 px-6 py-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 bg-white/20 rounded-xl">
-                                            <Users className="h-6 w-6 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-semibold text-white">Edit Role</h3>
-                                            <p className="text-sm text-indigo-100/90 mt-0.5">Update role display name</p>
-                                        </div>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/40">
+                        <div className="absolute inset-0 bg-black/40" onClick={() => { if (savingRoleEdit) return; setShowEditRoleModal(false); }} />
+                        <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                            <div className={`px-4 py-3 border-b border-gray-100 bg-[${theme.primaryUltralight}] flex items-center justify-between`}>
+                                <div className="flex items-center gap-2">
+                                    <div className={`p-1.5 bg-[${theme.primary}] rounded-lg`}>
+                                        <Users className="h-4 w-4 text-white" />
                                     </div>
-                                    <button
-                                        onClick={() => { if (savingRoleEdit) return; setShowEditRoleModal(false); }}
-                                        className="p-2 text-white/90 hover:text-white hover:bg-white/20 rounded-xl"
-                                    >
-                                        <XIcon className="h-5 w-5" />
-                                    </button>
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900">Edit Role</h3>
+                                        <p className="text-[10px] text-gray-500">Update role display name</p>
+                                    </div>
                                 </div>
+                                <button onClick={() => { if (savingRoleEdit) return; setShowEditRoleModal(false); }} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+                                    <XIcon className="h-4 w-4" />
+                                </button>
                             </div>
-                            <div className="px-6 py-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Role Key</label>
-                                        <input
-                                            value={editingRole.key}
-                                            disabled
-                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm opacity-80 cursor-not-allowed"
-                                        />
+                            <div className="px-4 py-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Role Key</label>
+                                        <input value={editingRole.key} disabled className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs opacity-80" />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-medium text-gray-900">Display Name<span className="text-rose-600 ml-1">*</span></label>
-                                        <input
-                                            value={editingRole.name}
-                                            onChange={(e) => setEditingRole(prev => ({ ...prev, name: e.target.value }))}
-                                            placeholder="e.g., Designer"
-                                            disabled={savingRoleEdit}
-                                            className="w-full px-4 py-3 bg-gradient-to-b from-gray-50 to-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed"
-                                        />
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Display Name</label>
+                                        <input value={editingRole.name} onChange={(e) => setEditingRole(prev => ({ ...prev, name: e.target.value }))} disabled={savingRoleEdit} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs" />
                                     </div>
                                 </div>
-
-                                <div className="flex items-center justify-end gap-3 pt-6">
-                                    <button
-                                        onClick={() => setShowEditRoleModal(false)}
-                                        disabled={savingRoleEdit}
-                                        className="px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => void saveRoleEdit()}
-                                        disabled={savingRoleEdit}
-                                        className={`px-5 py-2.5 text-sm font-medium rounded-xl shadow-lg ${savingRoleEdit ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700'}`}
-                                    >
-                                        {savingRoleEdit ? (
-                                            <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" />Saving...</span>
-                                        ) : 'Save'}
+                                <div className="flex items-center justify-end gap-2 pt-4">
+                                    <button onClick={() => setShowEditRoleModal(false)} disabled={savingRoleEdit} className="px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg hover:bg-gray-50">Cancel</button>
+                                    <button onClick={() => void saveRoleEdit()} disabled={savingRoleEdit} className={`px-3 py-1.5 text-xs font-medium rounded-lg ${savingRoleEdit ? 'bg-gray-400 text-white' : `bg-[${theme.primary}] text-white hover:bg-[${theme.primaryDark}]`}`}>
+                                        {savingRoleEdit ? 'Saving...' : 'Save'}
                                     </button>
                                 </div>
                             </div>

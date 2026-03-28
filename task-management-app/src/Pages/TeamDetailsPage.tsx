@@ -22,6 +22,15 @@ import type { Task, TaskHistory, UserType } from '../Types/Types';
 import toast from 'react-hot-toast';
 import { userAvatarUrl } from '../utils/avatar';
 
+// Theme colors matching TeamPage
+const theme = {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2a6e',
+    primaryLight: '#3b82f6',
+    primaryLighter: '#60a5fa',
+    primaryUltralight: '#dbeafe',
+};
+
 interface TeamDetailsPageProps {
     user: UserType;
     tasks: Task[];
@@ -45,7 +54,7 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
     const [activeTab, setActiveTab] = useState<'tasks' | 'history'>('tasks');
     const [detailsTab, setDetailsTab] = useState<'all' | 'pending' | 'completed' | 'overdue'>('all');
     const [taskSearch, setTaskSearch] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState<string>(''); // Month filter state
+    const [selectedMonth, setSelectedMonth] = useState<string>('');
     const [historyByTaskId, setHistoryByTaskId] = useState<Record<string, TaskHistory[]>>({});
     const [historyLoadingByTaskId, setHistoryLoadingByTaskId] = useState<Record<string, boolean>>({});
     const [, setEmailHistory] = useState<any[]>([]);
@@ -65,7 +74,6 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         return aa === bb;
     }, [normalizeEmailForMatch]);
 
-    // Get tasks for this user
     const getTasksForUser = useMemo(() => {
         return (userId: string, userEmail: string) => {
             const targetEmail = normalizeEmailForMatch(userEmail);
@@ -96,7 +104,6 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         };
     }, [emailsMatch, normalizeEmailForMatch, tasks]);
 
-    // Get tasks created by this user
     const getTasksCreatedByUser = useMemo(() => {
         return (userId: string, userEmail: string) => {
             const targetEmail = normalizeEmailForMatch(userEmail);
@@ -119,12 +126,10 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         };
     }, [tasks]);
 
-    // Get all tasks for this user
     const allTasks = useMemo(() => {
         return getTasksForUser(user.id, user.email);
     }, [getTasksForUser, user]);
 
-    // Get user stats - filtered by month if selected
     const getUserStats = useMemo(() => {
         const monthFilteredTasks = selectedMonth
             ? allTasks.filter(t => {
@@ -153,21 +158,6 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         };
     }, [allTasks, getTasksCreatedByUser, user, isOverdue, selectedMonth]);
 
-    // Resolve user label for display
-    const resolveUserLabel = useCallback((value: any): string => {
-        if (!value) return 'Unknown';
-        if (typeof value === 'string') {
-            if (value.includes('@')) return value;
-            const u = users.find(x => x.id === value || (x as any)._id === value || x.email === value);
-            return u?.email || u?.name || value;
-        }
-        if (typeof value === 'object') {
-            return value.email || value.name || value.id || value._id || 'Unknown';
-        }
-        return 'Unknown';
-    }, [users]);
-
-    // Get specific task history (when a task is selected)
     const selectedTaskHistory = useMemo(() => {
         if (!selectedTaskForHistory) return [];
 
@@ -176,18 +166,17 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
 
         const taskHistory: any[] = [];
 
-        // Derived overdue timeline item
         try {
             const due = new Date(task.dueDate);
             const now = new Date();
-            const isOverdue = task.status !== 'completed' && !Number.isNaN(due.getTime()) && due < now;
-            if (isOverdue) {
+            const isOverdueStatus = task.status !== 'completed' && !Number.isNaN(due.getTime()) && due < now;
+            if (isOverdueStatus) {
                 const overdueDays = Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
                 const msg = (task.message || task.description || '').toString().trim();
                 taskHistory.push({
                     id: `task-overdue-${task.id}`,
                     action: 'overdue',
-                    description: `Task is overdue (Due: ${due.toLocaleDateString()} • ${overdueDays} day${overdueDays === 1 ? '' : 's'} late)${msg ? ` • ${msg}` : ''}`,
+                    description: `Task overdue (Due: ${due.toLocaleDateString()} • ${overdueDays} day${overdueDays === 1 ? '' : 's'} late)${msg ? ` • ${msg}` : ''}`,
                     taskId: task.id,
                     taskTitle: task.title,
                     taskStatus: task.status,
@@ -199,7 +188,6 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
             // ignore
         }
 
-        // Add REAL task history only (from backend)
         const rawExistingHistory = historyByTaskId[selectedTaskForHistory] || (task as any).history || [];
         const existingHistory = Array.isArray(rawExistingHistory) ? rawExistingHistory : [];
 
@@ -244,9 +232,8 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         return taskHistory.sort((a, b) =>
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-    }, [selectedTaskForHistory, allTasks, historyByTaskId, resolveUserLabel]);
+    }, [selectedTaskForHistory, allTasks, historyByTaskId]);
 
-    // Load task history
     const loadTaskHistory = useCallback(async (taskId: string) => {
         if (!onFetchTaskHistory) {
             toast.error('History is not available');
@@ -275,11 +262,9 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         }
     }, [historyByTaskId, historyLoadingByTaskId, onFetchTaskHistory]);
 
-    // Load email history (mock implementation)
     const loadEmailHistory = useCallback(async () => {
         setLoadingEmailHistory(true);
         try {
-            // Mock email history - in real implementation, this would fetch from API
             const mockEmailHistory = [
                 {
                     id: '1',
@@ -289,7 +274,7 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
                     sender: 'system@company.com',
                     timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'delivered',
-                    preview: 'You have been assigned a new task: Website Redesign...'
+                    preview: 'You have been assigned a new task...'
                 },
                 {
                     id: '2',
@@ -299,17 +284,7 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
                     sender: 'system@company.com',
                     timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
                     status: 'delivered',
-                    preview: 'Your task "Mobile App Development" is due tomorrow...'
-                },
-                {
-                    id: '3',
-                    type: 'task_completed',
-                    subject: 'Task Completed: Database Migration',
-                    recipient: user.email,
-                    sender: 'system@company.com',
-                    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-                    status: 'delivered',
-                    preview: 'Great job! You have completed the Database Migration task...'
+                    preview: 'Your task is due tomorrow...'
                 }
             ];
             setEmailHistory(mockEmailHistory);
@@ -321,15 +296,12 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         }
     }, [user.email]);
 
-    // Load email history on component mount
     React.useEffect(() => {
         loadEmailHistory();
     }, [loadEmailHistory]);
 
-    // Filter and sort tasks
     const filteredTasks = allTasks
         .filter(t => {
-            // Month filter
             if (selectedMonth) {
                 const taskDate = new Date(t.dueDate || t.createdAt || '');
                 const [year, month] = selectedMonth.split('-').map(Number);
@@ -356,65 +328,59 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         })
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
-    // Get role badge color
     const getRoleBadgeColor = (role: string) => {
-        switch (role?.toLowerCase()) {
+        const r = (role || '').toLowerCase();
+        switch (r) {
             case 'admin':
+            case 'super_admin':
                 return 'bg-purple-100 text-purple-800 border border-purple-200';
+            case 'md_manager':
+            case 'ob_manager':
             case 'manager':
-                return 'bg-blue-100 text-blue-800 border border-blue-200';
+                return `bg-[${theme.primaryUltralight}] text-[${theme.primaryDark}] border border-[${theme.primaryLight}]/30`;
+            case 'sbm':
+            case 'rm':
+            case 'am':
+                return 'bg-amber-100 text-amber-800 border border-amber-200';
             case 'assistant':
+            case 'sub_assistance':
                 return 'bg-green-100 text-green-800 border border-green-200';
-            case 'developer':
-                return 'bg-green-100 text-green-800 border border-green-200';
-            case 'designer':
-                return 'bg-pink-100 text-pink-800 border border-pink-200';
+            case 'sales_manager':
+            case 'sales_man':
+                return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
             default:
                 return 'bg-gray-100 text-gray-800 border border-gray-200';
         }
     };
 
-    // Get role icon
     const getRoleIcon = (role: string) => {
-        switch (role?.toLowerCase()) {
-            case 'admin':
-                return <Shield className="h-4 w-4" />;
-            case 'manager':
-                return <UserCog className="h-4 w-4" />;
-            case 'assistant':
-                return <User className="h-4 w-4" />;
-            case 'developer':
-                return <Briefcase className="h-4 w-4" />;
-            case 'designer':
-                return <User className="h-4 w-4" />;
-            default:
-                return <User className="h-4 w-4" />;
-        }
+        const r = (role || '').toLowerCase();
+        if (r === 'admin' || r === 'super_admin') return <Shield className="h-3 w-3" />;
+        if (r === 'md_manager' || r === 'ob_manager' || r === 'manager') return <UserCog className="h-3 w-3" />;
+        if (r === 'sbm' || r === 'rm' || r === 'am') return <Briefcase className="h-3 w-3" />;
+        if (r === 'assistant' || r === 'sub_assistance') return <User className="h-3 w-3" />;
+        if (r === 'sales_manager' || r === 'sales_man') return <Briefcase className="h-3 w-3" />;
+        return <User className="h-3 w-3" />;
     };
 
-    // Get action icon
     const getActionIcon = useCallback((action: string) => {
         switch (action) {
-            case 'task_created': return <FileText className="h-4 w-4" />;
-            case 'task_completed': return <CheckCircle className="h-4 w-4" />;
-            case 'task_updated': return <Edit className="h-4 w-4" />;
-            case 'status_changed': return <Activity className="h-4 w-4" />;
-            case 'comment_added': return <MessageSquare className="h-4 w-4" />;
-            default: return <Activity className="h-4 w-4" />;
+            case 'task_created': return <FileText className="h-3 w-3" />;
+            case 'task_completed': return <CheckCircle className="h-3 w-3" />;
+            case 'task_updated': return <Edit className="h-3 w-3" />;
+            case 'status_changed': return <Activity className="h-3 w-3" />;
+            case 'comment_added': return <MessageSquare className="h-3 w-3" />;
+            default: return <Activity className="h-3 w-3" />;
         }
     }, []);
 
-    // Format date time safe
     const formatDateTimeSafe = useCallback((value: any): string => {
         if (!value) return '';
         const d = new Date(value);
         if (Number.isNaN(d.getTime())) return '';
-        const datePart = d.toLocaleDateString();
-        const timePart = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `${datePart} at ${timePart}`;
+        return d.toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
     }, []);
 
-    // Get actor label
     const getActorLabel = useCallback((item: any): string => {
         const name = (item?.userName || '').toString().trim();
         if (name) return name;
@@ -424,12 +390,9 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         if (nestedName) return nestedName;
         const nestedEmail = (item?.user?.userEmail || item?.user?.email || '').toString().trim();
         if (nestedEmail) return nestedEmail;
-        const userId = (item?.userId || '').toString().trim();
-        if (userId) return userId;
         return 'System';
     }, []);
 
-    // Get action label
     const getActionLabel = useCallback((action: any): string => {
         const a = (action || '').toString().trim();
         if (!a) return '';
@@ -443,7 +406,6 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         return d.toLocaleDateString('en-GB');
     }, []);
 
-    // Get status color
     const getStatusColor = useCallback((status: string) => {
         switch (status) {
             case 'completed': return 'bg-green-100 text-green-800 border-green-200';
@@ -454,55 +416,41 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         }
     }, []);
 
-    // Get priority color
     const getPriorityColor = useCallback((priority: string | undefined) => {
         switch (priority) {
             case 'high': return 'bg-red-100 text-red-800 border-red-200';
             case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
             case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-            default: return 'bg-gray-100 text-gray-800 border-gray-200'; // default for undefined
+            default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
     }, []);
 
-    // Get assigned to name
     const getAssignedToName = useCallback((task: Task): string => {
-        if (task.assignedToUser?.name) {
-            return task.assignedToUser.name;
-        }
-
+        if (task.assignedToUser?.name) return task.assignedToUser.name;
         if (typeof task.assignedTo === 'object' && task.assignedTo !== null) {
             return (task.assignedTo as any).name || 'Unknown';
         }
-
         if (typeof task.assignedTo === 'string') {
-            const user = users.find(u => u.email === task.assignedTo || u.id === task.assignedTo);
-            if (user) return user.name;
+            const userMatch = users.find(u => u.email === task.assignedTo || u.id === task.assignedTo);
+            if (userMatch) return userMatch.name;
             return task.assignedTo?.split('@')[0] || 'Unknown';
         }
-
         return 'Unknown';
     }, [users]);
 
-    // Get assigned by name
     const getAssignedByName = useCallback((task: Task): string => {
-        if ((task as any).assignedByName) {
-            return (task as any).assignedByName;
-        }
-
+        if ((task as any).assignedByName) return (task as any).assignedByName;
         if (typeof task.assignedBy === 'object' && task.assignedBy !== null) {
             return (task.assignedBy as any).name || 'Unknown';
         }
-
         if (typeof task.assignedBy === 'string') {
-            const user = users.find(u => u.email === task.assignedBy || u.id === task.assignedBy);
-            if (user) return user.name;
+            const userMatch = users.find(u => u.email === task.assignedBy || u.id === task.assignedBy);
+            if (userMatch) return userMatch.name;
             return task.assignedBy?.split('@')[0] || 'Unknown';
         }
-
         return 'Unknown';
     }, [users]);
 
-    // Get user initials
     const getUserInitials = (name: string | undefined): string => {
         if (!name) return 'U';
         const parts = name.trim().split(' ');
@@ -512,38 +460,42 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         return name.charAt(0).toUpperCase();
     };
 
-    // Get user avatar
     const getUserAvatar = (user: UserType, size: 'sm' | 'md' | 'lg' = 'md') => {
         const initials = getUserInitials(user.name);
         const avatarUrl = userAvatarUrl(user);
-
+        const role = (user.role || '').toLowerCase();
+        
         let gradient = 'from-gray-600 to-gray-800';
-        switch (user.role?.toLowerCase()) {
+        switch (role) {
             case 'admin':
+            case 'super_admin':
                 gradient = 'from-purple-600 to-purple-800';
-
                 break;
+            case 'md_manager':
+            case 'ob_manager':
             case 'manager':
-                gradient = 'from-blue-600 to-blue-800';
+                gradient = `from-[${theme.primaryDark}] to-[${theme.primary}]`;
                 break;
             case 'assistant':
-            case 'developer':
+            case 'sub_assistance':
                 gradient = 'from-green-600 to-green-800';
                 break;
-            case 'designer':
-                gradient = 'from-pink-600 to-pink-800';
+            case 'sbm':
+            case 'rm':
+            case 'am':
+                gradient = 'from-amber-600 to-amber-800';
                 break;
         }
 
         const sizeClasses = {
-            sm: 'h-10 w-10 text-base',
-            md: 'h-14 w-14 text-lg',
-            lg: 'h-16 w-16 text-xl'
+            sm: 'h-8 w-8 text-xs',
+            md: 'h-10 w-10 text-sm',
+            lg: 'h-12 w-12 text-base'
         };
 
         return (
             <div className="flex-shrink-0">
-                <div className={`rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-semibold ${sizeClasses[size]} overflow-hidden`}>
+                <div className={`rounded-lg bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-semibold ${sizeClasses[size]} overflow-hidden`}>
                     {avatarUrl ? (
                         <img
                             src={avatarUrl}
@@ -567,167 +519,158 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
                 : 'Unassigned'
             : '';
 
-    // Get current month value for default
     const getCurrentMonthValue = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
+            {/* Back Button */}
             <div className="flex items-center justify-between">
                 <button
                     onClick={onBack}
-                    className="inline-flex items-center px-4 py-2.5 text-sm font-medium bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Team
+                    <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                    Back
                 </button>
             </div>
 
-            {/* User Profile Header */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-start justify-between gap-6">
-                    <div className="flex items-center gap-4 min-w-0">
-                        {getUserAvatar(user)}
+            {/* User Profile Header - Compact */}
+            <div className={`bg-white rounded-lg border border-gray-200 p-4 shadow-sm`}>
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        {getUserAvatar(user, 'lg')}
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                                <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
-                                <span className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 ${getRoleBadgeColor(user.role)}`}>
+                                <h2 className="text-base font-bold text-gray-900 truncate">{user.name}</h2>
+                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-lg flex items-center gap-1 ${getRoleBadgeColor(user.role)}`}>
                                     {getRoleIcon(user.role)}
                                     {user.role || 'User'}
                                 </span>
                             </div>
-                            <div className="mt-1 text-sm text-gray-600 flex items-center gap-2 min-w-0">
-                                <Mail className="h-4 w-4 text-gray-400" />
+                            <div className="mt-0.5 text-xs text-gray-600 flex items-center gap-1.5 min-w-0">
+                                <Mail className="h-3 w-3 text-gray-400" />
                                 <span className="truncate">{user.email}</span>
                             </div>
                             {reportingToName && (
-                                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <div className="text-xs text-blue-600 mb-1">Reporting to:</div>
-                                    <div className="text-sm font-medium text-gray-900">{reportingToName}</div>
+                                <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                    <div className="text-[10px] text-blue-600 mb-0.5">Reporting to:</div>
+                                    <div className="text-xs font-medium text-gray-900">{reportingToName}</div>
                                 </div>
                             )}
                         </div>
                     </div>
-                    <div className="flex flex-col items-end gap-3">
-                        {/* Month Selector */}
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="month"
-                                value={selectedMonth || getCurrentMonthValue()}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="px-3 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
-                            />
-                        </div>
+                    <div className="flex flex-col items-end gap-2">
+                        <input
+                            type="month"
+                            value={selectedMonth || getCurrentMonthValue()}
+                            onChange={(e) => setSelectedMonth(e.target.value)}
+                            className="px-2 py-1 text-xs font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none cursor-pointer"
+                        />
                         <div className="text-right">
-                            <div className="text-sm text-gray-600">Tasks Created</div>
-                            <div className="text-lg font-bold text-gray-900">{stats.tasksCreated}</div>
+                            <div className="text-[10px] text-gray-600">Tasks Created</div>
+                            <div className="text-sm font-bold text-gray-900">{stats.tasksCreated}</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Task Stats Cards - Clickable */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                {/* Task Stats Cards - Compact Clickable */}
+                <div className="grid grid-cols-4 gap-2 mt-4">
                     <button
                         onClick={() => setDetailsTab('all')}
-                        className={`bg-blue-50 rounded-xl p-4 border text-left transition-all ${detailsTab === 'all' ? 'border-blue-300 shadow-sm' : 'border-blue-100 hover:border-blue-200'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${detailsTab === 'all' ? `bg-[${theme.primaryUltralight}] border-[${theme.primaryLight}] shadow-sm` : 'bg-blue-50 border-blue-100 hover:border-blue-200'}`}
                     >
-                        <div className="text-xs font-medium text-blue-700">Total Tasks</div>
-                        <div className="text-2xl font-bold text-gray-900 mt-1">{stats.totalAssigned}</div>
+                        <div className="text-[10px] font-medium text-blue-700">Total</div>
+                        <div className="text-base font-bold text-gray-900 mt-0.5">{stats.totalAssigned}</div>
                     </button>
                     <button
                         onClick={() => setDetailsTab('completed')}
-                        className={`bg-green-50 rounded-xl p-4 border text-left transition-all ${detailsTab === 'completed' ? 'border-green-300 shadow-sm' : 'border-green-100 hover:border-green-200'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${detailsTab === 'completed' ? 'bg-green-100 border-green-300 shadow-sm' : 'bg-green-50 border-green-100 hover:border-green-200'}`}
                     >
-                        <div className="text-xs font-medium text-green-700">Completed</div>
-                        <div className="text-2xl font-bold text-gray-900 mt-1">{stats.completed}</div>
+                        <div className="text-[10px] font-medium text-green-700">Done</div>
+                        <div className="text-base font-bold text-gray-900 mt-0.5">{stats.completed}</div>
                     </button>
                     <button
                         onClick={() => setDetailsTab('pending')}
-                        className={`bg-amber-50 rounded-xl p-4 border text-left transition-all ${detailsTab === 'pending' ? 'border-amber-300 shadow-sm' : 'border-amber-100 hover:border-amber-200'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${detailsTab === 'pending' ? 'bg-amber-100 border-amber-300 shadow-sm' : 'bg-amber-50 border-amber-100 hover:border-amber-200'}`}
                     >
-                        <div className="text-xs font-medium text-amber-700">Pending</div>
-                        <div className="text-2xl font-bold text-gray-900 mt-1">{stats.pending}</div>
+                        <div className="text-[10px] font-medium text-amber-700">Pend</div>
+                        <div className="text-base font-bold text-gray-900 mt-0.5">{stats.pending}</div>
                     </button>
                     <button
                         onClick={() => setDetailsTab('overdue')}
-                        className={`bg-red-50 rounded-xl p-4 border text-left transition-all ${detailsTab === 'overdue' ? 'border-red-300 shadow-sm' : 'border-red-100 hover:border-red-200'}`}
+                        className={`p-2 rounded-lg border text-left transition-all ${detailsTab === 'overdue' ? 'bg-red-100 border-red-300 shadow-sm' : 'bg-red-50 border-red-100 hover:border-red-200'}`}
                     >
-                        <div className="text-xs font-medium text-red-700">Overdue</div>
-                        <div className="text-2xl font-bold text-gray-900 mt-1">{stats.overdue}</div>
+                        <div className="text-[10px] font-medium text-red-700">Over</div>
+                        <div className="text-base font-bold text-gray-900 mt-0.5">{stats.overdue}</div>
                     </button>
                 </div>
             </div>
 
-            {/* Tasks Section - Updated to show active tab */}
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="p-6">
+            {/* Tasks/History Section */}
+            <div className={`bg-white rounded-lg border border-gray-200 shadow-sm`}>
+                <div className="p-4">
                     {activeTab === 'tasks' ? (
                         <div className="w-full">
-                            {/* Filters Section */}
-                            <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-                                <div className="flex-1 max-w-lg">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="Search tasks..."
-                                            value={taskSearch}
-                                            onChange={(e) => setTaskSearch(e.target.value)}
-                                            className="pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
-                                        />
-                                    </div>
+                            {/* Search Bar */}
+                            <div className="mb-4">
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search tasks..."
+                                        value={taskSearch}
+                                        onChange={(e) => setTaskSearch(e.target.value)}
+                                        className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full"
+                                    />
                                 </div>
                             </div>
 
-                            {/* Tasks Grid */}
+                            {/* Tasks Grid - Compact */}
                             {filteredTasks.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {filteredTasks.map((task) => (
                                         <div
                                             key={task.id}
-                                            className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
+                                            className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 flex flex-col"
                                         >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-900 mb-2 text-lg line-clamp-1">{task.title}</h3>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={() => loadTaskHistory(task.id)}
-                                                        className="text-gray-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="View History"
-                                                    >
-                                                        <History className="h-4 w-4" />
-                                                    </button>
-                                                </div>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h3 className="font-semibold text-sm text-gray-900 line-clamp-1 flex-1">{task.title}</h3>
+                                                <button
+                                                    onClick={() => loadTaskHistory(task.id)}
+                                                    className="text-gray-400 hover:text-blue-600 p-1 hover:bg-blue-50 rounded transition-colors"
+                                                    title="View History"
+                                                >
+                                                    <History className="h-3.5 w-3.5" />
+                                                </button>
                                             </div>
 
-                                            <div className="flex flex-wrap items-center gap-2 mb-5">
-                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getStatusColor(task.status)}`}>
+                                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStatusColor(task.status)}`}>
                                                     {task.status}
                                                 </span>
-                                                <span className={`px-3 py-1.5 rounded-lg text-xs font-medium ${getPriorityColor(task.priority || 'low')}`}>
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPriorityColor(task.priority || 'low')}`}>
                                                     {task.priority}
                                                 </span>
                                                 {task.taskType && (
-                                                    <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-800 flex items-center gap-1">
-                                                        <Tag className="h-3 w-3" />
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800 flex items-center gap-0.5">
+                                                        <Tag className="h-2.5 w-2.5" />
                                                         {task.taskType}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            <div className="mt-auto pt-4 border-t border-gray-100">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                        <Calendar className="h-4 w-4" />
-                                                        <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                                            <div className="mt-auto pt-2 border-t border-gray-100">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <Calendar className="h-3 w-3" />
+                                                        <span>{formatDateDMY(task.dueDate)}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                                        <UserCheck className="h-4 w-4" />
-                                                        <span className="font-medium">{getAssignedToName(task)}</span>
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <UserCheck className="h-3 w-3" />
+                                                        <span className="font-medium text-xs truncate max-w-[80px]">{getAssignedToName(task)}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -735,260 +678,209 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
                                     ))}
                                 </div>
                             ) : (
-                                <div className="bg-white rounded-xl border border-gray-200 py-20 text-center">
-                                    <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                                    <h3 className="text-xl font-medium text-gray-900 mb-2">No tasks found</h3>
-                                    <p className="text-gray-500 mb-6">Try adjusting your filters or search terms</p>
+                                <div className="bg-white rounded-lg border border-gray-200 py-12 text-center">
+                                    <Search className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                                    <h3 className="text-sm font-medium text-gray-900 mb-1">No tasks found</h3>
+                                    <p className="text-xs text-gray-500 mb-4">Try adjusting your filters</p>
                                     <button
                                         onClick={() => {
                                             setTaskSearch('');
                                             setDetailsTab('all');
                                         }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                     >
-                                        Clear All Filters
+                                        Clear Filters
                                     </button>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        // History Tab - Full Width History View
+                        // History Tab - Compact
                         <div>
-                            <div className="p-6 border-b border-gray-200">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="border-b border-gray-200 pb-3 mb-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div>
-                                        <h3 className="text-xl font-semibold text-gray-900">
-                                            Task History
-                                        </h3>
-                                        <p className="text-sm text-gray-500 mt-1">
+                                        <h3 className="text-sm font-semibold text-gray-900">Task History</h3>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">
                                             {selectedTaskForHistory
-                                                ? `Complete history for "${allTasks.find(t => t.id === selectedTaskForHistory)?.title || 'selected task'}"`
-                                                : 'Select a task to view its complete history'
+                                                ? `History for "${allTasks.find(t => t.id === selectedTaskForHistory)?.title || 'selected task'}"`
+                                                : 'Select a task to view its history'
                                             }
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        {selectedTaskForHistory && (
-                                            <button
-                                                onClick={() => setActiveTab('tasks')}
-                                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                                            >
-                                                <ArrowLeft className="h-4 w-4" />
-                                                Back to Tasks
-                                            </button>
-                                        )}
-                                    </div>
+                                    {selectedTaskForHistory && (
+                                        <button
+                                            onClick={() => setActiveTab('tasks')}
+                                            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium flex items-center gap-1 transition-colors"
+                                        >
+                                            <ArrowLeft className="h-3 w-3" />
+                                            Back
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="p-6">
-                                {selectedTaskForHistory ? (
-                                    <>
-                                        {/* Task Details Card */}
-                                        {(() => {
-                                            const task = allTasks.find(t => t.id === selectedTaskForHistory);
-                                            if (!task) return null;
+                            {selectedTaskForHistory ? (
+                                <>
+                                    {/* Task Details - Compact Grid */}
+                                    {(() => {
+                                        const task = allTasks.find(t => t.id === selectedTaskForHistory);
+                                        if (!task) return null;
 
-                                            // Calculate overdue days
-                                            const now = new Date();
-                                            const dueDate = new Date(task.dueDate);
-                                            const isOverdue = task.status !== 'completed' && dueDate < now;
-                                             isOverdue ? Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+                                        const now = new Date();
+                                        const dueDate = new Date(task.dueDate);
+                                        const isOverdueStatus = task.status !== 'completed' && dueDate < now;
 
-                                            // Calculate time taken if completed
-                                            const createdTime = task.createdAt ? new Date(task.createdAt).getTime() : null;
-                                            void createdTime;
-
-                                            return (
-                                                <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {/* Task Basic Info */}
-                                                    <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <FileText className="h-5 w-5 text-blue-600" />
-                                                            Task Information
-                                                        </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Task Title:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{task.title}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Task Type:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{task.taskType || 'Not specified'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Brand:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{(task as any).brand || 'N/A'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Company:</span>
-                                                                <span className="text-sm font-medium text-gray-900">
-                                                                    {(task as any).companyName || (task as any).company || 'N/A'}
-                                                                </span>
-                                                            </div>
+                                        return (
+                                            <div className="mb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <div className={`bg-[${theme.primaryUltralight}] p-3 rounded-lg border border-[${theme.primaryLight}]/30`}>
+                                                    <h4 className="font-semibold text-xs text-gray-900 mb-2 flex items-center gap-1.5">
+                                                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                                                        Task Info
+                                                    </h4>
+                                                    <div className="space-y-1.5 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Title:</span>
+                                                            <span className="font-medium text-gray-900 truncate max-w-[150px]">{task.title}</span>
                                                         </div>
-                                                    </div>
-
-                                                    {/* Task Status & Timing */}
-                                                    <div className="bg-green-50 p-5 rounded-xl border border-green-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <Calendar className="h-5 w-5 text-green-600" />
-                                                            Status & Timing
-                                                        </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Current Status:</span>
-                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(task.status)}`}>
-                                                                    {task.status}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Priority:</span>
-                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                                                                    {task.priority}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Created On:</span>
-                                                                <span className="text-sm font-medium text-gray-900">
-                                                                    {task.createdAt ? new Date(task.createdAt).toLocaleString() : 'Unknown'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Last Updated:</span>
-                                                                <span className="text-sm font-medium text-gray-900">
-                                                                    {task.updatedAt ? new Date(task.updatedAt).toLocaleString() : 'Never'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Due Date:</span>
-                                                                <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                                                                    {formatDateDMY(task.dueDate) || ''}
-                                                                </span>
-                                                            </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Type:</span>
+                                                            <span className="font-medium text-gray-900">{task.taskType || 'N/A'}</span>
                                                         </div>
-                                                    </div>
-
-                                                    {/* People Involved */}
-                                                    <div className="bg-purple-50 p-5 rounded-xl border border-purple-100">
-                                                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                                            <UserCheck className="h-5 w-5 text-purple-600" />
-                                                            People Involved
-                                                        </h4>
-                                                        <div className="space-y-3">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Assigned By:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{getAssignedByName(task)}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-sm text-gray-600">Assigned To:</span>
-                                                                <span className="text-sm font-medium text-gray-900">{getAssignedToName(task)}</span>
-                                                            </div>
-                                                            {task.status === 'completed' && (
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-sm text-gray-600">Completed By:</span>
-                                                                    <span className="text-sm font-medium text-gray-900">{getAssignedToName(task)}</span>
-                                                                </div>
-                                                            )}
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Brand:</span>
+                                                            <span className="font-medium text-gray-900">{(task as any).brand || 'N/A'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })()}
 
-                                        {/* Activity Timeline Header */}
-                                        <div className="mb-6 flex items-center justify-between">
-                                            <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                <History className="h-5 w-5" />
-                                                Activity Timeline
-                                            </h4>
-                                            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
-                                                {selectedTaskHistory.length} {selectedTaskHistory.length === 1 ? 'activity' : 'activities'}
+                                                <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                                                    <h4 className="font-semibold text-xs text-gray-900 mb-2 flex items-center gap-1.5">
+                                                        <Calendar className="h-3.5 w-3.5 text-green-600" />
+                                                        Status
+                                                    </h4>
+                                                    <div className="space-y-1.5 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Status:</span>
+                                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStatusColor(task.status)}`}>
+                                                                {task.status}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Priority:</span>
+                                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getPriorityColor(task.priority)}`}>
+                                                                {task.priority}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Due:</span>
+                                                            <span className={`font-medium ${isOverdueStatus ? 'text-red-600' : 'text-gray-900'}`}>
+                                                                {formatDateDMY(task.dueDate)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                                                    <h4 className="font-semibold text-xs text-gray-900 mb-2 flex items-center gap-1.5">
+                                                        <UserCheck className="h-3.5 w-3.5 text-purple-600" />
+                                                        People
+                                                    </h4>
+                                                    <div className="space-y-1.5 text-xs">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">By:</span>
+                                                            <span className="font-medium text-gray-900 truncate max-w-[120px]">{getAssignedByName(task)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">To:</span>
+                                                            <span className="font-medium text-gray-900 truncate max-w-[120px]">{getAssignedToName(task)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
+                                        );
+                                    })()}
+
+                                    {/* Activity Timeline */}
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <h4 className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+                                            <History className="h-3.5 w-3.5" />
+                                            Activity Timeline
+                                        </h4>
+                                        <div className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                            {selectedTaskHistory.length} {selectedTaskHistory.length === 1 ? 'activity' : 'activities'}
                                         </div>
-
-                                        {/* Task History List */}
-                                        <div className="space-y-6">
-                                            {selectedTaskHistory.length > 0 ? (
-                                                selectedTaskHistory.map((item, index) => (
-                                                    <div key={`${item.id}-${index}`} className="relative pb-6 pl-10">
-                                                        <div className="absolute left-4 top-3 h-6 w-6 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center">
-                                                            {getActionIcon(item.action)}
-                                                        </div>
-                                                        {index < selectedTaskHistory.length - 1 && (
-                                                            <div className="absolute left-[27px] top-9 bottom-0 w-0.5 bg-gray-200"></div>
-                                                        )}
-
-                                                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-medium text-gray-900">{getActorLabel(item)}</span>
-                                                                        {getActionLabel(item?.action) && (
-                                                                            <>
-                                                                                <span className="text-xs text-gray-500">•</span>
-                                                                                <div className={`px-2 py-1 rounded text-xs font-medium ${item.action === 'task_created' ? 'bg-green-100 text-green-600' : item.action === 'task_completed' ? 'bg-blue-100 text-blue-600' : item.action === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
-                                                                                    {getActionLabel(item?.action)}
-                                                                                </div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {formatDateTimeSafe(item?.timestamp) && (
-                                                                        <>
-                                                                            <Calendar className="h-3 w-3 text-gray-400" />
-                                                                            <span className="text-xs text-gray-500">
-                                                                                {formatDateTimeSafe(item?.timestamp)}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {item.description && (
-                                                                <p className="text-sm text-gray-700 mb-3">{item.description}</p>
-                                                            )}
-                                                            {item.action === 'task_completed' && (
-                                                                <div className="text-xs text-green-600 mt-2 font-medium">
-                                                                    ✓ Task was marked as completed
-                                                                </div>
-                                                            )}
-                                                            {item.action === 'status_changed' && (
-                                                                <div className="text-xs text-blue-600 mt-2">
-                                                                    Status changed by {item.userName}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center py-12">
-                                                    <History className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                                                    <h4 className="text-lg font-medium text-gray-900 mb-2">No activity history</h4>
-                                                    <p className="text-gray-500">This task doesn't have any recorded activity yet</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                ) : (
-                                    /* No Task Selected State */
-                                    <div className="text-center py-16">
-                                        <History className="h-20 w-20 text-gray-300 mx-auto mb-6" />
-                                        <h4 className="text-xl font-medium text-gray-900 mb-3">No Task Selected</h4>
-                                        <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                                            Click on the "View History" button on any task to see its complete history including timeline, people involved, and status details
-                                        </p>
-                                        <button
-                                            onClick={() => setActiveTab('tasks')}
-                                            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 mx-auto transition-colors"
-                                        >
-                                            <ArrowLeft className="h-5 w-5" />
-                                            Back to Tasks
-                                        </button>
                                     </div>
-                                )}
-                            </div>
+
+                                    <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                                        {selectedTaskHistory.length > 0 ? (
+                                            selectedTaskHistory.map((item, index) => (
+                                                <div key={`${item.id}-${index}`} className="relative pl-7">
+                                                    <div className="absolute left-0 top-1.5 h-5 w-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center">
+                                                        {getActionIcon(item.action)}
+                                                    </div>
+                                                    {index < selectedTaskHistory.length - 1 && (
+                                                        <div className="absolute left-[9px] top-6 bottom-0 w-0.5 bg-gray-200"></div>
+                                                    )}
+
+                                                    <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-200">
+                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-medium text-gray-900">{getActorLabel(item)}</span>
+                                                                {getActionLabel(item?.action) && (
+                                                                    <>
+                                                                        <span className="text-[10px] text-gray-500">•</span>
+                                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                                                            item.action === 'task_created' ? 'bg-green-100 text-green-600' : 
+                                                                            item.action === 'task_completed' ? 'bg-blue-100 text-blue-600' : 
+                                                                            item.action === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
+                                                                        }`}>
+                                                                            {getActionLabel(item?.action)}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            {formatDateTimeSafe(item?.timestamp) && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <Calendar className="h-2.5 w-2.5 text-gray-400" />
+                                                                    <span className="text-[10px] text-gray-500">
+                                                                        {formatDateTimeSafe(item?.timestamp)}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {item.description && (
+                                                            <p className="text-[11px] text-gray-700">{item.description}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-8">
+                                                <History className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                                                <h4 className="text-xs font-medium text-gray-900 mb-1">No activity</h4>
+                                                <p className="text-[10px] text-gray-500">No recorded activity yet</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <History className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                                    <h4 className="text-sm font-medium text-gray-900 mb-1">No Task Selected</h4>
+                                    <p className="text-xs text-gray-500 mb-4">
+                                        Click "View History" on any task to see its timeline
+                                    </p>
+                                    <button
+                                        onClick={() => setActiveTab('tasks')}
+                                        className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-1.5 mx-auto transition-colors"
+                                    >
+                                        <ArrowLeft className="h-3 w-3" />
+                                        Back to Tasks
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

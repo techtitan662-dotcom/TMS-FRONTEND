@@ -1,6 +1,5 @@
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, ChevronDown, Search } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
 import type { TaskPriority, UserType } from '../../Types/Types';
 import mdImpexAccessService from '../../Services/MdImpexAccess.services';
 import { taskTypeService } from '../../Services/TaskType.service';
@@ -24,12 +23,13 @@ type Props = {
   formErrors: FormErrors;
   onChange: (field: keyof NewTaskForm, value: string) => void;
   availableCompanies: string[];
-  getAvailableBrandOptions: () => Array<{ value: string; label: string }>;
+  getAvailableBrandOptions: () => Array<{ value: string; label: string; ownerId?: string; createdBy?: string }>;
   availableTaskTypesForNewTask: string[];
   onSubmit: () => void;
   isSubmitting: boolean;
   currentUserEmail: string;
   currentUserRole?: string;
+  currentUserId?: string;
   canCreateBrand?: boolean;
   canBulkAddBrands?: boolean;
   onAddBrand?: () => void;
@@ -58,6 +58,7 @@ const MdImpexAddTaskModal = ({
   isSubmitting,
   currentUserEmail,
   currentUserRole,
+  currentUserId,
   canBulkAddTaskTypes,
   onBulkAddTaskTypes,
 }: Props) => {
@@ -71,7 +72,6 @@ const MdImpexAddTaskModal = ({
   const emailDropdownRef = useRef<HTMLDivElement | null>(null);
   const brandDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Local state for text inputs to prevent lag during typing
   const [localTitle, setLocalTitle] = useState('');
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSearch, setEmailSearch] = useState('');
@@ -83,25 +83,13 @@ const MdImpexAddTaskModal = ({
   const MD_IMPEX_COMPANY_NAME = 'MD Impex';
   const companyOptions = [MD_IMPEX_COMPANY_NAME];
   
-  // Memoize brand options to show all brands for managers, but filtered for others
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const brandOptions = useMemo(() => {
     const allOptions = getAvailableBrandOptions();
-    
-    // If Admin or MD Manager, show all brands (old + new)
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || currentUserRole === 'troubleshoot_manager';
     if (isMdManager || isAdmin) return allOptions;
-    
-    // For others:
-    // If we have NO specific 'myAccess' record for this user, they are an "old member"
-    // or someone who hasn't been restricted yet. We show all brands.
-    // We'll use a local state 'hasSpecificAccess' to track this.
     if (!hasSpecificAccess) return allOptions;
-
-    // If we have a record but NO brands selected in it, show ALL (consistent with Task Types)
     if (allowedBrands.length === 0) return allOptions;
     
-    // Filter based on allowedBrands (matching by label or value)
     const normalize = (v: unknown) => String(v || '').trim().toLowerCase();
     const normalizeAllowed = (v: unknown) => normalize(v).replace(/\s+/g, ' ');
     const cleanLabel = (label: unknown) => {
@@ -119,59 +107,54 @@ const MdImpexAddTaskModal = ({
       const labelKey = normalizeAllowed(opt?.label);
       const cleanedLabelKey = cleanLabel(opt?.label);
       return (
+        (opt.ownerId && currentUserId && String(opt.ownerId) === String(currentUserId)) ||
+        (opt.createdBy && currentUserId && String(opt.createdBy) === String(currentUserId)) ||
+        (opt.createdBy && currentUserEmail && String(opt.createdBy) === String(currentUserEmail)) ||
         (valueKey && allowedSet.has(valueKey)) ||
         (labelKey && allowedSet.has(labelKey)) ||
         (cleanedLabelKey && allowedSet.has(cleanedLabelKey))
       );
     });
-  }, [newTask.companyName, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess]);
+  }, [getAvailableBrandOptions, newTask.companyName, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess, currentUserId, currentUserEmail]);
   
-  // Sync local title from prop when modal opens
   useEffect(() => {
     if (open) {
       setLocalTitle(newTask.title);
     }
-  }, [open]); // Only sync when modal opens, not on every title change
+  }, [open]);
   
-  // Handle title input - updates local state only (no parent re-render)
   const handleTitleChange = useCallback((value: string) => {
     setLocalTitle(value);
   }, []);
   
-  // Sync title to parent on blur
   const handleTitleBlur = useCallback(() => {
     onChange('title', localTitle);
   }, [localTitle, onChange]);
 
-  // Separate effect for initialization - runs once when modal opens
   useEffect(() => {
     if (!open) {
-      hasInitializedRef.current = false; // Reset when modal closes
+      hasInitializedRef.current = false;
       setAllowedUsers([]);
       setAllowedTaskTypes([]);
-      setLocalTitle(''); // Reset local title
+      setLocalTitle('');
       return;
     }
-    if (hasInitializedRef.current) return; // Already initialized
+    if (hasInitializedRef.current) return;
     
     hasInitializedRef.current = true;
-    setLocalTitle(newTask.title); // Initialize local title
+    setLocalTitle(newTask.title);
     
-    // Auto-select Company for this modal (MD Impex)
     if (newTask.companyName !== MD_IMPEX_COMPANY_NAME) {
       onChange('companyName', MD_IMPEX_COMPANY_NAME);
     }
-  }, [open]); // Only depend on 'open' to prevent loops
+  }, [open]);
 
-  // Separate effect for fetching access data
   useEffect(() => {
     const fetchAccessData = async () => {
-      // ALWAYS fetch fresh data when modal opens to ensure real-time updates
       if (!open || !currentUserEmail) return;
 
       setLoadingUsers(true);
       try {
-        console.log("[MdImpexAddTaskModal] Fetching real-time access and task types for:", currentUserEmail);
         const [membersRes, accessRes, taskTypesRes] = await Promise.all([
           mdImpexAccessService.getAllMembers(),
           mdImpexAccessService.getAllPersonAccess(),
@@ -188,36 +171,21 @@ const MdImpexAddTaskModal = ({
             id: String(m.id || m._id || '')
           }));
 
-          console.log("[MdImpexAddTaskModal] allMembers count:", allMembers.length);
           const currentNormalized = normalizeEmail(currentUserEmail);
           const isAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || currentUserRole === 'troubleshoot_manager';
 
-          // Find my info to check role
           const myInfo = allMembers.find((m: any) => normalizeEmail(m.email) === currentNormalized);
           const myRoleNormalized = myInfo?.role?.toLowerCase()?.replace(/\s+/g, '_') || '';
 
-          // Find my specific access config
           const myAccess = accessRes.success && accessRes.data
             ? accessRes.data.find((item: any) => normalizeEmail(item.assignedToEmail) === currentNormalized)
             : null;
 
-          console.log("[MdImpexAddTaskModal] Context:", {
-            email: currentUserEmail,
-            role: currentUserRole,
-            isAdmin,
-            foundInMembers: !!myInfo,
-            myAccess: !!myAccess,
-            roleNormalized: myRoleNormalized
-          });
-
-          // MD Manager and Admin typically get full access, but we now respect 
-          // specific restrictions if a record exists in MD Access
           if (myRoleNormalized === 'md_manager' || isAdmin) {
             setHasSpecificAccess(!!myAccess);
             let members = [];
             
             if (myAccess && myAccess.allowedAssignees && myAccess.allowedAssignees.length > 0) {
-              // Respect specific allowed assignees if configured
               const allowedIds = new Set(myAccess.allowedAssignees.map((id: any) => String(id)));
               members = allMembers.filter((m: any) =>
                 allowedIds.has(String(m.id)) || normalizeEmail(m.email) === currentNormalized
@@ -227,7 +195,6 @@ const MdImpexAddTaskModal = ({
                 name: m.name
               }));
             } else {
-              // Default to all members if no specific configuration
               members = allMembers.map((m: any) => ({
                 id: m.id,
                 email: m.email,
@@ -236,25 +203,14 @@ const MdImpexAddTaskModal = ({
             }
             
             setAllowedUsers(members);
-            
-            // Handle Task Types
             setAllowedTaskTypes(myAccess?.allowedTaskTypes || []);
-
-            // Handle Brands
-            if (myAccess?.allowedBrands && myAccess.allowedBrands.length > 0) {
-              setAllowedBrands(myAccess.allowedBrands);
-            } else {
-              setAllowedBrands([]); // Empty means show all
-            }
+            setAllowedBrands(myAccess?.allowedBrands || []);
             
-            // Auto-select the first user if none selected
             if (!newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
           } else if (myAccess) {
-            // Respect configured access for non-MD managers
             setHasSpecificAccess(true);
-            // Map allowedAssignees (IDs) back to full user objects
             const allowedIds = new Set((myAccess.allowedAssignees || []).map((id: any) => String(id)));
             const filteredMembers = allMembers.filter((m: any) =>
               allowedIds.has(String(m.id)) || normalizeEmail(m.email) === currentNormalized
@@ -269,12 +225,10 @@ const MdImpexAddTaskModal = ({
             setAllowedTaskTypes(myAccess.allowedTaskTypes || []);
             setAllowedBrands(myAccess.allowedBrands || []);
 
-            // Auto-select the first user if none selected
             if (!newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
           } else {
-            // Fallback: Show only self if no configuration exists for non-admin/non-manager
             setHasSpecificAccess(false);
             const me = allMembers.filter((m: any) => normalizeEmail(m.email) === currentNormalized);
             const members = me.map((m: any) => ({
@@ -285,7 +239,6 @@ const MdImpexAddTaskModal = ({
             setAllowedUsers(members);
             setAllowedTaskTypes([]);
 
-            // Auto-select self if none selected
             if (!newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
@@ -299,17 +252,13 @@ const MdImpexAddTaskModal = ({
     };
 
     fetchAccessData();
-  }, [open, currentUserEmail, currentUserRole]); // Removed onChange and newTask dependencies to prevent loop
+  }, [open, currentUserEmail, currentUserRole]);
 
-  // Filter task types - show all for managers, but filtered for others
   const filteredTaskTypes = useMemo(() => {
-    // Normalize and deduplicate available task types from props
-    // We keep a map to preserve the preferred casing
     const normalizedToOriginal = new Map<string, string>();
     const uniqueAvailable: string[] = [];
     const seenAvailable = new Set<string>();
 
-    // 1. First, populate map with names from official API task types for best casing (matches MD Access page)
     taskTypesFromApi.forEach((t) => {
       const name = String(t?.name || '').trim();
       if (!name) return;
@@ -319,7 +268,6 @@ const MdImpexAddTaskModal = ({
       }
     });
 
-    // 2. Then add names from availableTaskTypesForNewTask prop if not already mapped
     availableTaskTypesForNewTask.forEach((t) => {
       if (!t) return;
       const original = String(t).trim();
@@ -335,8 +283,6 @@ const MdImpexAddTaskModal = ({
       }
     });
 
-    // If we have specific allowed task types assigned in MD Access, show ONLY those
-    // This now applies to all users if they have a specific access record
     if (allowedTaskTypes.length > 0) {
       const result: string[] = [];
       const seenResult = new Set<string>();
@@ -345,7 +291,6 @@ const MdImpexAddTaskModal = ({
         const norm = String(allowed).toLowerCase().trim();
         if (norm && !seenResult.has(norm)) {
           seenResult.add(norm);
-          // Prefer original casing from provided map (official task types or props)
           const displayValue = normalizedToOriginal.get(norm) || String(allowed).trim();
           result.push(displayValue);
         }
@@ -353,21 +298,18 @@ const MdImpexAddTaskModal = ({
       return result;
     }
 
-    // Default: Return deduplicated list of all available types
     return uniqueAvailable;
   }, [allowedTaskTypes, availableTaskTypesForNewTask, taskTypesFromApi]);
 
-  // Auto-select Brand if only one is available (runs when brand options change)
   useEffect(() => {
     if (!open || !newTask.companyName) return;
     const brands = getAvailableBrandOptions();
     if (brands.length === 1 && !newTask.brand) {
       onChange('brand', brands[0].value);
     }
-  }, [open, newTask.companyName]); // Removed newTask.brand, getAvailableBrandOptions, onChange
+  }, [open, newTask.companyName]);
 
   const handleFormSubmit = () => {
-    // Sync local title to parent before submit
     onChange('title', localTitle);
     onSubmit();
   };
@@ -412,153 +354,161 @@ const MdImpexAddTaskModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="bg-gradient-to-r from-indigo-600 to-blue-700 px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-xl">
-                <PlusCircle className="h-6 w-6 text-white" />
+
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="relative overflow-hidden flex-shrink-0">
+          <div className="absolute inset-0 gradient-primary" />
+          <div className="relative px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <PlusCircle className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">MD Impex: Create New Task</h3>
+                  <p className="text-xs text-white/80 mt-0.5">Show MD Impex users and types based on access records</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-semibold text-white">MD Impex: Create New Task</h3>
-                <p className="text-sm text-indigo-100 mt-0.5">Show MD Impex users and types based on access records</p>
-              </div>
+              <button
+                onClick={onClose}
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-all duration-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button onClick={onClose} className="p-1.5 text-white hover:bg-white/20 rounded-lg">
-              <X className="h-5 w-5" />
-            </button>
           </div>
         </div>
 
-        <div className="px-6 py-6 overflow-y-auto flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Task Title *</label>
+        <div className="px-6 py-5 overflow-y-auto flex-1 custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Task Title */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Task Title *</label>
               <input
                 type="text"
                 placeholder="What needs to be done?"
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.title ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.title
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  }`}
                 value={localTitle}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 onBlur={handleTitleBlur}
               />
-              {formErrors.title && <p className="mt-1 text-sm text-red-600">{formErrors.title}</p>}
+              {formErrors.title && <p className="mt-1 text-xs text-red-600">{formErrors.title}</p>}
             </div>
 
+            {/* Due Date */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Due Date *</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due Date *</label>
               <input
                 type="date"
-                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.dueDate ? 'border-red-500' : 'border-gray-300'}`}
+                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.dueDate
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  }`}
                 value={newTask.dueDate}
                 onChange={(e) => onChange('dueDate', e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
               />
-              {formErrors.dueDate && <p className="mt-1 text-sm text-red-600">{formErrors.dueDate}</p>}
+              {formErrors.dueDate && <p className="mt-1 text-xs text-red-600">{formErrors.dueDate}</p>}
             </div>
 
+            {/* Assigned To */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Email Address *</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Assign To *</label>
               <div ref={emailDropdownRef} className="relative">
                 <button
                   type="button"
                   disabled={loadingUsers}
                   onClick={() => setEmailOpen((v) => !v)}
-                  className={`w-full px-4 py-3 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.assignedTo ? 'border-red-500' : 'border-gray-300'} ${loadingUsers ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white'}`}
+                  className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.assignedTo
+                      ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    } ${loadingUsers ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                 >
-                  {newTask.assignedTo
-                    ? (() => {
-                        const u = allowedUsers.find((x) => String(x?.email || '') === String(newTask.assignedTo || ''));
-                        if (!u) return String(newTask.assignedTo || '').trim();
-                        const name = String(u?.name || '').trim();
-                        const email = String(u?.email || '').trim();
-                        return name ? `${name} (${email})` : email;
-                      })()
-                    : (loadingUsers ? 'Loading members...' : 'Select email address')}
+                  <span className="truncate text-sm">
+                    {newTask.assignedTo
+                      ? (() => {
+                          const u = allowedUsers.find((x) => String(x?.email || '') === String(newTask.assignedTo || ''));
+                          if (!u) return String(newTask.assignedTo || '').trim();
+                          const name = String(u?.name || '').trim();
+                          const email = String(u?.email || '').trim();
+                          return name ? `${name} (${email})` : email;
+                        })()
+                      : (loadingUsers ? 'Loading members...' : 'Select email address')}
+                  </span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${emailOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {emailOpen && !loadingUsers && (
-                  <div className="absolute z-50 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                      <input
-                        type="text"
-                        value={emailSearch}
-                        onChange={(e) => {
-                          setEmailSearch(e.target.value);
-                          setEmailOpen(true);
-                        }}
-                        placeholder="Search email or name"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="max-h-56">
-                      {filteredEmailUsers.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-500">No results</div>
-                      ) : (
-                        <List
-                          height={Math.min(filteredEmailUsers.length * 40, 224)}
-                          itemCount={filteredEmailUsers.length}
-                          itemSize={40}
-                          width="100%"
-                        >
-                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
-                            const user = filteredEmailUsers[index];
-                            if (!user) return null;
-                            const name = String(user.name || '').trim();
-                            const email = String(user.email || '').trim();
-                            const label = name ? `${name} (${email})` : email;
-                            
-                            return (
-                              <button
-                                style={style}
-                                type="button"
-                                onClick={() => {
-                                  onChange('assignedTo', email);
-                                  setEmailOpen(false);
-                                }}
-                                className="w-full text-left px-4 text-sm hover:bg-indigo-50 flex items-center"
-                              >
-                                {label}
-                              </button>
-                            );
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={emailSearch}
+                          onChange={(e) => {
+                            setEmailSearch(e.target.value);
+                            setEmailOpen(true);
                           }}
-                        </List>
+                          placeholder="Search email or name"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-auto">
+                      {filteredEmailUsers.length === 0 ? (
+                        <div className="px-3 py-2 text-center text-xs text-gray-500">No results</div>
+                      ) : (
+                        filteredEmailUsers.map((user) => {
+                          const name = String(user?.name || '').trim();
+                          const email = String(user?.email || '').trim();
+                          const label = name ? `${name} (${email})` : email;
+                          return (
+                            <button
+                              key={String(user.id || user.email)}
+                              type="button"
+                              onClick={() => {
+                                onChange('assignedTo', email);
+                                setEmailOpen(false);
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-primary-ultralight dark:hover:bg-gray-700 transition-colors"
+                            >
+                              {label}
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </div>
                 )}
               </div>
-              {formErrors.assignedTo && <p className="mt-1 text-sm text-red-600">{formErrors.assignedTo}</p>}
-              {!loadingUsers && allowedUsers.length === 0 && (
-                <p className="mt-1 text-xs text-amber-600">No MD Impex members found.</p>
-              )}
+              {formErrors.assignedTo && <p className="mt-1 text-xs text-red-600">{formErrors.assignedTo}</p>}
             </div>
 
+            {/* Company */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Company *</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Company *</label>
               <select
                 value={newTask.companyName}
-                onChange={(e) => onChange('companyName', e.target.value)}
-                className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.companyName ? 'border-red-500' : 'border-gray-300'}`}
+                className="w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-600 cursor-not-allowed"
                 disabled={true}
               >
-                {companyOptions.length === 0 ? (
-                  <option value="">No companies available</option>
-                ) : (
-                  <>
-                    {companyOptions.map((company) => (
-                      <option key={company} value={company}>{String(company || '').trim()}</option>
-                    ))}
-                  </>
-                )}
+                {companyOptions.map((company) => (
+                  <option key={company} value={company}>{String(company || '').trim()}</option>
+                ))}
               </select>
-              {formErrors.companyName && <p className="mt-1 text-sm text-red-600">{formErrors.companyName}</p>}
             </div>
 
-            {/* Brand Field */}
+            {/* Brand */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">Brand</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Brand</label>
+              </div>
               <div ref={brandDropdownRef} className="relative">
                 <button
                   type="button"
@@ -567,128 +517,138 @@ const MdImpexAddTaskModal = ({
                     if (!newTask.companyName) return;
                     setBrandOpen((v) => !v);
                   }}
-                  className={`w-full px-4 py-3 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${!newTask.companyName ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : 'bg-white'} border-gray-300`}
+                  className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.brand
+                      ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    } ${!newTask.companyName ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
-                  {newTask.brand
-                    ? (brandOptions.find((x) => String(x?.value || '') === String(newTask.brand || ''))?.label || String(newTask.brand || '').trim())
-                    : 'Select a brand'}
+                  <span className="truncate text-sm">
+                    {newTask.brand
+                      ? (brandOptions.find((x) => String(x?.value || '') === String(newTask.brand || ''))?.label || String(newTask.brand || '').trim())
+                      : 'Select a brand'}
+                  </span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${brandOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {brandOpen && newTask.companyName && (
-                  <div className="absolute z-50 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100">
-                      <input
-                        type="text"
-                        value={brandSearch}
-                        onChange={(e) => {
-                          setBrandSearch(e.target.value);
-                          setBrandOpen(true);
-                        }}
-                        placeholder="Search brand"
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="max-h-56">
-                      {filteredBrandOptions.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-gray-500">No results</div>
-                      ) : (
-                        <List
-                          height={Math.min(filteredBrandOptions.length * 40, 224)}
-                          itemCount={filteredBrandOptions.length}
-                          itemSize={40}
-                          width="100%"
-                        >
-                          {({ index, style }: { index: number; style: React.CSSProperties }) => {
-                            const opt = filteredBrandOptions[index];
-                            if (!opt) return null;
-                            
-                            return (
-                              <button
-                                style={style}
-                                type="button"
-                                onClick={() => {
-                                  onChange('brand', String(opt.value || '').trim());
-                                  setBrandOpen(false);
-                                }}
-                                className="w-full text-left px-4 text-sm hover:bg-blue-50 flex items-center"
-                              >
-                                {opt.label}
-                              </button>
-                            );
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={brandSearch}
+                          onChange={(e) => {
+                            setBrandSearch(e.target.value);
+                            setBrandOpen(true);
                           }}
-                        </List>
+                          placeholder="Search brand"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-48 overflow-auto">
+                      {filteredBrandOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-center text-xs text-gray-500">No results</div>
+                      ) : (
+                        filteredBrandOptions.map((opt) => (
+                          <button
+                            key={String(opt.value)}
+                            type="button"
+                            onClick={() => {
+                              onChange('brand', String(opt.value || '').trim());
+                              setBrandOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-primary-ultralight dark:hover:bg-gray-700 transition-colors"
+                          >
+                            {opt.label}
+                          </button>
+                        ))
                       )}
                     </div>
                   </div>
                 )}
               </div>
-              {!newTask.companyName && (
-                <p className="mt-1 text-[10px] text-gray-500 italic">Select a company first</p>
-              )}
+              {formErrors.brand && <p className="mt-1 text-xs text-red-600">{formErrors.brand}</p>}
             </div>
 
-            {/* Task Type Field */}
+            {/* Task Type */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-900">Task Type</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Task Type</label>
                 {canBulkAddTaskTypes && (
                   <button
                     type="button"
                     onClick={onBulkAddTaskTypes}
-                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg"
+                    className="text-[10px] text-primary hover:text-primary-light font-medium"
                   >
-                    + Bulk Add
+                    Bulk add
                   </button>
                 )}
               </div>
               <select
-                className="w-full px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 ${filteredTaskTypes.length === 0
+                    ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  }`}
                 value={newTask.taskType}
                 onChange={(e) => onChange('taskType', e.target.value)}
+                disabled={filteredTaskTypes.length === 0}
               >
-                <option value="">Select a task type</option>
-                {filteredTaskTypes.map((typeName) => (
-                  <option key={String(typeName)} value={String(typeName || '').trim()}>
-                    {String(typeName || '').trim()}
-                  </option>
-                ))}
+                {filteredTaskTypes.length === 0 ? (
+                  <option value="">No task types available</option>
+                ) : (
+                  <>
+                    <option value="" disabled>Select task type</option>
+                    {filteredTaskTypes.map((typeName) => (
+                      <option key={typeName} value={typeName.toLowerCase()}>
+                        {typeName}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
+              {filteredTaskTypes.length === 0 && canBulkAddTaskTypes && (
+                <p className="mt-1 text-xs text-amber-600">Add task types to continue</p>
+              )}
             </div>
-          </div>
 
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-900 mb-2">Priority</label>
-            <div className="flex gap-4">
-              {(['low', 'medium', 'high'] as TaskPriority[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => onChange('priority', p)}
-                  className={`flex-1 py-3 text-sm font-medium rounded-xl border transition-all ${
-                    newTask.priority === p
-                      ? p === 'high'
-                        ? 'bg-red-50 text-red-700 border-red-200'
-                        : p === 'medium'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-gray-50 text-gray-700 border-gray-200'
-                      : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'
-                  }`}
-                >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
+            {/* Priority */}
+            <div className="md:col-span-1">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Priority</label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {['low', 'medium', 'high'].map((priority) => (
+                  <button
+                    key={priority}
+                    type="button"
+                    onClick={() => onChange('priority', priority as TaskPriority)}
+                    className={`py-2 text-xs font-medium rounded-xl border transition-all duration-200 ${newTask.priority === (priority as TaskPriority)
+                        ? priority === 'high'
+                          ? 'bg-rose-100 text-rose-700 border-rose-300'
+                          : priority === 'medium'
+                            ? 'bg-amber-100 text-amber-700 border-amber-300'
+                            : 'bg-primary-ultralight text-primary border-primary-light'
+                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                      }`}
+                  >
+                    {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
-            {formErrors.priority && <p className="mt-1 text-sm text-red-600">{formErrors.priority}</p>}
           </div>
         </div>
 
-        <div className="px-6 py-5 bg-gray-50 border-t border-gray-200">
-          <div className="flex justify-end gap-3">
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+              className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
             >
               Cancel
             </button>
@@ -696,15 +656,39 @@ const MdImpexAddTaskModal = ({
               type="button"
               onClick={handleFormSubmit}
               disabled={isSubmitting || allowedUsers.length === 0}
-              className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl ${isSubmitting || allowedUsers.length === 0
-                ? 'bg-indigo-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700'}`}
+              className={`px-4 py-2 text-xs font-medium text-white rounded-xl transition-all duration-200 ${isSubmitting || allowedUsers.length === 0
+                  ? 'bg-primary/60 cursor-not-allowed'
+                  : 'gradient-primary hover:shadow-md'
+                }`}
             >
-              {isSubmitting ? 'Creating Task...' : 'Create Task'}
+              {isSubmitting ? (
+                <span className="flex items-center gap-1.5">
+                  <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                  Creating Task...
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  Create Task
+                </span>
+              )}
             </button>
           </div>
         </div>
       </div>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--color-primary-main);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };

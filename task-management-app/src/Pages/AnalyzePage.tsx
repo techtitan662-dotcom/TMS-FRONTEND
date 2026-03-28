@@ -242,7 +242,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
     const [performanceGroupBy, setPerformanceGroupBy] = useState<'company' | 'brand'>('company');
     const [performanceStartDate, setPerformanceStartDate] = useState<string>('');
     const [performanceEndDate, setPerformanceEndDate] = useState<string>('');
-    
+
     // Global Filters
     const [globalCompany, setGlobalCompany] = useState<string>('all');
     const [globalTimePeriod, setGlobalTimePeriod] = useState<'daily' | 'weekly' | 'monthly' | 'all' | 'custom'>('all');
@@ -722,7 +722,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const userReportData = useMemo(() => {
         const userMap: Record<string, { name: string; total: number; completed: number; pending: number; overdue: number; overdueCompleted: number }> = {};
-        
+
         let reportTasks = filteredTasksByGlobalDates;
         if (reportFilterCompany !== 'all') {
             reportTasks = reportTasks.filter(t => {
@@ -736,29 +736,33 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             if (!userMap[u]) {
                 userMap[u] = { name: u, total: 0, completed: 0, pending: 0, overdue: 0, overdueCompleted: 0 };
             }
-            
+
             userMap[u].total++;
             const status = normalizeText(t.status).toLowerCase();
-            if (status === 'completed') userMap[u].completed++;
+            const isCompleted = status === 'completed';
+            if (isCompleted) userMap[u].completed++;
             else if (status === 'pending') userMap[u].pending++;
-            
+
             if (getCompletionStatus(t) === 'Overdue') {
                 userMap[u].overdue++;
             }
 
-            if (status === 'completed') {
-                const completedAtRaw = (t as any)?.completedAt || (t as any)?.updatedAt;
-                const dueDateRaw = (t as any)?.dueDate;
-                if (completedAtRaw && dueDateRaw) {
-                    const completedAt = new Date(normalizeText(completedAtRaw));
-                    const dueDate = new Date(normalizeText(dueDateRaw));
-                    if (!isNaN(completedAt.getTime()) && !isNaN(dueDate.getTime()) && completedAt.getTime() > dueDate.getTime()) {
-                        userMap[u].overdueCompleted++;
+            // Count completed tasks that were overdue
+            if (isCompleted) {
+                const dueDateText = normalizeText((t as any)?.dueDate);
+                const completedAtText = normalizeText((t as any)?.completedAt || (t as any)?.updatedAt);
+                if (dueDateText && completedAtText) {
+                    const due = new Date(dueDateText);
+                    const completed = new Date(completedAtText);
+                    if (!Number.isNaN(due.getTime()) && !Number.isNaN(completed.getTime())) {
+                        if (completed.getTime() > due.getTime()) {
+                            userMap[u].overdueCompleted++;
+                        }
                     }
                 }
             }
         });
-        
+
         return Object.values(userMap)
             .map(u => ({
                 ...u,
@@ -769,7 +773,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const handleExportReport = () => {
         if (!userReportData.length) return;
-        
+
         const headers = ['User', 'Total Tasks', 'Completed', 'Pending', 'Overdue', 'Overdue Completed', 'Success Rate (%)'];
         const rows = userReportData.map(r => [
             r.name,
@@ -780,17 +784,17 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
             r.overdueCompleted,
             r.rate
         ]);
-        
+
         const csvContent = [
             headers.join(','),
             ...rows.map(row => row.join(','))
         ].join('\n');
-        
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const filename = `User_Performance_Report_${reportFilterCompany === 'all' ? 'All' : reportFilterCompany}_${globalMonth}.csv`;
-        
+
         link.setAttribute('href', url);
         link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
@@ -801,7 +805,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
 
     const overdueByCompany = useMemo(() => {
         const counts: Record<string, number> = {};
-        
+
         filteredTasksByGlobalDates.forEach(t => {
             if (getCompletionStatus(t) === 'Overdue') {
                 const taskCompany = normalizeText(t.companyName || t.company) || 'Unknown';
@@ -811,7 +815,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                 counts[u] = (counts[u] || 0) + 1;
             }
         });
-        
+
         return Object.entries(counts)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
@@ -3118,7 +3122,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }} />
                     </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                         <CheckCircle2 className="h-12 w-12 text-emerald-600" />
@@ -3161,7 +3165,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                     <p className="text-[10px] text-emerald-600 mt-2 font-medium uppercase tracking-tighter">Overall Efficiency</p>
                 </div>
             </div>
-            
+
             {/* Smart Analysis Summary */}
             {smartInsights && (
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6">
@@ -3172,13 +3176,13 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         </div>
                         <div className="space-y-4">
                             <p className="text-gray-600 leading-relaxed text-sm">
-                                {globalCompany === 'all' ? 'Across all companies' : `For ${globalCompany}`}, 
+                                {globalCompany === 'all' ? 'Across all companies' : `For ${globalCompany}`},
                                 the overall team health is <span className={`font-bold ${smartInsights.health === 'Good' ? 'text-emerald-600' : smartInsights.health === 'Critical' ? 'text-red-600' : 'text-amber-600'}`}>
-                                {smartInsights.health}</span>. 
+                                    {smartInsights.health}</span>.
                                 {globalSummary.total > 0 && (
                                     <>
-                                        {' '}With a completion rate of <span className="font-bold text-gray-900">{globalSummary.rate}%</span>, 
-                                        the primary bottleneck is currently tasks in <span className="font-bold text-gray-900 capitalize">"{smartInsights.bottleneckStatus || 'N/A'}"</span> status. 
+                                        {' '}With a completion rate of <span className="font-bold text-gray-900">{globalSummary.rate}%</span>,
+                                        the primary bottleneck is currently tasks in <span className="font-bold text-gray-900 capitalize">"{smartInsights.bottleneckStatus || 'N/A'}"</span> status.
                                         Most task activities are related to <span className="font-bold text-gray-900">"{smartInsights.bottleneckType || 'N/A'}"</span>.
                                         The majority of tasks are categorized as <span className="font-bold text-gray-900 capitalize">"{smartInsights.topPriority || 'N/A'}"</span> priority.
                                     </>
@@ -3280,7 +3284,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
                             </div>
                         </div>
-                        <button 
+                        <button
                             onClick={handleExportReport}
                             disabled={userReportData.length === 0}
                             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-sm shadow-blue-200 transition-all active:scale-95"
@@ -3300,7 +3304,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-amber-600">Pending</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-red-600">Overdue</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-purple-600">Ovre due complete</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Success Rate</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Success Rate</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -3346,19 +3350,17 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                                 {row.overdueCompleted}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap min-w-[160px] text-right">
-                                            <div className="flex items-center justify-end gap-3">
+                                        <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
+                                            <div className="flex items-center gap-3">
                                                 <div className="flex-grow bg-gray-100 h-2 rounded-full overflow-hidden max-w-[100px]">
-                                                    <div 
-                                                        className={`h-full rounded-full transition-all duration-500 ${
-                                                            row.rate > 75 ? 'bg-emerald-500' : row.rate > 40 ? 'bg-amber-500' : 'bg-red-500'
-                                                        }`}
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${row.rate > 75 ? 'bg-emerald-500' : row.rate > 40 ? 'bg-amber-500' : 'bg-red-500'
+                                                            }`}
                                                         style={{ width: `${row.rate}%` }}
                                                     />
                                                 </div>
-                                                <span className={`text-xs font-bold ${
-                                                    row.rate > 75 ? 'text-emerald-700' : row.rate > 40 ? 'text-amber-700' : 'text-red-700'
-                                                }`}>
+                                                <span className={`text-xs font-bold ${row.rate > 75 ? 'text-emerald-700' : row.rate > 40 ? 'text-amber-700' : 'text-red-700'
+                                                    }`}>
                                                     {row.rate}%
                                                 </span>
                                             </div>
@@ -3433,11 +3435,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                                 )}
                                 <button
                                     type="button"
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        isAdminUser
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
                                             ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                                             : 'text-gray-300 cursor-not-allowed'
-                                    }`}
+                                        }`}
                                     aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
                                     disabled={!isAdminUser}
                                     onClick={() => toggleBuiltinChart('overdue_by_company')}
@@ -3454,35 +3455,34 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-900">Assign By </h2>
                             <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={chartType}
-                                    onChange={(e) => setChartType(e.target.value as ChartType)}
+                                <label className="text-sm text-gray-500">
+                                    Chart
+                                    <select
+                                        className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
+                                        value={chartType}
+                                        onChange={(e) => setChartType(e.target.value as ChartType)}
+                                    >
+                                        {CHART_TYPE_OPTIONS.map((o) => (
+                                            <option key={o.value} value={o.value}>
+                                                {o.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <div className="text-sm text-gray-500">Total: {(tasks || []).length}</div>
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('assign_by')}
                                 >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <div className="text-sm text-gray-500">Total: {(tasks || []).length}</div>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assign_by')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={chartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3493,35 +3493,34 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-900">Assigned</h2>
                             <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={assignedChartType}
-                                    onChange={(e) => setAssignedChartType(e.target.value as ChartType)}
+                                <label className="text-sm text-gray-500">
+                                    Chart
+                                    <select
+                                        className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
+                                        value={assignedChartType}
+                                        onChange={(e) => setAssignedChartType(e.target.value as ChartType)}
+                                    >
+                                        {CHART_TYPE_OPTIONS.map((o) => (
+                                            <option key={o.value} value={o.value}>
+                                                {o.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <div className="text-sm text-gray-500">Assigned by/to you</div>
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('assigned')}
                                 >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <div className="text-sm text-gray-500">Assigned by/to you</div>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assigned')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={assignedChartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3532,34 +3531,33 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-semibold text-gray-900">Assigned To </h2>
                             <div className="flex items-center gap-3">
-                            <label className="text-sm text-gray-500">
-                                Chart
-                                <select
-                                    className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
-                                    value={assignedToChartType}
-                                    onChange={(e) => setAssignedToChartType(e.target.value as ChartType)}
+                                <label className="text-sm text-gray-500">
+                                    Chart
+                                    <select
+                                        className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white"
+                                        value={assignedToChartType}
+                                        onChange={(e) => setAssignedToChartType(e.target.value as ChartType)}
+                                    >
+                                        {CHART_TYPE_OPTIONS.map((o) => (
+                                            <option key={o.value} value={o.value}>
+                                                {o.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('assigned_to')}
                                 >
-                                    {CHART_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                            {o.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('assigned_to')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={assignedToChartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3570,74 +3568,73 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4 gap-3">
                             <h2 className="text-lg font-semibold text-gray-900">Completion trends</h2>
                             <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsGranularity}
-                                onChange={(e) => setTrendsGranularity(e.target.value as any)}
-                            >
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsAssignee}
-                                onChange={(e) => setTrendsAssignee(e.target.value)}
-                            >
-                                {(trendsOptions.assignees || []).map((a) => (
-                                    <option key={a} value={a}>
-                                        {a === 'all' ? 'All assignees' : a}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsCompany}
-                                onChange={(e) => setTrendsCompany(e.target.value)}
-                            >
-                                {(trendsOptions.companies || []).map((c) => (
-                                    <option key={c} value={c}>
-                                        {c === 'all' ? 'All companies' : c}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsBrand}
-                                onChange={(e) => setTrendsBrand(e.target.value)}
-                            >
-                                {(trendsOptions.brands || []).map((b) => (
-                                    <option key={b} value={b}>
-                                        {b === 'all' ? 'All brands' : b}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsStartDate}
-                                onChange={(e) => setTrendsStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={trendsEndDate}
-                                onChange={(e) => setTrendsEndDate(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('completion_trends')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsGranularity}
+                                    onChange={(e) => setTrendsGranularity(e.target.value as any)}
+                                >
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsAssignee}
+                                    onChange={(e) => setTrendsAssignee(e.target.value)}
+                                >
+                                    {(trendsOptions.assignees || []).map((a) => (
+                                        <option key={a} value={a}>
+                                            {a === 'all' ? 'All assignees' : a}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsCompany}
+                                    onChange={(e) => setTrendsCompany(e.target.value)}
+                                >
+                                    {(trendsOptions.companies || []).map((c) => (
+                                        <option key={c} value={c}>
+                                            {c === 'all' ? 'All companies' : c}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsBrand}
+                                    onChange={(e) => setTrendsBrand(e.target.value)}
+                                >
+                                    {(trendsOptions.brands || []).map((b) => (
+                                        <option key={b} value={b}>
+                                            {b === 'all' ? 'All brands' : b}
+                                        </option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsStartDate}
+                                    onChange={(e) => setTrendsStartDate(e.target.value)}
+                                />
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={trendsEndDate}
+                                    onChange={(e) => setTrendsEndDate(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('completion_trends')}
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={trendsChartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3656,69 +3653,68 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4 gap-3">
                             <h2 className="text-lg font-semibold text-gray-900">Leaderboard</h2>
                             <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardMetric}
-                                onChange={(e) => setLeaderboardMetric(e.target.value as any)}
-                            >
-                                <option value="completed">Completed</option>
-                                <option value="rate">Completion rate</option>
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardCompany}
-                                onChange={(e) => setLeaderboardCompany(e.target.value)}
-                            >
-                                {(trendsOptions.companies || []).map((c) => (
-                                    <option key={c} value={c}>
-                                        {c === 'all' ? 'All companies' : c}
-                                    </option>
-                                ))}
-                            </select>
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardBrand}
-                                onChange={(e) => setLeaderboardBrand(e.target.value)}
-                            >
-                                {(trendsOptions.brands || []).map((b) => (
-                                    <option key={b} value={b}>
-                                        {b === 'all' ? 'All brands' : b}
-                                    </option>
-                                ))}
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardStartDate}
-                                onChange={(e) => setLeaderboardStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={leaderboardEndDate}
-                                onChange={(e) => setLeaderboardEndDate(e.target.value)}
-                            />
-                            <input
-                                type="number"
-                                min={1}
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm w-[80px]"
-                                value={leaderboardTopN}
-                                onChange={(e) => setLeaderboardTopN(Number(e.target.value) || 5)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('leaderboard')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={leaderboardMetric}
+                                    onChange={(e) => setLeaderboardMetric(e.target.value as any)}
+                                >
+                                    <option value="completed">Completed</option>
+                                    <option value="rate">Completion rate</option>
+                                </select>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={leaderboardCompany}
+                                    onChange={(e) => setLeaderboardCompany(e.target.value)}
+                                >
+                                    {(trendsOptions.companies || []).map((c) => (
+                                        <option key={c} value={c}>
+                                            {c === 'all' ? 'All companies' : c}
+                                        </option>
+                                    ))}
+                                </select>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={leaderboardBrand}
+                                    onChange={(e) => setLeaderboardBrand(e.target.value)}
+                                >
+                                    {(trendsOptions.brands || []).map((b) => (
+                                        <option key={b} value={b}>
+                                            {b === 'all' ? 'All brands' : b}
+                                        </option>
+                                    ))}
+                                </select>
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={leaderboardStartDate}
+                                    onChange={(e) => setLeaderboardStartDate(e.target.value)}
+                                />
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={leaderboardEndDate}
+                                    onChange={(e) => setLeaderboardEndDate(e.target.value)}
+                                />
+                                <input
+                                    type="number"
+                                    min={1}
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm w-[80px]"
+                                    value={leaderboardTopN}
+                                    onChange={(e) => setLeaderboardTopN(Number(e.target.value) || 5)}
+                                />
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('leaderboard')}
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={leaderboardChartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3729,40 +3725,39 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                         <div className="flex items-center justify-between mb-4 gap-3">
                             <h2 className="text-lg font-semibold text-gray-900">Status breakdown</h2>
                             <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceGroupBy}
-                                onChange={(e) => setPerformanceGroupBy(e.target.value as any)}
-                            >
-                                <option value="company">Group by Company</option>
-                                <option value="brand">Group by Brand</option>
-                            </select>
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceStartDate}
-                                onChange={(e) => setPerformanceStartDate(e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
-                                value={performanceEndDate}
-                                onChange={(e) => setPerformanceEndDate(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
-                                        ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-300 cursor-not-allowed'
-                                }`}
-                                aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
-                                disabled={!isAdminUser}
-                                onClick={() => toggleBuiltinChart('status_breakdown')}
-                            >
-                                <Trash2 className="h-5 w-5" />
-                            </button>
-                        </div>
+                                <select
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={performanceGroupBy}
+                                    onChange={(e) => setPerformanceGroupBy(e.target.value as any)}
+                                >
+                                    <option value="company">Group by Company</option>
+                                    <option value="brand">Group by Brand</option>
+                                </select>
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={performanceStartDate}
+                                    onChange={(e) => setPerformanceStartDate(e.target.value)}
+                                />
+                                <input
+                                    type="date"
+                                    className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                                    value={performanceEndDate}
+                                    onChange={(e) => setPerformanceEndDate(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className={`p-2 rounded-lg transition-colors ${isAdminUser
+                                            ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                            : 'text-gray-300 cursor-not-allowed'
+                                        }`}
+                                    aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
+                                    disabled={!isAdminUser}
+                                    onClick={() => toggleBuiltinChart('status_breakdown')}
+                                >
+                                    <Trash2 className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div ref={performanceChartRef} className="w-full" style={{ height: 360 }} />
                     </div>
@@ -3781,11 +3776,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks, currentUserEmail: currentUse
                             </h2>
                             <button
                                 type="button"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isAdminUser
+                                className={`p-2 rounded-lg transition-colors ${isAdminUser
                                         ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
                                         : 'text-gray-300 cursor-not-allowed'
-                                }`}
+                                    }`}
                                 aria-label={isAdminUser ? 'Hide chart' : 'Only admins can hide charts'}
                                 disabled={!isAdminUser}
                                 onClick={() => {

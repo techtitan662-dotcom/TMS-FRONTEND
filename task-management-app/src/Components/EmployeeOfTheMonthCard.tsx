@@ -1,175 +1,98 @@
 import { useMemo, useRef } from 'react';
-import { Star, Award, CheckCircle, Download, Users } from 'lucide-react';
+import { Star, Download, Users, Calendar } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import toast from 'react-hot-toast';
 import { toAvatarUrl } from '../utils/avatar';
 
 type EmployeeOfTheMonthCardProps = {
-
   title?: string;
-
   name: string;
-
   email?: string;
-
   rating: number;
-
   performance: string;
-
   avg: string;
-
   photoUrl?: string;
-
   monthValue?: string;
-
   onMonthChange?: (value: string) => void;
-
   totalReviews?: number;
-
   totalTasksReceived?: number;
-
   backgroundUrl?: string;
-
   summaryRows?: Array<{
-
     email: string;
-
     name: string;
-
     avatar?: string;
-
     avgStarsLabel: string;
-
     total: number;
-
     totalTasksReceived?: number;
-
     performance: string;
-
     taskStats?: {
-
       tasksCompleted: number;
-
       hoursLogged: number;
-
       efficiency: number;
-
     };
-
   }>;
-
 };
 
 const clampRating = (value: number): number => {
-
   if (!Number.isFinite(value)) return 0;
-
   return Math.max(0, Math.min(5, value));
-
 };
 
 const toNumberSafe = (value: unknown): number => {
-
   const n = Number(value);
-
   if (!Number.isFinite(n)) return 0;
-
   return n;
-
 };
 
 const parseStarsLabel = (label: unknown): number => {
-
   const raw = String(label ?? '').trim();
-
   const m = raw.match(/\d+(?:\.\d+)?/);
-
   return clampRating(m ? Number(m[0]) : 0);
-
 };
 
 const EmployeeOfTheMonthCard = ({
-
-  title = 'HM Square Solution LLP',
-
+  title = 'Employee of the Month',
   name,
-
   email,
-
   rating,
-
   performance,
-
   avg,
-
   photoUrl,
-
   monthValue,
-
   onMonthChange,
-
   totalReviews,
-
   totalTasksReceived,
-
   summaryRows = [],
-
 }: EmployeeOfTheMonthCardProps) => {
-
   const safeRating = clampRating(rating);
-
   const topAvatarUrl = toAvatarUrl(photoUrl);
 
   const remainingRows = useMemo(() => {
-
     const list = Array.isArray(summaryRows) ? summaryRows : [];
-
     const topNameKey = String(name || '').trim().toLowerCase();
-
     return list.filter((r) => {
-
       if (String(r?.email || '') === '__top_placeholder__') return false;
-
       if (topNameKey && String(r?.name || '').trim().toLowerCase() === topNameKey) return false;
-
       return true;
-
     });
-
   }, [name, summaryRows]);
 
   const sortedRows = useMemo(() => {
-
     const list = Array.isArray(remainingRows) ? remainingRows : [];
-
     const copy = [...list];
-
     copy.sort((a, b) => {
-
       const aReviews = toNumberSafe(a?.total);
-
       const bReviews = toNumberSafe(b?.total);
-
       if (aReviews !== bReviews) return bReviews - aReviews;
-
       const aRating = parseStarsLabel(a?.avgStarsLabel);
-
       const bRating = parseStarsLabel(b?.avgStarsLabel);
-
       if (aRating !== bRating) return bRating - aRating;
-
       const aTasks = toNumberSafe(a?.taskStats?.tasksCompleted);
-
       const bTasks = toNumberSafe(b?.taskStats?.tasksCompleted);
-
       if (aTasks !== bTasks) return bTasks - aTasks;
-
       return String(a?.name || '').localeCompare(String(b?.name || ''));
-
     });
-
     return copy;
-
   }, [remainingRows]);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -183,7 +106,7 @@ const EmployeeOfTheMonthCard = ({
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: 'white',
-        style: { borderRadius: '24px' },
+        style: { borderRadius: '20px' },
         filter: (node) => {
           const exclusionClasses = ['download-btn-to-hide'];
           return !exclusionClasses.some(cls => (node as HTMLElement).classList?.contains(cls));
@@ -201,468 +124,161 @@ const EmployeeOfTheMonthCard = ({
   };
 
   const formatMonthLabel = (value?: string): string => {
-
     const raw = String(value || '').trim();
-
     const [y, m] = raw.split('-').map((x) => Number(x));
-
     if (!Number.isFinite(y) || !Number.isFinite(m) || y < 1970 || m < 1 || m > 12) {
-
       return new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-
     }
-
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-
-  };
-
-  const formatNumber = (num: number): string => {
-
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-
-    return num.toString();
-
-  };
-
-  const getEfficiencyColor = (efficiency: number) => {
-
-    if (efficiency >= 90) return 'text-emerald-600 bg-emerald-50';
-
-    if (efficiency >= 70) return 'text-sky-600 bg-sky-50';
-
-    if (efficiency >= 50) return 'text-amber-600 bg-amber-50';
-
-    return 'text-rose-500 bg-rose-50';
-
   };
 
   return (
-
-    <div className="space-y-6 mb-5">
-
-      {/* ─── MAIN CARD ─── */}
-
-      {/* Calendar outside the card - right side */}
-
-      <div className="flex justify-end mb-6">
-
+    <div className="space-y-5">
+      {/* Month Selector */}
+      <div className="flex justify-end">
         <div className="relative">
-
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
           <input
-
             type="month"
-
             value={monthValue || ''}
-
             onChange={(e) => onMonthChange?.(e.target.value)}
-
-            className="px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-slate-600 text-sm font-semibold shadow-sm cursor-pointer"
-
+            className="pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 bg-white text-gray-900 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
-
         </div>
-
       </div>
 
-      <div ref={cardRef} className="relative overflow-hidden rounded-3xl shadow-2xl border border-white/80">
-
-        {/* ✅ SOFT PASTEL GRADIENT BACKGROUND — sky blue → yellow → pink → white → green */}
-
+      {/* MAIN CARD */}
+      <div ref={cardRef} className="relative overflow-hidden rounded-2xl shadow-lg border border-white/20 bg-white">
+        {/* Gradient Background */}
         <div
-
           className="absolute inset-0"
-
           style={{
-
-            background:
-
-              'linear-gradient(135deg, #e0f4ff 0%, #fef9c3 25%, #fce7f3 50%, #f0fdf4 75%, #e0f4ff 100%)',
-
+            background: `
+      linear-gradient(
+        135deg,
+        #0f2a6e 0%,
+        #1e3a8a 25%,
+        #3b5cae 45%,
+        #3b5cae 55%,
+        #1e3a8a 75%,
+        #0f2a6e 100%
+      )
+    `,
           }}
-
         />
 
-        {/* Soft glow blob — sky blue top right */}
-
+        {/* Soft Pattern Overlay */}
         <div
-
-          className="absolute -top-20 -right-20 w-80 h-80 rounded-full pointer-events-none"
-
+          className="absolute inset-0 opacity-10"
           style={{
-
-            background: 'radial-gradient(circle, #bae6fd 0%, transparent 70%)',
-
-            filter: 'blur(40px)',
-
-            opacity: 0.7,
-
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px',
           }}
-
         />
 
-        {/* Soft glow blob — pink left */}
-
-        <div
-
-          className="absolute top-1/2 -left-16 w-64 h-64 rounded-full pointer-events-none"
-
-          style={{
-
-            background: 'radial-gradient(circle, #fbcfe8 0%, transparent 70%)',
-
-            filter: 'blur(40px)',
-
-            opacity: 0.6,
-
-          }}
-
-        />
-
-        {/* Soft glow blob — yellow bottom center */}
-
-        <div
-
-          className="absolute -bottom-16 right-1/3 w-72 h-72 rounded-full pointer-events-none"
-
-          style={{
-
-            background: 'radial-gradient(circle, #fde68a 0%, transparent 70%)',
-
-            filter: 'blur(48px)',
-
-            opacity: 0.5,
-
-          }}
-
-        />
-
-        {/* Soft glow blob — green bottom right */}
-
-        <div
-
-          className="absolute bottom-0 -right-10 w-56 h-56 rounded-full pointer-events-none"
-
-          style={{
-
-            background: 'radial-gradient(circle, #bbf7d0 0%, transparent 70%)',
-
-            filter: 'blur(36px)',
-
-            opacity: 0.55,
-
-          }}
-
-        />
-
-        {/* Dot grid texture */}
-
-        <div
-
-          className="absolute inset-0 opacity-20 pointer-events-none"
-
-          style={{
-
-            backgroundImage: `radial-gradient(circle at 1px 1px, #94a3b8 1px, transparent 0)`,
-
-            backgroundSize: '36px 36px',
-
-          }}
-
-        />
-
-        {/* ─── CONTENT ─── */}
-
-        <div className="relative p-8">
-
+        {/* Content */}
+        <div className="relative p-6">
           {/* Top Bar */}
-
-          <div className="flex items-center justify-between mb-8">
-
-            <div className="flex items-center gap-3">
-
-              <div
-
-                className="p-2.5 rounded-xl shadow-md"
-
-                style={{ background: 'linear-gradient(135deg, #fbbf24, #f9a8d4)' }}
-
-              >
-
-                <Award className="h-5 w-5 text-white drop-shadow" />
-
-              </div>
-
-              <div>
-
-                <span className="text-xs font-semibold text-sky-500 uppercase tracking-widest">
-
-                  {formatMonthLabel(monthValue)}
-
-                </span>
-
-                <h3 className="text-lg font-bold text-slate-700">{title}</h3>
-
-              </div>
-
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-xs font-semibold text-white/80 uppercase tracking-wider">
+                {formatMonthLabel(monthValue)}
+              </p>
+              <h3 className="text-base font-bold text-white">{title}</h3>
             </div>
-
             <button
               type="button"
-              className="p-2.5 rounded-xl bg-white/60 text-slate-600 hover:bg-white hover:text-blue-600 transition-all border border-slate-200/50 shadow-sm download-btn-to-hide"
+              className="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30 transition-all border border-white/30 shadow-sm download-btn-to-hide"
               title="Download Card"
               onClick={downloadCard}
             >
-              <Download className="h-5 w-5" />
+              <Download className="h-4 w-4" />
             </button>
-
           </div>
 
           {/* Main Grid */}
-
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-
+          <div className="grid lg:grid-cols-2 gap-6 items-center">
             {/* Left Column */}
-
-            <div className="space-y-6">
-
+            <div className="space-y-4">
               {/* Name & Stars */}
-
               <div>
-
-                <div className="mb-1">
-                  <span className="text-lg uppercase tracking-wide text-emerald-600 font-semibold block">
-                    Welcome!
+                <h1 className="text-3xl lg:text-4xl font-bold mb-1">
+                  <span className="text-white">Congratulations </span>
+                  <span className="text-white/90">{name}</span>
+                </h1>
+                <p className="text-sm text-white/80 mb-2 truncate">{email || ''}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-3.5 w-3.5 ${i < Math.floor(safeRating)
+                          ? 'text-amber-300 fill-amber-300'
+                          : i < safeRating
+                            ? 'text-amber-300 fill-amber-300 opacity-50'
+                            : 'text-white/30'
+                          }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-white">
+                    ({safeRating.toFixed(1)}/5)
                   </span>
-                  <h1 className="text-4xl lg:text-5xl font-extrabold drop-shadow-sm">
-                    <span className="text-slate-700">Congratulations </span>
-                    <span className="text-amber-600  px-2 rounded-lg inline-block">
-                      {name}
-                    </span>
-                  </h1>
                 </div>
-
-                <p className="text-sm font-medium text-slate-500 mb-3">{email || ''}</p>
-
-                <div className="flex items-center gap-4 flex-wrap">
-
-                  <div className="flex items-center gap-2">
-
-                    <div className="flex">
-
-                      {[...Array(5)].map((_, i) => (
-
-                        <Star
-
-                          key={i}
-
-                          className={`h-5 w-5 ${i < Math.floor(safeRating)
-
-                            ? 'text-amber-400 fill-amber-400'
-
-                            : i < safeRating
-
-                              ? 'text-amber-400 fill-amber-400 opacity-50'
-
-                              : 'text-slate-300'
-
-                            }`}
-
-                        />
-
-                      ))}
-
-                    </div>
-
-                    <span className="text-sm font-medium text-slate-500">
-
-                      ({safeRating.toFixed(1)}/5)
-
-                    </span>
-
-                  </div>
-
-                  <div className="h-1 w-1 bg-slate-300 rounded-full" />
-
-                  <div className="flex items-center gap-1 text-sm text-slate-500">
-
-                    <CheckCircle className="h-4 w-4 text-emerald-400" />
-
-                    <span>Verified Performance</span>
-
-                  </div>
-
-                </div>
-
               </div>
 
-              {/* Quote — left border pink */}
-
+              {/* Quote */}
               <p
-
-                className="text-slate-600 text-base border-l-4 pl-4 italic"
-
-                style={{ borderColor: '#f9a8d4' }}
-
+                className="text-white/80 text-sm border-l-3 pl-3 italic leading-relaxed"
+                style={{ borderLeftColor: 'white', borderLeftWidth: '3px' }}
               >
-
-                {performance === 'Above Target'
-
+                {performance === 'Excellent'
                   ? '"Exceptional contribution to team productivity and project completion"'
-
-                  : performance === 'At Target'
-
-                    ? '"Consistent performance meeting all project deadlines"'
-
-                    : '"Showing improvement and dedication to tasks"'}
-
+                  : performance === 'Very Good'
+                    ? '"Consistent performance meeting all project deadlines with quality output"'
+                    : performance === 'Good'
+                      ? '"Showing improvement and dedication to tasks with positive attitude"'
+                      : '"Continuing to develop skills and contribute to team success"'}
               </p>
 
-              {/* Performance & Average */}
-
+              {/* Performance Stats */}
               <div className="grid grid-cols-3 gap-3">
-
-                {/* light pink */}
-
-                <div
-
-                  className="rounded-2xl p-4 border shadow-sm"
-
-                  style={{
-
-                    background: 'linear-gradient(135deg, #fce7f3, #fbcfe840)',
-
-                    borderColor: '#fbcfe8',
-
-                  }}
-
-                >
-
-                  <p className="text-xs text-pink-500 font-semibold mb-1">Performance Rating</p>
-
-                  <p className="text-base font-bold text-slate-800">{performance}</p>
-
+                <div className="rounded-lg p-3 border border-white/30 bg-white/10 backdrop-blur-sm">
+                  <p className="text-xs text-white/70 font-semibold mb-1">Performance</p>
+                  <p className="text-sm font-bold text-white">{performance}</p>
                 </div>
-
-                {/* light yellow */}
-
-                <div
-
-                  className="rounded-2xl p-4 border shadow-sm"
-
-                  style={{
-
-                    background: 'linear-gradient(135deg, #fefce8, #fde68a40)',
-
-                    borderColor: '#fde68a',
-
-                  }}
-
-                >
-
-                  <p className="text-xs text-amber-500 font-semibold mb-1">Monthly Average</p>
-
-                  <p className="text-base font-bold text-slate-800">{avg}</p>
-
+                <div className="rounded-lg p-3 border border-white/30 bg-white/10 backdrop-blur-sm">
+                  <p className="text-xs text-white/70 font-semibold mb-1">Avg Rating</p>
+                  <p className="text-sm font-bold text-white">{avg}</p>
                 </div>
-
-                {/* light blue */}
-
-                <div
-
-                  className="rounded-2xl p-4 border shadow-sm"
-
-                  style={{
-
-                    background: 'linear-gradient(135deg, #e0f4ff, #bae6fd40)',
-
-                    borderColor: '#bae6fd',
-
-                  }}
-
-                >
-
-                  <p className="text-xs text-sky-500 font-semibold mb-1">Reviews</p>
-
-                  <p className="text-sm font-bold text-slate-800">
-
-                    {toNumberSafe(totalReviews) > 0
-
-                      ? toNumberSafe(totalTasksReceived) > 0
-
-                        ? `${toNumberSafe(totalReviews)} Reviews / ${toNumberSafe(totalTasksReceived)} tasks * 100 = ${((toNumberSafe(totalReviews) / toNumberSafe(totalTasksReceived)) * 100).toFixed(0)}%`
-
-                        : `${toNumberSafe(totalReviews)} Reviews`
-
-                      : '0 Reviews'}
-
+                <div className="rounded-lg p-3 border border-white/30 bg-white/10 backdrop-blur-sm">
+                  <p className="text-xs text-white/70 font-semibold mb-1">Review Rate</p>
+                  <p className="text-sm font-bold text-white">
+                    {toNumberSafe(totalReviews) > 0 && toNumberSafe(totalTasksReceived) > 0
+                      ? `${((toNumberSafe(totalReviews) / toNumberSafe(totalTasksReceived)) * 100).toFixed(0)}%`
+                      : '0%'}
                   </p>
-
                 </div>
-
               </div>
-
             </div>
 
-            {/* Right Column — Trophy Profile */}
-
+            {/* Right Column - Profile Image */}
             <div className="relative flex justify-center lg:justify-end">
-
-              <div className="relative w-80 h-80 lg:w-96 lg:h-96">
-
-                {/* Pastel rainbow glow */}
-
+              <div className="relative w-64 h-64 lg:w-72 lg:h-72">
+                {/* Gradient Ring */}
                 <div
-
-                  className="absolute inset-0 rounded-full opacity-50 pointer-events-none"
-
+                  className="absolute inset-0 rounded-full"
                   style={{
-
-                    background:
-
-                      'conic-gradient(from 0deg, #bae6fd, #fde68a, #fbcfe8, #bbf7d0, #bae6fd)',
-
-                    filter: 'blur(20px)',
-
-                  }}
-
-                />
-
-                {/* Thin conic ring */}
-
-                <div
-
-                  className="absolute inset-3 rounded-full"
-
-                  style={{
-
+                    background: 'linear-gradient(135deg, white, rgba(255,255,255,0.8), rgba(255,255,255,0.4), white)',
                     padding: '3px',
-
-                    background:
-
-                      'conic-gradient(from 0deg, #7dd3fc, #fbbf24, #f9a8d4, #6ee7b7, #7dd3fc)',
-
                   }}
-
                 >
-
-                  <div
-
-                    className="w-full h-full rounded-full"
-
-                    style={{ background: 'linear-gradient(135deg, #f0f9ff, #fef9ee)' }}
-
-                  />
-
+                  <div className="w-full h-full rounded-full bg-white/10 backdrop-blur-sm" />
                 </div>
 
-                {/* Profile Image */}
-
-                <div className="absolute inset-10 rounded-full overflow-hidden shadow-xl">
-
+                {/* Profile Image Container */}
+                <div className="absolute inset-1.5 rounded-full overflow-hidden border-2 border-white/30">
                   {topAvatarUrl ? (
-
                     <img
                       src={topAvatarUrl}
                       alt={name}
@@ -670,529 +286,130 @@ const EmployeeOfTheMonthCard = ({
                       loading="lazy"
                       crossOrigin="anonymous"
                     />
-
                   ) : (
-
-                    <div
-
-                      className="w-full h-full flex items-center justify-center"
-
-                      style={{
-
-                        background: 'linear-gradient(135deg, #7dd3fc, #fde68a, #f9a8d4)',
-
-                      }}
-
-                    >
-
-                      <span className="text-white text-8xl font-black drop-shadow-lg">
-
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/20 to-white/10">
+                      <span className="text-white text-5xl font-bold">
                         {(name || 'U').trim().charAt(0).toUpperCase()}
-
                       </span>
-
                     </div>
-
                   )}
 
-
-
-                  {/* Soft bottom overlay */}
-
-                  <div
-
-                    className="absolute inset-0"
-
-                    style={{
-
-                      background: 'linear-gradient(to top, rgba(253,230,138,0.35) 0%, transparent 60%)',
-
-                    }}
-
-                  />
-
-
-
-                  {/* Champion badge */}
-
-                  <div className="absolute bottom-4 left-0 right-0 text-center">
-
-                    <span
-
-                      className="px-4 py-1 rounded-full text-sm font-bold border shadow-sm"
-
-                      style={{
-
-                        background: 'rgba(255,255,255,0.80)',
-
-                        borderColor: '#fde68a',
-
-                        color: '#d97706',
-
-                        backdropFilter: 'blur(6px)',
-
-                      }}
-
-                    >
-
-                      👑 CHAMPION 👑
-
+                  {/* Champion Badge */}
+                  <div className="absolute bottom-3 left-0 right-0 text-center">
+                    <span className="px-3 py-1 rounded-full text-[10px] font-semibold border shadow-sm bg-white/20 backdrop-blur-sm border-white/30 text-white">
+                      🏆 EMPLOYEE OF THE MONTH 🏆
                     </span>
-
                   </div>
-
                 </div>
-
-
-
-                {/* Pastel sparkles — fixed positions */}
-
-                {[
-
-                  { color: '#7dd3fc', top: '8%', left: '50%' },
-
-                  { color: '#fbbf24', top: '20%', left: '88%' },
-
-                  { color: '#f9a8d4', top: '50%', left: '92%' },
-
-                  { color: '#6ee7b7', top: '78%', left: '80%' },
-
-                  { color: '#7dd3fc', top: '85%', left: '30%' },
-
-                  { color: '#fbbf24', top: '65%', left: '5%' },
-
-                  { color: '#f9a8d4', top: '30%', left: '3%' },
-
-                  { color: '#6ee7b7', top: '10%', left: '18%' },
-
-                ].map((s, i) => (
-
-                  <div
-
-                    key={i}
-
-                    className="absolute w-2 h-2 rounded-full animate-ping pointer-events-none"
-
-                    style={{
-
-                      background: s.color,
-
-                      top: s.top,
-
-                      left: s.left,
-
-                      animationDelay: `${i * 0.28}s`,
-
-                      animationDuration: `${1.6 + (i % 3) * 0.5}s`,
-
-                      opacity: 0.85,
-
-                    }}
-
-                  />
-
-                ))}
-
               </div>
-
             </div>
-
+          </div>
+        </div>
+      </div>
+      {/* TEAM SECTION */}
+      {sortedRows.length > 0 && (
+        <div className="relative overflow-hidden rounded-xl shadow-md bg-white border border-[#3b82f6]/20">
+          {/* Header */}
+          <div className="relative px-5 py-4 border-b border-[#3b82f6]/20 bg-gradient-to-r from-[#3b82f6]/5 to-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[#3b82f6]/10">
+                  <Users className="h-5 w-5 text-[#3b82f6]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-black">Team Performance Dashboard</h3>
+                  <p className="text-xs text-[#00000]">Real-time metrics • This month</p>
+                </div>
+              </div>
+              <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-[#3b82f6]/10 text-[#3b82f6] border border-[#3b82f6]/20">
+                {sortedRows.length} Team Members
+              </span>
+            </div>
           </div>
 
-        </div>
-
-      </div>
-
-
-
-
-
-
-
-      {/* ─── TEAM SECTION ─── */}
-
-      {sortedRows.length > 0 && (
-
-        <div className="relative overflow-hidden rounded-3xl shadow-xl border border-white/80 mb-10">
-
-
-
-          {/* ✅ SOFT PASTEL TEAM SECTION GRADIENT */}
-
-          <div
-
-            className="absolute inset-0"
-
-            style={{
-
-              background:
-
-                'linear-gradient(160deg, #f0f9ff 0%, #fef9c3 35%, #fce7f3 65%, #f0fdf4 100%)',
-
-            }}
-
-          />
-
-
-
-          {/* Dot grid */}
-
-          <div
-
-            className="absolute inset-0 opacity-20 pointer-events-none"
-
-            style={{
-
-              backgroundImage: `radial-gradient(circle at 1px 1px, #94a3b8 1px, transparent 0)`,
-
-              backgroundSize: '28px 28px',
-
-            }}
-
-          />
-
-
-
-          {/* Corner blobs */}
-
-          <div
-
-            className="absolute -top-12 -left-12 w-48 h-48 rounded-full pointer-events-none"
-
-            style={{ background: 'radial-gradient(circle, #bae6fd 0%, transparent 70%)', filter: 'blur(30px)', opacity: 0.5 }}
-
-          />
-
-          <div
-
-            className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full pointer-events-none"
-
-            style={{ background: 'radial-gradient(circle, #bbf7d0 0%, transparent 70%)', filter: 'blur(30px)', opacity: 0.5 }}
-
-          />
-
-
-
-          <div className="relative">
-
-            {/* Header */}
-
-            <div className="px-6 py-4 border-b border-slate-200/70 flex items-center justify-between">
-
-              <div className="flex items-center gap-3">
-
-                <div
-
-                  className="p-2 rounded-lg shadow-sm"
-
-                  style={{ background: 'linear-gradient(135deg, #bae6fd, #bbf7d0)' }}
-
-                >
-
-                  <Users className="h-5 w-5 text-slate-600" />
-
-                </div>
-
-                <div>
-
-                  <h3 className="font-bold text-slate-700">Team Performance Dashboard</h3>
-
-                  <p className="text-xs text-slate-400">Real-time metrics • This month</p>
-
-                </div>
-
-              </div>
-
-              <span
-
-                className="text-xs px-3 py-1.5 rounded-full font-semibold border shadow-sm"
-
-                style={{
-
-                  background: 'linear-gradient(135deg, #e0f4ff, #fce7f3)',
-
-                  borderColor: '#bae6fd',
-
-                  color: '#0369a1',
-
-                }}
-
-              >
-
-                {sortedRows.length} Team Members
-
-              </span>
-
-            </div>
-
-
-
-            {/* Team Grid */}
-
-            <div className="p-6">
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-                {sortedRows.map((r, index) => {
-
-                  const cardGradients = [
-
-                    'linear-gradient(135deg, #e0f4ff, #fce7f3)',
-
-                    'linear-gradient(135deg, #fef9c3, #f0fdf4)',
-
-                    'linear-gradient(135deg, #fce7f3, #e0f4ff)',
-
-                    'linear-gradient(135deg, #f0fdf4, #fef9c3)',
-
-                    'linear-gradient(135deg, #fef9c3, #fce7f3)',
-
-                    'linear-gradient(135deg, #e0f4ff, #f0fdf4)',
-
-                  ];
-
-                  const cardBorders = ['#bae6fd', '#fde68a', '#fbcfe8', '#bbf7d0', '#fbbf24', '#7dd3fc'];
-
-                  const badgeGrads = [
-
-                    'linear-gradient(135deg, #38bdf8, #bae6fd)',
-
-                    'linear-gradient(135deg, #fbbf24, #fde68a)',
-
-                    'linear-gradient(135deg, #f472b6, #fbcfe8)',
-
-                    'linear-gradient(135deg, #34d399, #bbf7d0)',
-
-                    'linear-gradient(135deg, #fbbf24, #fef9c3)',
-
-                    'linear-gradient(135deg, #38bdf8, #e0f4ff)',
-
-                  ];
-
-                  const badgeTextColors = ['#0369a1', '#92400e', '#be185d', '#065f46', '#92400e', '#0369a1'];
-
-
-
-                  const ci = index % cardGradients.length;
-
-
-
-                  return (
-
-                    <div key={r.email} className="group relative">
-
+          {/* Team Grid */}
+          <div className="p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sortedRows.map((r, index) => {
+                const rank = index + 2;
+                const rankColors = {
+                  2: 'bg-gradient-to-r from-[#3b82f6] to-[#1e3a8a]',
+                  3: 'bg-gradient-to-r from-[#3b82f6] to-[#1e3a8a]',
+                  4: 'bg-gradient-to-r from-[#3b82f6] to-[#1e3a8a]',
+                };
+                const rankColor = rank === 2 ? rankColors[2] : rank === 3 ? rankColors[3] : rankColors[4];
+
+                return (
+                  <div key={r.email} className="group relative">
+                    <div className="rounded-lg border border-[#3b82f6]/20 p-4 hover:shadow-md hover:border-[#3b82f6] transition-all duration-300 bg-white">
+                      {/* Rank Badge */}
                       <div
-
-                        className="rounded-2xl border p-4 hover:shadow-lg transition-all duration-300"
-
-                        style={{ background: cardGradients[ci], borderColor: cardBorders[ci] }}
-
+                        className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${rankColor}`}
                       >
-
-                        {/* Rank badge */}
-
-                        <div
-
-                          className="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-md"
-
-                          style={{ background: badgeGrads[ci] }}
-
-                        >
-
-                          <span style={{ color: badgeTextColors[ci] }}>#{index + 2}</span>
-
-                        </div>
-
-
-
-                        <div className="flex items-start gap-3">
-
-                          {/* Avatar */}
-
-                          <div className="relative">
-
-                            <div
-
-                              className="w-12 h-12 rounded-xl overflow-hidden"
-
-                              style={{ border: `2px solid ${cardBorders[ci]}` }}
-
-                            >
-
-                              {toAvatarUrl(r?.avatar) ? (
-
-                                <img
-
-                                  src={toAvatarUrl(r?.avatar)}
-
-                                  alt={r.name}
-
-                                  className="w-full h-full object-cover"
-
-                                  loading="lazy"
-
-                                />
-
-                              ) : (
-
-                                <div
-
-                                  className="w-full h-full flex items-center justify-center"
-
-                                  style={{ background: cardGradients[(ci + 2) % cardGradients.length] }}
-
-                                >
-
-                                  <span className="font-bold text-lg text-slate-600">
-
-                                    {(r.name || 'U').trim().charAt(0).toUpperCase()}
-
-                                  </span>
-
-                                </div>
-
-                              )}
-
-                            </div>
-
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white" />
-
-                          </div>
-
-
-
-                          {/* Info */}
-
-                          <div className="flex-1 min-w-0">
-
-                            <h4 className="font-bold text-slate-800 text-sm mb-0.5 truncate">{r.name}</h4>
-
-                            <p className="text-xs text-slate-400 mb-2 truncate">{r.email}</p>
-
-
-
-                            <div className="flex items-center gap-2 text-xs mb-2 flex-wrap">
-
-                              <div className="flex items-center gap-1">
-
-                                <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-
-                                <span className="font-semibold text-slate-700">{r.avgStarsLabel}</span>
-
-                              </div>
-
-                              <span className="text-slate-300">•</span>
-
-                              <span className="text-slate-500">
-
-                                {toNumberSafe(r.total) > 0
-
-                                  ? toNumberSafe(r.totalTasksReceived) > 0
-
-                                    ? `${toNumberSafe(r.total)} Reviews / ${toNumberSafe(r.totalTasksReceived)} tasks * 100 = ${((toNumberSafe(r.total) / toNumberSafe(r.totalTasksReceived)) * 100).toFixed(0)}%`
-
-                                    : `${toNumberSafe(r.total)} Reviews`
-
-                                  : '0 Reviews'}
-
-                              </span>
-
-                            </div>
-
-
-
-                            {r.taskStats && (
-
-                              <div className="grid grid-cols-3 gap-1 mb-2">
-
-                                <div className="text-center">
-
-                                  <p className="text-xs font-bold text-slate-700">{formatNumber(r.taskStats.tasksCompleted)}</p>
-
-                                  <p className="text-[10px] text-slate-400">Tasks</p>
-
-                                </div>
-
-                                <div className="text-center">
-
-                                  <p className="text-xs font-bold text-slate-700">{r.taskStats.hoursLogged}h</p>
-
-                                  <p className="text-[10px] text-slate-400">Hours</p>
-
-                                </div>
-
-                                <div className="text-center">
-
-                                  <p className={`text-xs font-bold ${getEfficiencyColor(r.taskStats.efficiency).split(' ')[0]}`}>
-
-                                    {r.taskStats.efficiency}%
-
-                                  </p>
-
-                                  <p className="text-[10px] text-slate-400">Eff.</p>
-
-                                </div>
-
-                              </div>
-
-                            )}
-
-
-
-                            {/* Performance tag */}
-
-                            <span
-
-                              className="inline-block text-xs px-2.5 py-1 rounded-lg font-semibold border"
-
-                              style={
-
-                                r.performance === 'Above Target'
-
-                                  ? { background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }
-
-                                  : r.performance === 'At Target'
-
-                                    ? { background: '#e0f4ff', color: '#0369a1', borderColor: '#bae6fd' }
-
-                                    : { background: '#fef9c3', color: '#b45309', borderColor: '#fde68a' }
-
-                              }
-
-                            >
-
-                              {r.performance}
-
-                            </span>
-
-                          </div>
-
-                        </div>
-
+                        #{rank}
                       </div>
 
+                      <div className="flex items-start gap-3">
+                        {/* Avatar */}
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-[#3b82f6]/20">
+                            {toAvatarUrl(r?.avatar) ? (
+                              <img
+                                src={toAvatarUrl(r?.avatar)}
+                                alt={r.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-[#3b82f6]/10">
+                                <span className="font-bold text-sm text-[#3b82f6]">
+                                  {(r.name || 'U').trim().charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white" />
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-black text-sm mb-0.5 truncate">{r.name}</h4>
+                          <p className="text-xs text-[#000000] mb-2 truncate">{r.email}</p>
+
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="flex items-center gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-3 w-3 ${i < Math.floor(Number(r.avgStarsLabel))
+                                      ? 'text-[#3b82f6] fill-[#3b82f6]'
+                                      : i < Number(r.avgStarsLabel)
+                                        ? 'text-[#3b82f6] fill-[#3b82f6] opacity-50'
+                                        : 'text-gray-300 fill-none'
+                                    }`}
+                                />
+                              ))}
+                              <span className="font-medium text-black ml-1">{r.avgStarsLabel}</span>
+                            </div>
+                            <span className="text-[#000000]">
+                              {toNumberSafe(r.total) > 0 && toNumberSafe(r.totalTasksReceived) > 0
+                                ? `${((toNumberSafe(r.total) / toNumberSafe(r.totalTasksReceived)) * 100).toFixed(0)}%`
+                                : '0%'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-
-                  );
-
-                })}
-
-              </div>
-
-            </div>=
-
+                  </div>
+                );
+              })}
+            </div>
           </div>
-
         </div>
-
       )}
 
     </div>
-
   );
-
 };
-
-
 
 export default EmployeeOfTheMonthCard;

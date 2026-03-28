@@ -1,7 +1,15 @@
-// components/brands/modals/CreateBrandModal.tsx
 import React, { useState } from 'react';
 import { X, Upload, Building } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// Theme colors matching the app
+const theme = {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2a6e',
+    primaryLight: '#3b82f6',
+    primaryLighter: '#60a5fa',
+    primaryUltralight: '#dbeafe',
+};
 
 interface CreateBrandModalProps {
     isOpen: boolean;
@@ -36,7 +44,7 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            if (file.size > 5 * 1024 * 1024) {
                 toast.error('File size should be less than 5MB');
                 return;
             }
@@ -51,7 +59,6 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
 
         try {
             await onCreate(formData);
-            // Reset form
             setFormData({
                 name: '',
                 company: '',
@@ -67,37 +74,40 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="flex items-center justify-center min-h-screen px-3 py-4">
                 {/* Background overlay */}
-                <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose} />
+                <div className="fixed inset-0 transition-opacity bg-black/40" onClick={onClose} />
 
-                {/* Modal */}
-                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                    <div className="px-4 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
+                {/* Modal - Compact */}
+                <div className="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:align-middle sm:max-w-md sm:w-full">
+                    <div className="px-5 py-4">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900">Create New Brand</h3>
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900">Create New Brand</h3>
+                                <p className="text-[10px] text-gray-500 mt-0.5">Add a new brand to the system</p>
+                            </div>
                             <button
                                 onClick={onClose}
-                                className="p-1 text-gray-400 hover:text-gray-500"
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
 
                         <form onSubmit={handleSubmit}>
                             <div className="space-y-4">
-                                {/* Logo Upload */}
-                                <div className="flex items-center justify-center">
+                                {/* Logo Upload - Compact */}
+                                <div className="flex justify-center">
                                     <div className="relative">
                                         {logoPreview ? (
-                                            <img src={logoPreview} alt="Logo preview" className="h-24 w-24 rounded-lg object-cover" />
+                                            <img src={logoPreview} alt="Logo preview" className="h-16 w-16 rounded-lg object-cover border border-gray-200" />
                                         ) : (
-                                            <div className="h-24 w-24 bg-gray-100 rounded-lg flex items-center justify-center">
-                                                <Building className="h-12 w-12 text-gray-400" />
+                                            <div className={`h-16 w-16 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200`}>
+                                                <Building className="h-8 w-8 text-gray-400" />
                                             </div>
                                         )}
-                                        <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-1 rounded-full cursor-pointer">
-                                            <Upload className="h-4 w-4" />
+                                        <label className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1 rounded-full cursor-pointer shadow-sm hover:bg-blue-700 transition-colors">
+                                            <Upload className="h-3 w-3" />
                                             <input
                                                 type="file"
                                                 className="hidden"
@@ -110,7 +120,7 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
 
                                 {/* Brand Name */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
                                         Brand Name *
                                     </label>
                                     <input
@@ -119,14 +129,14 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
                                         value={formData.name}
                                         onChange={handleInputChange}
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Enter brand name"
                                     />
                                 </div>
 
                                 {/* Company */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
                                         Company
                                     </label>
                                     <input
@@ -135,7 +145,7 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
                                         value={formData.company}
                                         onChange={handleInputChange}
                                         list="companies-list"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="Enter company name"
                                     />
                                     <datalist id="companies-list">
@@ -147,14 +157,14 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
 
                                 {/* Status */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
                                         Status
                                     </label>
                                     <select
                                         name="status"
                                         value={formData.status}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
                                         <option value="active">Active</option>
                                         <option value="inactive">Inactive</option>
@@ -164,7 +174,7 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
 
                                 {/* Website */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className="block text-[11px] font-medium text-gray-700 mb-1">
                                         Website
                                     </label>
                                     <input
@@ -172,27 +182,38 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
                                         name="website"
                                         value={formData.website}
                                         onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="https://example.com"
                                     />
                                 </div>
                             </div>
 
-                            {/* Actions */}
-                            <div className="mt-6 flex justify-end gap-3">
+                            {/* Actions - Compact */}
+                            <div className="mt-5 flex justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                                    className="px-3 py-1.5 text-[11px] font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="px-4 py-2 border border-transparent rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={`px-3 py-1.5 text-[11px] font-medium text-white rounded-lg transition-colors ${
+                                        isLoading
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : `bg-[${theme.primary}] hover:bg-[${theme.primaryDark}]`
+                                    }`}
                                 >
-                                    {isLoading ? 'Creating...' : 'Create Brand'}
+                                    {isLoading ? (
+                                        <span className="flex items-center gap-1.5">
+                                            <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            Creating...
+                                        </span>
+                                    ) : (
+                                        'Create Brand'
+                                    )}
                                 </button>
                             </div>
                         </form>

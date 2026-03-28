@@ -67,24 +67,24 @@ const MultiSelectFilter: React.FC<{
 
     return (
         <div className="relative">
-            <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+            <label className="block text-[10px] font-medium text-gray-600 mb-1 uppercase tracking-wide">
                 {label}
             </label>
             <button
                 type="button"
                 onClick={() => setOpen((p) => !p)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-left bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg text-left bg-white focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] transition-all"
             >
-                {displayText}
+                <span className="truncate block">{displayText}</span>
             </button>
 
-            {open ? (
-                <div className="absolute z-50 mt-2 w-full max-h-60 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
-                    <div className="space-y-2">
+            {open && (
+                <div className="absolute z-50 mt-1 w-full max-h-52 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+                    <div className="space-y-1.5">
                         {options.map((opt) => {
                             const checked = selected.has(opt.value);
                             return (
-                                <label key={opt.value} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+                                <label key={opt.value} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer select-none hover:bg-gray-50 px-1 py-0.5 rounded">
                                     <input
                                         type="checkbox"
                                         checked={checked}
@@ -94,7 +94,7 @@ const MultiSelectFilter: React.FC<{
                                             else next.delete(opt.value);
                                             onChange(serializeMultiValue(Array.from(next)));
                                         }}
-                                        className="h-4 w-4"
+                                        className="h-3.5 w-3.5 rounded border-gray-300 text-[#3b82f6] focus:ring-[#3b82f6]"
                                     />
                                     <span className="truncate">{opt.label}</span>
                                 </label>
@@ -102,26 +102,24 @@ const MultiSelectFilter: React.FC<{
                         })}
                     </div>
 
-                    <div className="mt-3 flex justify-end gap-2">
+                    <div className="mt-2 flex justify-end gap-2 pt-2 border-t border-gray-100">
                         <button
                             type="button"
-                            onClick={() => {
-                                onChange('all');
-                            }}
-                            className="px-3 py-1 text-xs border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50"
+                            onClick={() => onChange('all')}
+                            className="px-2 py-1 text-[10px] border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 transition-colors"
                         >
                             Clear
                         </button>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
-                            className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            className="px-2 py-1 text-[10px] bg-[#3b82f6] text-white rounded-md hover:bg-[#1e3a8a] transition-colors"
                         >
                             Done
                         </button>
                     </div>
                 </div>
-            ) : null}
+            )}
         </div>
     );
 };
@@ -173,7 +171,6 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         return formatLabel(brand);
     };
 
-    // Calculate active filter count
     const getActiveFilterCount = () => {
         let count = 0;
         Object.entries(filters).forEach(([key, value]) => {
@@ -191,14 +188,6 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         return (value == null ? '' : String(value)).trim().toLowerCase();
     };
 
-    const normalizeRoleKey = (value: unknown): string => {
-        return String(value || '')
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
-    };
-
     const handleRmChange = (nextRmEmail: string) => {
         const email = normalizeText(nextRmEmail);
         if (!email || email === 'all') {
@@ -213,10 +202,6 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         const teamEmails = selectedRmId
             ? list
                 .filter((u: any) => String(u?.managerId || '').trim() === selectedRmId)
-                .filter((u: any) => {
-                    const r = normalizeRoleKey(u?.role);
-                    return r === 'am' || r === 'ar';
-                })
                 .map((u: any) => normalizeText(u?.email))
                 .filter(Boolean)
             : [];
@@ -226,40 +211,43 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         onFilterChange('rm', email);
         onFilterChange('rmTeam', allowedAssignees.join(','));
     };
+
     return (
-        <div className="mt-4 mb-8 bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <Filter className="h-5 w-5 text-gray-600" />
-                    <h3 className="text-lg font-semibold text-gray-900">Advanced Filters</h3>
+        <div className="mt-3 mb-5 bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-[#3b82f6]" />
+                    <h3 className="text-sm font-semibold text-gray-800">Advanced Filters</h3>
                     {activeFilterCount > 0 && (
-                        <span className="bg-blue-100 text-blue-600 text-xs font-semibold px-2 py-1 rounded-full">
+                        <span className="bg-[#3b82f6]/10 text-[#3b82f6] text-[9px] font-semibold px-1.5 py-0.5 rounded-full">
                             {activeFilterCount} active
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={onResetFilters}
-                        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                        className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
                     >
-                        <RefreshCcw className="h-4 w-4" />
+                        <RefreshCcw className="h-3 w-3" />
                         Clear all
                     </button>
                     <button
                         onClick={onToggleFilters}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                        <X className="h-5 w-5" />
+                        <X className="h-3.5 w-3.5" />
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {/* Filters Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
                 {/* Status Filter */}
                 <MultiSelectFilter
                     label="Status"
-                    placeholder="All Status"
+                    placeholder="All"
                     value={filters.status}
                     onChange={(v) => onFilterChange('status', v)}
                     options={[
@@ -272,23 +260,10 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                     ]}
                 />
 
-                {canSeeCompanyFilter ? (
-                    <MultiSelectFilter
-                        label="Company"
-                        placeholder="All Companies"
-                        value={filters.company}
-                        onChange={(v) => onFilterChange('company', v)}
-                        options={availableCompanies.map((companyName) => ({
-                            value: companyName,
-                            label: companyName,
-                        }))}
-                    />
-                ) : null}
-
                 {/* Priority Filter */}
                 <MultiSelectFilter
                     label="Priority"
-                    placeholder="All Priority"
+                    placeholder="All"
                     value={filters.priority}
                     onChange={(v) => onFilterChange('priority', v)}
                     options={[
@@ -305,15 +280,15 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                     value={filters.assigned}
                     onChange={(v) => onFilterChange('assigned', v)}
                     options={[
-                        { value: 'assigned-to-me', label: 'Assigned To Me' },
-                        { value: 'assigned-by-me', label: 'Assigned By Me' },
+                        { value: 'assigned-to-me', label: 'To Me' },
+                        { value: 'assigned-by-me', label: 'By Me' },
                     ]}
                 />
 
                 {/* Due Date Filter */}
                 <MultiSelectFilter
                     label="Due Date"
-                    placeholder="All Dates"
+                    placeholder="All"
                     value={filters.date}
                     onChange={(v) => onFilterChange('date', v)}
                     options={[
@@ -326,7 +301,7 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                 {/* Task Type Filter */}
                 <MultiSelectFilter
                     label="Type"
-                    placeholder="All Types"
+                    placeholder="All"
                     value={filters.taskType}
                     onChange={(v) => onFilterChange('taskType', v)}
                     options={availableTaskTypes.map((typeName) => ({
@@ -335,10 +310,23 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                     }))}
                 />
 
+                {canSeeCompanyFilter && (
+                    <MultiSelectFilter
+                        label="Company"
+                        placeholder="All"
+                        value={filters.company}
+                        onChange={(v) => onFilterChange('company', v)}
+                        options={availableCompanies.map((companyName) => ({
+                            value: companyName,
+                            label: companyName,
+                        }))}
+                    />
+                )}
+
                 {/* Brand Filter */}
                 <MultiSelectFilter
                     label="Brand"
-                    placeholder={filters.company === 'all' ? 'All Brands' : `All ${filters.company} Brands`}
+                    placeholder="All"
                     value={filters.brand}
                     onChange={(v) => onFilterChange('brand', v)}
                     options={availableBrands.map((brand) => ({
@@ -346,10 +334,11 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                         label: formatBrandOptionLabel(brand),
                     }))}
                 />
-                {roleKey === 'sbm' ? (
+
+                {roleKey === 'sbm' && availableRms && (
                     <MultiSelectFilter
                         label="RM"
-                        placeholder="All RM"
+                        placeholder="All"
                         value={normalizeText((filters as any).rm || '') || 'all'}
                         onChange={(v) => handleRmChange(v)}
                         options={(availableRms || []).map((rm) => ({
@@ -357,17 +346,17 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                             label: rm.name || rm.email,
                         }))}
                     />
-                ) : null}
+                )}
 
                 {/* Sort Filter */}
-                <div className="relative">
-                    <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
-                        Sort By (Created Date)
+                <div>
+                    <label className="block text-[10px] font-medium text-gray-600 mb-1 uppercase tracking-wide">
+                        Sort By
                     </label>
                     <select
                         value={filters.sort || 'desc'}
                         onChange={(e) => onFilterChange('sort', e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] transition-all"
                     >
                         <option value="desc">Newest First</option>
                         <option value="asc">Oldest First</option>
@@ -375,18 +364,19 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
                 </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
+            {/* Footer Actions */}
+            <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
                 {onApplyFilters ? (
                     <button
                         onClick={onApplyFilters}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                        className="px-3 py-1.5 text-xs font-medium bg-[#3b82f6] text-white rounded-lg hover:bg-[#1e3a8a] transition-all"
                     >
                         Apply Filters
                     </button>
                 ) : (
                     <button
                         onClick={onResetFilters}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all"
                     >
                         Reset Filters
                     </button>
@@ -395,4 +385,5 @@ const AdvancedFilters: React.FC<AdvancedFiltersProps> = ({
         </div>
     );
 };
+
 export default AdvancedFilters;

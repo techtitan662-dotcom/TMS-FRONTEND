@@ -4,6 +4,10 @@ import {
   Clock,
   Loader2,
   AlertCircle,
+  UserCheck,
+  ListTodo,
+  ArrowRight,
+  TrendingDown,
 } from 'lucide-react';
 import type { Brand, CommentType, Task, TaskHistory, UserType } from '../Types/Types';
 import AllTasksPage from './AllTasksPage';
@@ -91,105 +95,233 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
     return { total, completed, pending, approvedPending };
   }, [tasks]);
 
+  const overdueCompletedStats = useMemo(() => {
+    const statsMap = new Map<string, { name: string; email: string; count: number; avatar?: string }>();
+    
+    tasks.forEach(task => {
+      if (task.status === 'completed' && task.dueDate) {
+        const completedAt = (task as any).statusUpdatedAt || task.updatedAt || task.createdAt; 
+        if (completedAt && new Date(completedAt) > new Date(task.dueDate)) {
+           const assignee = typeof task.assignedTo === 'object' ? task.assignedTo : users.find(u => u.id === task.assignedTo || u.email === task.assignedTo);
+           const email = typeof task.assignedTo === 'object' ? task.assignedTo.email : (assignee?.email || task.assignedTo as string);
+           const name = typeof task.assignedTo === 'object' ? task.assignedTo.name : (assignee?.name || email);
+           const avatar = typeof task.assignedTo === 'object' ? (task.assignedTo as any).avatar : (assignee as any)?.avatar;
+           
+           if (email) {
+             const key = email.toLowerCase();
+             const existing = statsMap.get(key) || { name: name || email, email: email, count: 0, avatar };
+             existing.count += 1;
+             statsMap.set(key, existing);
+           }
+        }
+      }
+    });
+    
+    return Array.from(statsMap.values()).sort((a, b) => b.count - a.count);
+  }, [tasks, users]);
+
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  const handleFilterClick = useCallback((filterType: string, value: string) => {
+    if (onAdvancedFilterChange) {
+      onAdvancedFilterChange(filterType, value);
+    } else if (filterType === 'status') {
+      setStatusFilter(value);
+    } else if (filterType === 'date') {
+      setDateFilter(value);
+    }
+  }, [onAdvancedFilterChange]);
 
   if (tasksStatus === 'loading' || tasksStatus === 'idle') {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex items-center justify-center h-full min-h-[300px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-[#3b82f6]" />
+          <p className="text-xs text-gray-500">Loading tasks...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-0 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 sm:bg-transparent min-h-screen">
-      {/* Header - added padding on mobile only */}
-      <div className="flex items-center justify-between px-4 sm:px-0 pt-4 sm:pt-0">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Assigned By Me</h1>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 px-4 sm:px-0">
-        <div
-          onClick={() => {
-            if (onAdvancedFilterChange) {
-              onAdvancedFilterChange('status', 'completed');
-            } else {
-              setStatusFilter('completed');
-            }
-          }}
-          className={`bg-white p-3 sm:p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${effectiveStatusFilter === 'completed' ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-100'} flex items-center gap-3 sm:gap-4`}
-        >
-          <div className="bg-green-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
-            <CheckCircle className="h-5 w-5 sm:h-6 sm:h-6 text-green-600" />
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500 font-medium">Total Completed</p>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{stats.completed}</h3>
-          </div>
+    <div className="space-y-4 p-4 sm:p-5 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-[#0f2a6e]">Assigned By Me</h1>
+          <p className="text-[11px] text-gray-500 mt-0.5">Tasks you've assigned to others</p>
         </div>
-        <div
-          onClick={() => {
-            if (onAdvancedFilterChange) {
-              onAdvancedFilterChange('status', 'pending');
-            } else {
-              setStatusFilter('pending');
-            }
-          }}
-          className={`bg-white p-3 sm:p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${effectiveStatusFilter === 'pending' ? 'border-yellow-500 ring-1 ring-yellow-500' : 'border-gray-100'} flex items-center gap-3 sm:gap-4`}
-        >
-          <div className="bg-yellow-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
-            <Clock className="h-5 w-5 sm:h-6 sm:h-6 text-yellow-600" />
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500 font-medium">Total Pending</p>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pending}</h3>
-          </div>
-        </div>
-        <div
-          onClick={() => {
-            if (onAdvancedFilterChange) {
-              onAdvancedFilterChange('status', 'pending-approval');
-            } else {
-              setStatusFilter('pending-approval');
-            }
-          }}
-          className={`bg-white p-3 sm:p-4 rounded-xl shadow-sm border cursor-pointer transition-all hover:shadow-md ${effectiveStatusFilter === 'pending-approval' ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-100'} flex items-center gap-3 sm:gap-4`}
-        >
-          <div className="bg-blue-100 p-2 sm:p-3 rounded-lg flex-shrink-0">
-            <AlertCircle className="h-5 w-5 sm:h-6 sm:h-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs sm:text-sm text-gray-500 font-medium">Pending Approval</p>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{stats.approvedPending}</h3>
-          </div>
+        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[#dbeafe] shadow-sm">
+          <UserCheck className="h-3.5 w-3.5 text-[#3b82f6]" />
+          <span className="text-[10px] font-medium text-[#0f2a6e]">{stats.total} tasks</span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="bg-white sm:rounded-xl shadow-sm border-y sm:border border-gray-100 overflow-hidden mb-6">
-        <div className="p-4 sm:p-4">
+      {/* Stats Cards - Theme Colors */}
+      <div className="grid grid-cols-3 gap-2">
+        {/* Completed Card */}
+        <div
+          onClick={() => handleFilterClick('status', 'completed')}
+          className={`group relative bg-white rounded-lg border transition-all duration-200 cursor-pointer ${
+            effectiveStatusFilter === 'completed'
+              ? 'border-[#3b82f6] shadow-md ring-1 ring-[#3b82f6]/20'
+              : 'border-[#dbeafe] hover:border-[#3b82f6]/50 hover:shadow-sm'
+          }`}
+        >
+          <div className="p-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className={`p-1.5 rounded-lg ${
+                effectiveStatusFilter === 'completed' ? 'bg-[#dbeafe]' : 'bg-[#dbeafe]/50'
+              }`}>
+                <CheckCircle className={`h-3.5 w-3.5 ${
+                  effectiveStatusFilter === 'completed' ? 'text-[#3b82f6]' : 'text-[#60a5fa]'
+                }`} />
+              </div>
+              <ArrowRight className={`h-2.5 w-2.5 text-gray-300 transition-opacity ${
+                effectiveStatusFilter === 'completed' ? 'opacity-100 text-[#3b82f6]' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+            </div>
+            <div>
+              <p className="text-[9px] font-medium text-gray-500">Completed</p>
+              <p className="text-xl font-bold text-[#0f2a6e] mt-0.5">{stats.completed}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Card */}
+        <div
+          onClick={() => handleFilterClick('status', 'pending')}
+          className={`group relative bg-white rounded-lg border transition-all duration-200 cursor-pointer ${
+            effectiveStatusFilter === 'pending'
+              ? 'border-[#3b82f6] shadow-md ring-1 ring-[#3b82f6]/20'
+              : 'border-[#dbeafe] hover:border-[#3b82f6]/50 hover:shadow-sm'
+          }`}
+        >
+          <div className="p-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className={`p-1.5 rounded-lg ${
+                effectiveStatusFilter === 'pending' ? 'bg-[#dbeafe]' : 'bg-[#dbeafe]/50'
+              }`}>
+                <Clock className={`h-3.5 w-3.5 ${
+                  effectiveStatusFilter === 'pending' ? 'text-[#3b82f6]' : 'text-[#60a5fa]'
+                }`} />
+              </div>
+              <ArrowRight className={`h-2.5 w-2.5 text-gray-300 transition-opacity ${
+                effectiveStatusFilter === 'pending' ? 'opacity-100 text-[#3b82f6]' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+            </div>
+            <div>
+              <p className="text-[9px] font-medium text-gray-500">Pending</p>
+              <p className="text-xl font-bold text-[#0f2a6e] mt-0.5">{stats.pending}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Approval Card */}
+        <div
+          onClick={() => handleFilterClick('status', 'pending-approval')}
+          className={`group relative bg-white rounded-lg border transition-all duration-200 cursor-pointer ${
+            effectiveStatusFilter === 'pending-approval'
+              ? 'border-[#3b82f6] shadow-md ring-1 ring-[#3b82f6]/20'
+              : 'border-[#dbeafe] hover:border-[#3b82f6]/50 hover:shadow-sm'
+          }`}
+        >
+          <div className="p-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className={`p-1.5 rounded-lg ${
+                effectiveStatusFilter === 'pending-approval' ? 'bg-[#dbeafe]' : 'bg-[#dbeafe]/50'
+              }`}>
+                <AlertCircle className={`h-3.5 w-3.5 ${
+                  effectiveStatusFilter === 'pending-approval' ? 'text-[#3b82f6]' : 'text-[#60a5fa]'
+                }`} />
+              </div>
+              <ArrowRight className={`h-2.5 w-2.5 text-gray-300 transition-opacity ${
+                effectiveStatusFilter === 'pending-approval' ? 'opacity-100 text-[#3b82f6]' : 'opacity-0 group-hover:opacity-100'
+              }`} />
+            </div>
+            <div>
+              <p className="text-[9px] font-medium text-gray-500">Pending Approval</p>
+              <p className="text-xl font-bold text-[#0f2a6e] mt-0.5">{stats.approvedPending}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Overdue After Complete Grid */}
+      {overdueCompletedStats.length > 0 && (
+        <div className="bg-white rounded-xl border border-rose-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-rose-50 bg-gradient-to-r from-rose-50/50 to-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4 text-rose-500" />
+              <h2 className="text-sm font-semibold text-[#0f2a6e]">Overdue After Complete</h2>
+            </div>
+            <span className="text-[10px] font-medium text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+              Tasks Done Late
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th scope="col" className="px-4 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                  <th scope="col" className="px-4 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Late Completions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-50">
+                {overdueCompletedStats.map((stat) => (
+                  <tr key={stat.email} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1e3a8a] flex items-center justify-center text-white text-[10px] font-bold overflow-hidden shadow-sm">
+                          {stat.avatar ? (
+                            <img src={stat.avatar} alt={stat.name} className="h-full w-full object-cover" />
+                          ) : (
+                            stat.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-gray-900">{stat.name}</span>
+                          <span className="text-[10px] text-gray-400">{stat.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-right">
+                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-rose-600 bg-rose-50 rounded-full">
+                        {stat.count}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tasks Section */}
+      <div className="bg-white rounded-xl border border-[#dbeafe] shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#dbeafe] bg-gradient-to-r from-[#dbeafe]/30 to-white">
+          <div className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-[#3b82f6]" />
+            <h2 className="text-sm font-semibold text-[#0f2a6e]">Tasks You've Assigned</h2>
+            {stats.total > 0 && (
+              <span className="text-[9px] font-medium text-[#3b82f6] bg-[#dbeafe] px-1.5 py-0.5 rounded-full">
+                {stats.total}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="p-3">
           <AllTasksPage
             embedded
             showFiltersInEmbedded
             hideCreateAndBulkActions
             tasks={tasks}
             filter={effectiveStatusFilter}
-            setFilter={(value) => {
-              if (onAdvancedFilterChange) {
-                onAdvancedFilterChange('status', value);
-                return;
-              }
-              setStatusFilter(value);
-            }}
+            setFilter={(value) => handleFilterClick('status', value)}
             dateFilter={effectiveDateFilter}
-            setDateFilter={(value) => {
-              if (onAdvancedFilterChange) {
-                onAdvancedFilterChange('date', value);
-                return;
-              }
-              setDateFilter(value);
-            }}
+            setDateFilter={(value) => handleFilterClick('date', value)}
             assignedFilter={'assigned-by-me'}
             hideAssignBy={true}
             searchTerm={searchTerm}
@@ -225,6 +357,16 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
             onOpenEditModal={onEditTask ? ((t: Task) => onEditTask(t)) : undefined}
           />
         </div>
+
+        {stats.total === 0 && (
+          <div className="text-center py-8">
+            <div className="w-10 h-10 mx-auto mb-2 bg-[#dbeafe] rounded-full flex items-center justify-center">
+              <UserCheck className="h-5 w-5 text-[#3b82f6]" />
+            </div>
+            <p className="text-xs text-gray-500">No tasks assigned by you yet</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">Tasks you assign to others will appear here</p>
+          </div>
+        )}
       </div>
     </div>
   );
