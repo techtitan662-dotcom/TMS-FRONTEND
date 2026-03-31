@@ -1888,7 +1888,7 @@ const DesktopTaskItem = memo(({
 
         {/* Brand Column */}
         <div className="col-span-1 flex items-center justify-center">
-          <span className="text-[10px] font-medium text-primary-main px-2 py-0.5 bg-primary-ultralight rounded-md truncate max-w-[85px] text-center border border-primary-light/20" title={brandLabelText}>
+          <span className="text-[10px] font-medium text-primary-main px-2 py-0.5 bg-primary-ultralight rounded-md truncate max-w-[85px] text-center" title={brandLabelText}>
             {brandLabelText || "—"}
           </span>
         </div>
@@ -1920,7 +1920,7 @@ const DesktopTaskItem = memo(({
         {assignedFilter !== 'assigned-to-me' && (
           <div className="col-span-1 min-w-0 flex items-center justify-center">
             <div className="flex items-center gap-1">
-              <div className="w-5 h-5 rounded-full bg-primary-ultralight flex items-center justify-center border border-primary-light/30 shrink-0">
+              <div className="w-5 h-5 rounded-full bg-primary-ultralight flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-semibold text-primary-dark">
                   {userInfo.name ? userInfo.name.charAt(0).toUpperCase() : '—'}
                 </span>

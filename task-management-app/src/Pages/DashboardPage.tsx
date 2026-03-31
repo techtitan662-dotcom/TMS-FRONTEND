@@ -572,14 +572,21 @@ const DashboardPage = () => {
     const pendingManagerReviewTasks = useMemo(() => {
         const normalizeEmailSafe = (v: unknown): string => String(v || '').trim().toLowerCase();
         const normalizeRoleKey = (v: unknown): string => String(v || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        const smartbizReviewerEmails = new Set([
+            'miteshsmartbiz@gmail.com',
+            'mitixasmartbiz@gmail.com',
+            'viralsmartbiz@gmail.com',
+            'smartbizishita@gmail.com',
+        ]);
         const isAssistantRoleKey = (roleKey: string): boolean => {
             if (!roleKey) return false;
             if (roleKey === 'assistant' || roleKey.includes('assistant')) return true;
             return roleKey === 'sub_assistance' || roleKey === 'sub_assistence' || roleKey === 'sub_assist' || roleKey === 'sub_assistant';
         };
         const roleKey = normalizeRoleKey((currentUser as any)?.role);
-        if (roleKey !== 'manager' && roleKey !== 'marketer_manager' && roleKey !== 'md_manager') return [];
         const myEmail = normalizeEmailSafe((currentUser as any)?.email);
+        const isSmartbizReviewer = Boolean(myEmail && smartbizReviewerEmails.has(myEmail));
+        if (!isSmartbizReviewer && roleKey !== 'manager' && roleKey !== 'marketer_manager' && roleKey !== 'md_manager') return [];
         if (!myEmail) return [];
         const getAssignedByEmail = (t: any): string => {
             const raw = (t as any)?.assignedBy;
@@ -587,6 +594,7 @@ const DashboardPage = () => {
             if (raw && typeof raw === 'object') return normalizeEmailSafe((raw as any)?.email);
             return normalizeEmailSafe((t as any)?.assignedByUser?.email);
         };
+
         const getAssignedToEmail = (t: any): string => {
             const raw = (t as any)?.assignedTo;
             if (typeof raw === 'string') return normalizeEmailSafe(raw);
