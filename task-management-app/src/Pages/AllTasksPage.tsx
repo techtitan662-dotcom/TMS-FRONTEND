@@ -2117,10 +2117,11 @@ const CommentSidebar = memo(({
   getStatusBadgeColor,
   getStatusText,
   loadingComments,
-  loadingHistory
+  loadingHistory,
+  defaultTab = 'details'
 }: any) => {
   const [localComment, setLocalComment] = useState('');
-  const [activeTab, setActiveTab] = useState<'details' | 'permanent-history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'permanent-history'>(defaultTab);
 
   if (!showCommentSidebar || !selectedTask) return null;
 
@@ -3839,6 +3840,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
   // Comment related states
   const [showCommentSidebar, setShowCommentSidebar] = useState(false);
+  const [commentSidebarTab, setCommentSidebarTab] = useState<'details' | 'permanent-history'>('details');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentLoading, setCommentLoading] = useState(false);
 
@@ -4865,6 +4867,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
     setSelectedTask(task);
     setShowCommentSidebar(true);
+    setCommentSidebarTab('permanent-history'); // Auto-open Timeline tab when clicking comment
 
     clearUnreadForTask(task.id);
 
@@ -6069,6 +6072,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
         onCloseSidebar={handleCloseCommentSidebar}
         onSaveComment={handleSaveComment}
         onDeleteComment={onDeleteComment ? (commentId: string) => handleDeleteComment(selectedTask?.id || '', commentId) : undefined}
+        defaultTab={commentSidebarTab}
         getTaskComments={getTaskCommentsInternal}
         getUserInfoForDisplay={getUserInfoForDisplay}
         isTaskCompleted={isTaskCompleted}

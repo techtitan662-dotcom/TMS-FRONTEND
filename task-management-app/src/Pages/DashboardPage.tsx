@@ -5222,7 +5222,9 @@ const DashboardPage = () => {
             void ensureUsersLoaded();
         }
         if (needsBrands) {
-            void ensureBrandsLoaded();
+            // Force refresh brands when navigating to all-tasks to ensure group numbers are loaded
+            const isAllTasksView = currentView === 'all-tasks';
+            void ensureBrandsLoaded({ force: isAllTasksView });
         }
         if (needsCompanies) {
             void ensureCompaniesLoaded();
