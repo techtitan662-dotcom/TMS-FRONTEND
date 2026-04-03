@@ -4,6 +4,7 @@ export interface MdImpexStrike {
   _id: string;
   date: string;
   time: string;
+  strikeType?: 'small' | 'big' | string;
   poc: {
     name: string;
     email: string;

@@ -95,29 +95,76 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
     return { total, completed, pending, approvedPending };
   }, [tasks]);
 
+  const assignedToSummary = useMemo(() => {
+    const normalizeEmail = (v: unknown) => String(v || '').trim().toLowerCase();
+    const map = new Map<string, { name: string; email: string; total: number; pending: number }>();
+
+    (tasks || []).forEach((t: any) => {
+      const assignedToEmail = normalizeEmail(typeof t.assignedTo === 'object' ? t.assignedTo?.email : t.assignedTo);
+      const assignedToUserEmail = normalizeEmail((t as any).assignedToUser?.email);
+      const email = assignedToEmail || assignedToUserEmail;
+      if (!email) return;
+
+      const assignedToUser = typeof t.assignedTo === 'object'
+        ? t.assignedTo
+        : (users || []).find((u: any) => normalizeEmail(u?.email) === email);
+      const name = String((assignedToUser as any)?.name || email).trim() || email;
+
+      const existing = map.get(email) || { name, email, total: 0, pending: 0 };
+      existing.total += 1;
+
+      const status = String((t as any)?.status || '').trim().toLowerCase();
+      if (status === 'pending' || status === 'reassigned') existing.pending += 1;
+
+      map.set(email, existing);
+    });
+
+    const out = Array.from(map.values());
+    out.sort((a, b) => (b.pending - a.pending) || (b.total - a.total) || a.name.localeCompare(b.name));
+    return out;
+  }, [tasks, users]);
+
   const overdueCompletedStats = useMemo(() => {
-    const statsMap = new Map<string, { name: string; email: string; count: number; avatar?: string }>();
+    const statsMap = new Map<string, { name: string; email: string; count: number; totalTasks: number; avatar?: string }>();
     
+    // First, count total tasks per user
+    tasks.forEach(task => {
+      const assignee = typeof task.assignedTo === 'object' ? task.assignedTo : users.find(u => u.id === task.assignedTo || u.email === task.assignedTo);
+      const email = typeof task.assignedTo === 'object' ? task.assignedTo.email : (assignee?.email || task.assignedTo as string);
+      const name = typeof task.assignedTo === 'object' ? task.assignedTo.name : (assignee?.name || email);
+      const avatar = typeof task.assignedTo === 'object' ? (task.assignedTo as any).avatar : (assignee as any)?.avatar;
+      
+      if (email) {
+        const key = email.toLowerCase();
+        const existing = statsMap.get(key) || { name: name || email, email: email, count: 0, totalTasks: 0, avatar };
+        existing.totalTasks += 1;
+        statsMap.set(key, existing);
+      }
+    });
+    
+    // Then, count overdue completed tasks
     tasks.forEach(task => {
       if (task.status === 'completed' && task.dueDate) {
         const completedAt = (task as any).statusUpdatedAt || task.updatedAt || task.createdAt; 
         if (completedAt && new Date(completedAt) > new Date(task.dueDate)) {
            const assignee = typeof task.assignedTo === 'object' ? task.assignedTo : users.find(u => u.id === task.assignedTo || u.email === task.assignedTo);
            const email = typeof task.assignedTo === 'object' ? task.assignedTo.email : (assignee?.email || task.assignedTo as string);
-           const name = typeof task.assignedTo === 'object' ? task.assignedTo.name : (assignee?.name || email);
-           const avatar = typeof task.assignedTo === 'object' ? (task.assignedTo as any).avatar : (assignee as any)?.avatar;
            
            if (email) {
              const key = email.toLowerCase();
-             const existing = statsMap.get(key) || { name: name || email, email: email, count: 0, avatar };
-             existing.count += 1;
-             statsMap.set(key, existing);
+             const existing = statsMap.get(key);
+             if (existing) {
+               existing.count += 1;
+             }
            }
         }
       }
     });
     
-    return Array.from(statsMap.values()).sort((a, b) => b.count - a.count);
+    // Filter to only show users who have late completions
+    return Array.from(statsMap.values())
+      .filter(stat => stat.count > 0)
+      .sort((a, b) => b.count - a.count);
   }, [tasks, users]);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -247,6 +294,44 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
         </div>
       </div>
 
+      {assignedToSummary.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#dbeafe] shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#dbeafe] bg-gradient-to-r from-[#dbeafe]/30 to-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-[#3b82f6]" />
+              <h2 className="text-sm font-semibold text-[#0f2a6e]">Person Wise Summary</h2>
+            </div>
+            <span className="text-[10px] font-medium text-[#3b82f6] bg-[#dbeafe] px-2 py-0.5 rounded-full">
+              Pending by assignee
+            </span>
+          </div>
+          <div className="p-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5">
+              {assignedToSummary.filter((u) => u.pending > 0).map((u) => (
+                <div key={u.email} className="p-2 rounded-lg border border-gray-100 bg-gray-50 hover:bg-white transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-semibold text-gray-900 truncate" title={u.name}>{u.name}</div>
+                      <div className="text-[9px] text-gray-500 truncate" title={u.email}>{u.email}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[8px] text-gray-500">Total</div>
+                      <div className="text-[11px] font-bold text-gray-900">{u.total}</div>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <div className="text-[9px] font-semibold text-gray-600">Pending</div>
+                    <div className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                      {u.pending}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overdue After Complete Grid */}
       {overdueCompletedStats.length > 0 && (
         <div className="bg-white rounded-xl border border-rose-100 shadow-sm overflow-hidden">
@@ -264,6 +349,7 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
               <thead className="bg-gray-50/50">
                 <tr>
                   <th scope="col" className="px-4 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                  <th scope="col" className="px-4 py-2 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Total Tasks</th>
                   <th scope="col" className="px-4 py-2 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Late Completions</th>
                 </tr>
               </thead>
@@ -284,6 +370,11 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
                           <span className="text-[10px] text-gray-400">{stat.email}</span>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-2 whitespace-nowrap text-center">
+                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold leading-none text-[#3b82f6] bg-[#dbeafe] rounded-full">
+                        {stat.totalTasks}
+                      </span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-right">
                       <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-rose-600 bg-rose-50 rounded-full">

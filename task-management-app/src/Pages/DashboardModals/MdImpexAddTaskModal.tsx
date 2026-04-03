@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { TaskPriority, UserType } from '../../Types/Types';
 import mdImpexAccessService from '../../Services/MdImpexAccess.services';
 import { taskTypeService } from '../../Services/TaskType.service';
+import { brandService } from '../../Services/Brand.service';
 
 interface NewTaskForm {
   title: string;
@@ -65,9 +66,11 @@ const MdImpexAddTaskModal = ({
   const [allowedUsers, setAllowedUsers] = useState<UserType[]>([]);
   const [allowedTaskTypes, setAllowedTaskTypes] = useState<string[]>([]);
   const [allowedBrands, setAllowedBrands] = useState<string[]>([]);
+  const [personAccessList, setPersonAccessList] = useState<any[]>([]);
   const [hasSpecificAccess, setHasSpecificAccess] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [taskTypesFromApi, setTaskTypesFromApi] = useState<any[]>([]);
+  const [mdImpexBrandsFromApi, setMdImpexBrandsFromApi] = useState<Array<{ value: string; label: string }>>([]);
   const hasInitializedRef = useRef(false);
   const emailDropdownRef = useRef<HTMLDivElement | null>(null);
   const brandDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -80,15 +83,27 @@ const MdImpexAddTaskModal = ({
 
   const normalizedCurrentUserRole = (currentUserRole || '').toString().trim().toLowerCase();
   const isMdManager = normalizedCurrentUserRole === 'md_manager';
+  const isAssistantUser = normalizedCurrentUserRole === 'assistant' || normalizedCurrentUserRole === 'assistance';
   const MD_IMPEX_COMPANY_NAME = 'MD Impex';
   const companyOptions = [MD_IMPEX_COMPANY_NAME];
 
   const brandOptions = useMemo(() => {
-    const allOptions = getAvailableBrandOptions();
+    const parentOptions = getAvailableBrandOptions();
     const isAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || currentUserRole === 'troubleshoot_manager';
-    if (isMdManager || isAdmin) return allOptions;
-    if (!hasSpecificAccess) return allOptions;
-    if (allowedBrands.length === 0) return allOptions;
+
+    // For md_manager and admins, show all brands (prefer API-fetched list if available)
+    if (isMdManager || isAdmin) {
+      return mdImpexBrandsFromApi.length > 0 ? mdImpexBrandsFromApi : parentOptions;
+    }
+
+    // Use API-fetched brands as the base; fall back to parent options
+    // This ensures new users with custom roles see the correct brand list
+    const allOptions = mdImpexBrandsFromApi.length > 0
+      ? mdImpexBrandsFromApi
+      : parentOptions;
+
+    // If there are no allowed brands specified for the current assignee, return full list
+    if (!Array.isArray(allowedBrands) || allowedBrands.length === 0) return allOptions;
 
     const normalize = (v: unknown) => String(v || '').trim().toLowerCase();
     const normalizeAllowed = (v: unknown) => normalize(v).replace(/\s+/g, ' ');
@@ -107,21 +122,31 @@ const MdImpexAddTaskModal = ({
       const labelKey = normalizeAllowed(opt?.label);
       const cleanedLabelKey = cleanLabel(opt?.label);
       return (
-        (opt.ownerId && currentUserId && String(opt.ownerId) === String(currentUserId)) ||
-        (opt.createdBy && currentUserId && String(opt.createdBy) === String(currentUserId)) ||
-        (opt.createdBy && currentUserEmail && String(opt.createdBy) === String(currentUserEmail)) ||
+        ('ownerId' in opt && opt.ownerId && currentUserId && String(opt.ownerId) === String(currentUserId)) ||
+        ('createdBy' in opt && opt.createdBy && currentUserId && String(opt.createdBy) === String(currentUserId)) ||
+        ('createdBy' in opt && opt.createdBy && currentUserEmail && String(opt.createdBy) === String(currentUserEmail)) ||
         (valueKey && allowedSet.has(valueKey)) ||
         (labelKey && allowedSet.has(labelKey)) ||
         (cleanedLabelKey && allowedSet.has(cleanedLabelKey))
       );
     });
-  }, [getAvailableBrandOptions, newTask.companyName, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess, currentUserId, currentUserEmail]);
+  }, [getAvailableBrandOptions, newTask.companyName, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess, currentUserId, currentUserEmail, mdImpexBrandsFromApi]);
 
   useEffect(() => {
     if (open) {
       setLocalTitle(newTask.title);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isAssistantUser) return;
+    const me = normalizeEmail(currentUserEmail);
+    const selected = normalizeEmail(newTask?.assignedTo);
+    if (me && selected && me === selected) {
+      onChange('assignedTo', '');
+    }
+  }, [currentUserEmail, isAssistantUser, newTask?.assignedTo, onChange, open]);
 
   const handleTitleChange = useCallback((value: string) => {
     setLocalTitle(value);
@@ -136,6 +161,8 @@ const MdImpexAddTaskModal = ({
       hasInitializedRef.current = false;
       setAllowedUsers([]);
       setAllowedTaskTypes([]);
+      setAllowedBrands([]);
+      setMdImpexBrandsFromApi([]);
       setLocalTitle('');
       return;
     }
@@ -155,11 +182,28 @@ const MdImpexAddTaskModal = ({
 
       setLoadingUsers(true);
       try {
-        const [membersRes, accessRes, taskTypesRes] = await Promise.all([
+        const [membersRes, accessRes, taskTypesRes, brandsRes] = await Promise.all([
           mdImpexAccessService.getAllMembers(),
           mdImpexAccessService.getAllPersonAccess(),
-          taskTypeService.getTaskTypes()
+          taskTypeService.getTaskTypes(),
+          brandService.getBrands({ limit: 5000, includeDeleted: true })
         ]);
+
+        // Load all MD Impex brands directly from API for reliable brand filtering
+        if (brandsRes?.success && Array.isArray(brandsRes.data)) {
+          const mdBrands = brandsRes.data.filter((b: any) => {
+            const company = String(b?.company || b?.companyName || '').trim().toLowerCase().replace(/\s+/g, '');
+            return company === 'mdimpex';
+          });
+          const brandOpts = mdBrands.map((b: any) => {
+            const name = String(b?.name || '').trim();
+            const groupNumber = String(b?.groupNumber || '').trim();
+            const label = groupNumber ? `${groupNumber} - ${name}` : name;
+            return { value: name, label };
+          }).filter(o => o.value)
+            .sort((a, b) => a.label.localeCompare(b.label));
+          setMdImpexBrandsFromApi(brandOpts);
+        }
 
         if (taskTypesRes.success && taskTypesRes.data) {
           setTaskTypesFromApi(taskTypesRes.data);
@@ -180,6 +224,9 @@ const MdImpexAddTaskModal = ({
           const myAccess = accessRes.success && accessRes.data
             ? accessRes.data.find((item: any) => normalizeEmail(item.assignedToEmail) === currentNormalized)
             : null;
+
+          // store full person-access list for later lookup (by assignedTo email)
+          setPersonAccessList(Array.isArray(accessRes?.data) ? accessRes.data : []);
 
           if (myRoleNormalized === 'md_manager' || isAdmin) {
             setHasSpecificAccess(!!myAccess);
@@ -206,26 +253,29 @@ const MdImpexAddTaskModal = ({
             setAllowedTaskTypes(myAccess?.allowedTaskTypes || []);
             setAllowedBrands(myAccess?.allowedBrands || []);
 
-            if (!newTask.assignedTo && members.length > 0) {
+            if (!isAssistantUser && !newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
           } else if (myAccess) {
             setHasSpecificAccess(true);
-            const allowedIds = new Set((myAccess.allowedAssignees || []).map((id: any) => String(id)));
-            const filteredMembers = allMembers.filter((m: any) =>
-              allowedIds.has(String(m.id)) || normalizeEmail(m.email) === currentNormalized
-            );
+            const allowedIds = Array.isArray(myAccess.allowedAssignees) ? myAccess.allowedAssignees : [];
+            const allowedIdSet = new Set(allowedIds.map((id: any) => String(id)));
 
-            const members = filteredMembers.map((m: any) => ({
+            const sourceMembers = allowedIdSet.size > 0
+              ? allMembers.filter((m: any) => allowedIdSet.has(String(m.id)))
+              : allMembers;
+
+            const members = sourceMembers.map((m: any) => ({
               id: m.id,
               email: m.email,
               name: m.name
             }));
+
             setAllowedUsers(members);
             setAllowedTaskTypes(myAccess.allowedTaskTypes || []);
             setAllowedBrands(myAccess.allowedBrands || []);
 
-            if (!newTask.assignedTo && members.length > 0) {
+            if (!isAssistantUser && !newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
           } else {
@@ -239,7 +289,7 @@ const MdImpexAddTaskModal = ({
             setAllowedUsers(members);
             setAllowedTaskTypes([]);
 
-            if (!newTask.assignedTo && members.length > 0) {
+            if (!isAssistantUser && !newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
             }
           }
@@ -253,6 +303,21 @@ const MdImpexAddTaskModal = ({
 
     fetchAccessData();
   }, [open, currentUserEmail, currentUserRole]);
+
+  // When the selected assignee changes, update allowed task types and brands
+  useEffect(() => {
+    if (!newTask?.assignedTo || !Array.isArray(personAccessList)) return;
+    const assignedEmail = normalizeEmail(newTask.assignedTo);
+    const accessForAssignee = personAccessList.find((p) => normalizeEmail(p.assignedToEmail) === assignedEmail);
+    if (accessForAssignee) {
+      setAllowedTaskTypes(accessForAssignee.allowedTaskTypes || []);
+      setAllowedBrands(accessForAssignee.allowedBrands || []);
+    } else {
+      // no specific access for assignee -> clear filters
+      setAllowedTaskTypes([]);
+      setAllowedBrands([]);
+    }
+  }, [newTask?.assignedTo, personAccessList]);
 
   const filteredTaskTypes = useMemo(() => {
     const normalizedToOriginal = new Map<string, string>();
