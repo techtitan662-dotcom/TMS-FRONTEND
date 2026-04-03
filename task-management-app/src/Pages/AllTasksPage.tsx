@@ -1853,16 +1853,12 @@ const DesktopTaskItem = memo(({
             'bg-primary-light'
         }`} />
 
-      <div className="grid grid-cols-12 gap-1.5 p-2.5 items-center pl-3.5">
-        {/* Index Column */}
-        <div className="col-span-1 flex justify-center items-center">
-          <span className="text-xs font-semibold text-primary-dark tabular-nums">
+      <div className="grid grid-cols-11 gap-0.5 p-2.5 items-center pl-2">
+        {/* Index + Status Column */}
+        <div className="col-span-1 flex items-center justify-center gap-1">
+          <span className="text-xs font-semibold text-primary-dark tabular-nums w-4 text-right">
             {index}
           </span>
-        </div>
-
-        {/* Status Column */}
-        <div className="col-span-1 flex justify-center items-center">
           {disableStatusToggle ? (
             <div
               className={`w-6 h-6 rounded-md flex items-center justify-center ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
@@ -1993,7 +1989,7 @@ const DesktopTaskItem = memo(({
                   {new Date((task as any).latestComment.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <p className="text-[9px] text-gray-600 line-clamp-1 leading-tight">
+              <p className="text-[11px] text-gray-600 line-clamp-1 leading-tight">
                 "{(task as any).latestComment.content}"
               </p>
             </div>
@@ -2121,10 +2117,11 @@ const CommentSidebar = memo(({
   getStatusBadgeColor,
   getStatusText,
   loadingComments,
-  loadingHistory
+  loadingHistory,
+  defaultTab = 'details'
 }: any) => {
   const [localComment, setLocalComment] = useState('');
-  const [activeTab, setActiveTab] = useState<'details' | 'permanent-history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'permanent-history'>(defaultTab);
 
   if (!showCommentSidebar || !selectedTask) return null;
 
@@ -3843,6 +3840,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
   // Comment related states
   const [showCommentSidebar, setShowCommentSidebar] = useState(false);
+  const [commentSidebarTab, setCommentSidebarTab] = useState<'details' | 'permanent-history'>('details');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentLoading, setCommentLoading] = useState(false);
 
@@ -4657,7 +4655,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
     const role = (currentUser?.role || '').toString().trim().toLowerCase();
     const isObManager = role === 'ob_manager';
-    
+
     if (!window.confirm(`Delete ${selectedTasks.length} tasks? This action cannot be undone.`)) return;
 
     setBulkDeleting(true);
@@ -4666,7 +4664,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
         const task = tasks.find(t => t.id === taskId);
         if (task) {
           const isAssigner = isTaskAssigner(task);
-          
+
           if (isObManager && !isAssigner) {
             toast.error(`You do not have permission to delete task: ${task.title}`);
             continue;
@@ -4869,6 +4867,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
     setSelectedTask(task);
     setShowCommentSidebar(true);
+    setCommentSidebarTab('permanent-history'); // Auto-open Timeline tab when clicking comment
 
     clearUnreadForTask(task.id);
 
@@ -5787,9 +5786,8 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
         ) : (
           <div className="space-y-4">
             {/* Table Header - Desktop */}
-            <div className="hidden md:grid grid-cols-12 gap-1.5 px-4 py-2.5 bg-primary-ultralight rounded-lg border border-primary-light/20 text-xs font-semibold text-primary-dark items-center">
-              <div className="col-span-1 text-center">#</div>
-              <div className="col-span-1 text-center">Status</div>
+            <div className="hidden md:grid grid-cols-11 gap-1.5 px-4 py-2.5 bg-primary-ultralight rounded-lg border border-primary-light/20 text-xs font-semibold text-primary-dark items-center">
+              <div className="col-span-1 text-center">#/Status</div>
               <div className="col-span-1 text-center">Brand</div>
               <div className={hideAssignBy ? "col-span-3" : "col-span-2"}>Task Title</div>
               {assignedFilter !== 'assigned-to-me' && <div className="col-span-1 text-center">Assign To</div>}
@@ -6074,6 +6072,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
         onCloseSidebar={handleCloseCommentSidebar}
         onSaveComment={handleSaveComment}
         onDeleteComment={onDeleteComment ? (commentId: string) => handleDeleteComment(selectedTask?.id || '', commentId) : undefined}
+        defaultTab={commentSidebarTab}
         getTaskComments={getTaskCommentsInternal}
         getUserInfoForDisplay={getUserInfoForDisplay}
         isTaskCompleted={isTaskCompleted}
