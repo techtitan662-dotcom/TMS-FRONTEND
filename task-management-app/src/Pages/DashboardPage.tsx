@@ -89,7 +89,7 @@ import PersonalTasksPage from './PersonalTasksPage';
 import AssignedByMe from './AssignedByMe';
 import AssignedToMe from './AssignedToMe';
 import { useAppDispatch, useAppSelector } from '../Store/hooks';
-import { getDashboardSpotlightOverrideForEmail, isEmailInAnyDashboardSpotlightList } from '../utils/dashboardSpotlightAccess';
+import { getDashboardSpotlightOverrideForEmail } from '../utils/dashboardSpotlightAccess';
 import {
     fetchTasks as fetchTasksThunk,
     selectAllTasks,
@@ -197,6 +197,7 @@ interface FilterState {
 }
 
 const DashboardPage = () => {
+
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
@@ -322,24 +323,60 @@ const DashboardPage = () => {
         | 'assigned-to-me'
         | 'headline'
     >('dashboard');
+    const DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY = 'dashboard_spotlight_manager_selection';
     const [dashboardSpotlight, setDashboardSpotlight] = useState<'employee-of-month' | 'manager-monthly-ranking' | 'power-star-of-month'>('employee-of-month');
+
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-    const canSeeDashboardSpotlight = useMemo(() => {
+    const roleIsAdminLike = useMemo(() => {
         const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase();
-        const baseRoleAllowed = ['admin', 'super_admin', 'manager', 'md_manager', 'ob_manager', 'all_manager', 'marketer_manager'].includes(roleKey);
-        const emailAllowed = isEmailInAnyDashboardSpotlightList((currentUser as any)?.email);
-        return Boolean(baseRoleAllowed || emailAllowed);
+        return ['admin', 'super_admin', 'manager', 'md_manager', 'ob_manager', 'all_manager', 'marketer_manager'].includes(roleKey);
     }, [currentUser]);
 
-    useEffect(() => {
+    const isManagerRole = useMemo(() => {
+        return String((currentUser as any)?.role || '').trim().toLowerCase() === 'manager';
+    }, [currentUser]);
+
+    const dashboardSpotlightOverride = useMemo(() => {
         try {
-            const override = getDashboardSpotlightOverrideForEmail((currentUser as any)?.email);
-            if (override) setDashboardSpotlight(override);
+            return getDashboardSpotlightOverrideForEmail((currentUser as any)?.email);
+        } catch {
+            return null;
+        }
+    }, [currentUser?.email]);
+
+    useEffect(() => {
+        if (dashboardSpotlightOverride) {
+            // prefer explicit override for users who are listed in spotlight email lists
+            setDashboardSpotlight(dashboardSpotlightOverride);
+        }
+    }, [dashboardSpotlightOverride]);
+
+    useEffect(() => {
+        if (!isManagerRole) return;
+        if (dashboardSpotlightOverride) return;
+        try {
+            const raw = localStorage.getItem(DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY);
+            const key = String(raw || '').trim();
+            if (key === 'employee-of-month' || key === 'manager-monthly-ranking' || key === 'power-star-of-month') {
+                setDashboardSpotlight(key);
+            }
         } catch {
             // ignore
         }
-    }, [currentUser?.email]);
+    }, [DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY, dashboardSpotlightOverride, isManagerRole]);
+
+    useEffect(() => {
+        if (!isManagerRole) return;
+        try {
+            localStorage.setItem(DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY, dashboardSpotlight);
+        } catch {
+            // ignore
+        }
+    }, [DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY, dashboardSpotlight, isManagerRole]);
+
+    const effectiveDashboardSpotlight = dashboardSpotlightOverride || (roleIsAdminLike ? dashboardSpotlight : null);
+
     const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isAuthReady, setIsAuthReady] = useState(false);
@@ -6018,47 +6055,49 @@ const DashboardPage = () => {
                                     {(!isSpeedEcomUser || String((currentUser as any)?.role || '').trim().toLowerCase() === 'admin' || String((currentUser as any)?.role || '').trim().toLowerCase() === 'super_admin') ? (
                                         String((currentUser as any)?.role || '').trim().toLowerCase() !== 'troubleshoot_manager' ? (
                                             <>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6 px-4 sm:px-0">
-                                                    {canSeeDashboardSpotlight ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setDashboardSpotlight('employee-of-month')}
-                                                            className={`
+                                                {roleIsAdminLike ? (
+                                                    <div className="mb-6 px-4 sm:px-0">
+                                                        {String((currentUser as any)?.role || '').trim().toLowerCase() === 'manager' ? null : (
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDashboardSpotlight('employee-of-month')}
+                                                                    className={`
         bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
         transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
         relative group
         ${dashboardSpotlight === 'employee-of-month'
-                                                                        ? 'border-[#1e3a8a] shadow-md'
-                                                                        : 'border-gray-100 hover:border-[#1e3a8a]'
-                                                                    }
+                                                                            ? 'border-[#1e3a8a] shadow-md'
+                                                                            : 'border-gray-100 hover:border-[#1e3a8a]'
+                                                                        }
     `}
-                                                        >
-                                                            <div className="flex items-start justify-between">
-                                                                <div>
-                                                                    <h2 className="text-xs font-medium text-black tracking-wide">
-                                                                        <span className="inline-flex items-center gap-2">
-                                                                            <span className={`
-                        inline-flex items-center justify-center w-6 h-6 rounded-lg 
-                        transition-all duration-200
-                        ${dashboardSpotlight === 'employee-of-month'
-                                                                                        ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
-                                                                                        : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
-                                                                                    }
-                    `}>
-                                                                                <Crown className={`
-                                                    h-3.5 w-3.5 transition-colors duration-200
-                                                    ${dashboardSpotlight === 'employee-of-month'
-                                                                                            ? 'text-[#3b82f6]'
-                                                                                            : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                >
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div>
+                                                                            <h2 className="text-xs font-medium text-black tracking-wide">
+                                                                                <span className="inline-flex items-center gap-2">
+                                                                                    <span className={`
+                            inline-flex items-center justify-center w-6 h-6 rounded-lg 
+                            transition-all duration-200
+                            ${dashboardSpotlight === 'employee-of-month'
+                                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
                                                                                         }
-                                                `} />
-                                                                            </span>
-                                                                            <span>Employee of the Month</span>
-                                                                        </span>
-                                                                    </h2>
-                                                                    <p className="text-[10px] text-gray-500 mt-1">Based on manager reviews</p>
-                                                                </div>
-                                                                <span className={`
+                        `}>
+                                                                                        <Crown className={`
+                                        h-3.5 w-3.5 transition-colors duration-200
+                                        ${dashboardSpotlight === 'employee-of-month'
+                                                                                                ? 'text-[#3b82f6]'
+                                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                            }
+                                    `} />
+                                                                                    </span>
+                                                                                    <span>Employee of the Month</span>
+                                                                                </span>
+                                                                            </h2>
+                                                                            <p className="text-[10px] text-gray-500 mt-1">Based on manager reviews</p>
+                                                                        </div>
+                                                                        <span className={`
                 text-[10px] font-medium px-2 py-0.5 rounded-full 
                 transition-all duration-200
                 ${dashboardSpotlight === 'employee-of-month'
@@ -6066,26 +6105,23 @@ const DashboardPage = () => {
                                                                                 : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
                                                                             }
             `}>
-                                                                    {dashboardSpotlight === 'employee-of-month' ? '✓ Selected' : 'Filter'}
-                                                                </span>
-                                                            </div>
+                                                                            {dashboardSpotlight === 'employee-of-month' ? '✓ Selected' : 'Filter'}
+                                                                        </span>
+                                                                    </div>
 
-                                                            {/* Hover Effect Overlay - Thin border */}
-                                                            <div className={`
+                                                                    <div className={`
             absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
             ${dashboardSpotlight === 'employee-of-month'
                                                                             ? 'ring-1 ring-[#1e3a8a] ring-inset'
                                                                             : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
                                                                         }
         `} />
-                                                        </button>
-                                                    ) : null}
-                                                    {canSeeDashboardSpotlight ? (
-                                                        <>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setDashboardSpotlight('manager-monthly-ranking')}
-                                                                className={`
+                                                                </button>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDashboardSpotlight('manager-monthly-ranking')}
+                                                                    className={`
         bg-white p-4 rounded-xl shadow-sm border-2 cursor-pointer 
         transition-all duration-300 ease-out hover:shadow-md hover:-translate-y-0.5 
         relative group
@@ -6094,25 +6130,25 @@ const DashboardPage = () => {
                                                                             : 'border-gray-100 hover:border-[#1e3a8a]'
                                                                         }
     `}
-                                                            >
-                                                                <div className="flex items-start justify-between">
-                                                                    <div>
-                                                                        <h2 className="text-xs font-medium text-black tracking-wide">
-                                                                            <span className="inline-flex items-center gap-2">
-                                                                                <span className={`
+                                                                >
+                                                                    <div className="flex items-start justify-between">
+                                                                        <div>
+                                                                            <h2 className="text-xs font-medium text-black tracking-wide">
+                                                                                <span className="inline-flex items-center gap-2">
+                                                                                    <span className={`
                             inline-flex items-center justify-center w-6 h-6 rounded-lg 
                             transition-all duration-200
                             ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                                                ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
-                                                                                                : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
-                                                                                            }
+                                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                                        }
                         `}>
                                                                                         <Trophy className={`
                                         h-3.5 w-3.5 transition-colors duration-200
                                         ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                                                    ? 'text-[#3b82f6]'
-                                                                                                    : 'text-gray-400 group-hover:text-[#3b82f6]'
-                                                                                                }
+                                                                                                ? 'text-[#3b82f6]'
+                                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                            }
                                     `} />
                                                                                     </span>
                                                                                     <span>Employee of the Month Marketer</span>
@@ -6124,21 +6160,20 @@ const DashboardPage = () => {
                 text-[10px] font-medium px-2 py-0.5 rounded-full 
                 transition-all duration-200
                 ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                                    ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
-                                                                                    : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
-                                                                                }
+                                                                                ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                                : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                            }
             `}>
                                                                             {dashboardSpotlight === 'manager-monthly-ranking' ? '✓ Selected' : 'Filter'}
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* Hover Effect Overlay - Thin border */}
                                                                     <div className={`
                 absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
                 ${dashboardSpotlight === 'manager-monthly-ranking'
-                                                                                    ? 'ring-1 ring-[#1e3a8a] ring-inset'
-                                                                                    : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
-                                                                                }
+                                                                            ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                                            : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                                        }
             `} />
                                                                 </button>
 
@@ -6163,16 +6198,16 @@ const DashboardPage = () => {
                                 inline-flex items-center justify-center w-6 h-6 rounded-lg 
                                 transition-all duration-200
                                 ${dashboardSpotlight === 'power-star-of-month'
-                                                                                                    ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
-                                                                                                    : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
-                                                                                                }
+                                                                                            ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/20'
+                                                                                            : 'bg-gray-50 group-hover:bg-[#3b82f6]/5'
+                                                                                        }
                             `}>
                                                                                         <Star className={`
                                             h-3.5 w-3.5 transition-colors duration-200
                                             ${dashboardSpotlight === 'power-star-of-month'
-                                                                                                        ? 'text-[#3b82f6]'
-                                                                                                        : 'text-gray-400 group-hover:text-[#3b82f6]'
-                                                                                                    }
+                                                                                                ? 'text-[#3b82f6]'
+                                                                                                : 'text-gray-400 group-hover:text-[#3b82f6]'
+                                                                                            }
                                         `} />
                                                                                     </span>
                                                                                     <span>Power Star of the Month</span>
@@ -6184,28 +6219,42 @@ const DashboardPage = () => {
                 text-[10px] font-medium px-2 py-0.5 rounded-full 
                 transition-all duration-200
                 ${dashboardSpotlight === 'power-star-of-month'
-                                                                                    ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
-                                                                                    : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
-                                                                                }
+                                                                                ? 'bg-[#3b82f6]/10 text-[#3b82f6]'
+                                                                                : 'bg-gray-50 text-gray-400 group-hover:bg-[#3b82f6]/5 group-hover:text-[#3b82f6]'
+                                                                            }
             `}>
                                                                             {dashboardSpotlight === 'power-star-of-month' ? '✓ Selected' : 'Filter'}
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* Hover Effect Overlay - Thin border */}
                                                                     <div className={`
                 absolute inset-0 rounded-xl pointer-events-none transition-all duration-300
                 ${dashboardSpotlight === 'power-star-of-month'
-                                                                                    ? 'ring-1 ring-[#1e3a8a] ring-inset'
-                                                                                    : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
-                                                                                }
+                                                                            ? 'ring-1 ring-[#1e3a8a] ring-inset'
+                                                                            : 'group-hover:ring-1 group-hover:ring-[#1e3a8a] ring-inset'
+                                                                        }
             `} />
                                                                 </button>
-                                                            </>
-                                                    ) : null}
-                                                </div>
-                                                {canSeeDashboardSpotlight ? (
-                                                    dashboardSpotlight === 'employee-of-month' ? (
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : null}
+                                                {roleIsAdminLike && effectiveDashboardSpotlight ? (
+                                                    <div className="flex items-center mb-4 px-4 sm:px-0">
+                                                        <select
+                                                            value={dashboardSpotlight}
+                                                            onChange={(e) => setDashboardSpotlight(e.target.value as any)}
+                                                            className=" w-[260px] px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] transition-all"
+                                                        >
+                                                            <option value="employee-of-month">Employee of the Month</option>
+                                                            <option value="manager-monthly-ranking">Employee of the Month Marketer</option>
+                                                            <option value="power-star-of-month">Power Star of the Month</option>
+                                                        </select>
+                                                    </div>
+                                                ) : null}
+
+                                                {effectiveDashboardSpotlight ? (
+                                                    effectiveDashboardSpotlight === 'employee-of-month' ? (
                                                         <>
                                                             <EmployeeOfTheMonthCard
                                                                 name={employeeOfTheMonth?.name || 'Not any yet'}
@@ -6218,9 +6267,10 @@ const DashboardPage = () => {
                                                                 summaryRows={employeeOfTheMonth?.summaryRows}
                                                                 monthValue={reviewsMonth}
                                                                 onMonthChange={setReviewsMonth}
+                                                                headerLeftSlot={null}
                                                             />
                                                         </>
-                                                    ) : dashboardSpotlight === 'manager-monthly-ranking' ? (
+                                                    ) : effectiveDashboardSpotlight === 'manager-monthly-ranking' ? (
                                                         <ManagerMonthlyRankingPage currentUser={currentUser} />
                                                     ) : (
                                                         <PowerStarOfTheMonthPage currentUser={currentUser} />

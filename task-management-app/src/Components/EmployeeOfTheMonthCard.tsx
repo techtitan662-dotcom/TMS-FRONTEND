@@ -6,7 +6,6 @@ import { toAvatarUrl } from '../utils/avatar';
 import logo from '../../public/logo (2).png';
 import cardBg from '../../public/Marble Iphone Wallpaper • The Best Marble Backgrounds.jpg.jpeg';
 
-
 type EmployeeOfTheMonthCardProps = {
   title?: string;
   name: string;
@@ -17,6 +16,7 @@ type EmployeeOfTheMonthCardProps = {
   photoUrl?: string;
   monthValue?: string;
   onMonthChange?: (value: string) => void;
+  headerLeftSlot?: React.ReactNode;
   totalReviews?: number;
   totalTasksReceived?: number;
   backgroundUrl?: string;
@@ -62,11 +62,12 @@ const EmployeeOfTheMonthCard = ({
   photoUrl,
   monthValue,
   onMonthChange,
+  headerLeftSlot,
   totalReviews,
   totalTasksReceived,
   summaryRows = [],
 }: EmployeeOfTheMonthCardProps) => {
-   clampRating(rating);
+  clampRating(rating);
   const topAvatarUrl = toAvatarUrl(photoUrl);
 
   const formatMonthLabel = (value?: string): string => {
@@ -77,6 +78,7 @@ const EmployeeOfTheMonthCard = ({
     }
     return new Date(y, m - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
   };
+
   const remainingRows = useMemo(() => {
     const list = Array.isArray(summaryRows) ? summaryRows : [];
     const topNameKey = String(name || '').trim().toLowerCase();
@@ -138,24 +140,29 @@ const EmployeeOfTheMonthCard = ({
   return (
     <div className="space-y-5">
       {/* Month Selector */}
-      <div className="flex justify-end">
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-          <input
-            type="month"
-            value={monthValue || ''}
-            onChange={(e) => onMonthChange?.(e.target.value)}
-            className="pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 bg-white/80 text-gray-700 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm"
-          />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {headerLeftSlot ? headerLeftSlot : null}
         </div>
-        <button
-          type="button"
-          className="ml-5 p-2 mr-4 rounded-lg bg-white/50 text-blue-700 hover:bg-white/70 transition-all border border-blue-300 shadow-sm download-btn-to-hide"
-          title="Download Card"
-          onClick={downloadCard}
-        >
-          <Download className="h-4 w-4" />
-        </button>
+        <div className="flex items-center">
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <input
+              type="month"
+              value={monthValue || ''}
+              onChange={(e) => onMonthChange?.(e.target.value)}
+              className="pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 bg-white/80 text-gray-700 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 backdrop-blur-sm"
+            />
+          </div>
+          <button
+            type="button"
+            className="ml-5 p-2 mr-4 rounded-lg bg-white/50 text-blue-700 hover:bg-white/70 transition-all border border-blue-300 shadow-sm download-btn-to-hide"
+            title="Download Card"
+            onClick={downloadCard}
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* MAIN CARD - With Background Image */}
