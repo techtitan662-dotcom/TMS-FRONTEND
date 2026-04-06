@@ -152,7 +152,7 @@ const AddTaskModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white no-dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="relative overflow-hidden flex-shrink-0">
           <div className="absolute inset-0 gradient-primary" />
@@ -181,13 +181,13 @@ const AddTaskModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Task Title */}
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Task Title *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Task Title *</label>
               <input
                 type="text"
                 placeholder="What needs to be done?"
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.title
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={localTask.title}
                 onChange={(e) => handleInternalChange('title', e.target.value)}
@@ -197,12 +197,12 @@ const AddTaskModal = ({
 
             {/* Due Date */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due Date *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Due Date *</label>
               <input
                 type="date"
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.dueDate
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={localTask.dueDate}
                 onChange={(e) => handleInternalChange('dueDate', e.target.value)}
@@ -213,14 +213,14 @@ const AddTaskModal = ({
 
             {/* Assign To */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Assign To *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Assign To *</label>
               <div ref={assignDropdownRef} className="relative">
                 <button
                   type="button"
                   onClick={() => setAssignOpen((v) => !v)}
                   className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.assignedTo
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                    : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                     }`}
                 >
                   <span className="truncate text-sm">
@@ -238,8 +238,8 @@ const AddTaskModal = ({
                 </button>
 
                 {assignOpen && (
-                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 no-dark:border-gray-700 bg-white no-dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 no-dark:border-gray-700">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <input
@@ -250,7 +250,7 @@ const AddTaskModal = ({
                             setAssignOpen(true);
                           }}
                           placeholder="Search email or name"
-                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 no-dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white no-dark:bg-gray-800"
                           autoFocus
                         />
                       </div>
@@ -271,7 +271,7 @@ const AddTaskModal = ({
                                 handleInternalChange('assignedTo', email);
                                 setAssignOpen(false);
                               }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-primary-ultralight dark:hover:bg-gray-700 transition-colors"
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-primary-ultralight no-dark:hover:bg-gray-700 transition-colors"
                             >
                               {label}
                             </button>
@@ -288,7 +288,7 @@ const AddTaskModal = ({
             {/* Company */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Company *</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Company *</label>
                 {canBulkAddCompanies && (
                   <button
                     type="button"
@@ -306,8 +306,8 @@ const AddTaskModal = ({
                     value={localTask.companyName}
                     onChange={(e) => handleInternalChange('companyName', e.target.value)}
                     className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 ${formErrors.companyName
-                      ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                      ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                      : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                       } ${hideIcon ? 'appearance-none' : ''}`}
                     style={hideIcon ? { backgroundImage: 'none' } : undefined}
                     disabled={availableCompanies.length === 1}
@@ -325,7 +325,7 @@ const AddTaskModal = ({
             {/* Brand */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Brand *</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Brand *</label>
                 {canCreateBrand && (
                   <button
                     type="button"
@@ -346,8 +346,8 @@ const AddTaskModal = ({
                     setBrandOpen((v) => !v);
                   }}
                   className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.brand
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                    : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                     } ${!localTask.companyName ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   <span className="truncate text-sm">
@@ -359,8 +359,8 @@ const AddTaskModal = ({
                 </button>
 
                 {brandOpen && localTask.companyName && (
-                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 no-dark:border-gray-700 bg-white no-dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 no-dark:border-gray-700">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <input
@@ -371,7 +371,7 @@ const AddTaskModal = ({
                             setBrandOpen(true);
                           }}
                           placeholder="Search brand"
-                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 no-dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white no-dark:bg-gray-800"
                           autoFocus
                         />
                       </div>
@@ -404,7 +404,7 @@ const AddTaskModal = ({
             {/* Task Type */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Task Type</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Task Type</label>
                 {canBulkAddTaskTypes && (
                   <button
                     type="button"
@@ -417,8 +417,8 @@ const AddTaskModal = ({
               </div>
               <select
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 ${availableTaskTypesForNewTask.length === 0
-                  ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50 text-gray-400'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={localTask.taskType}
                 onChange={(e) => handleInternalChange('taskType', e.target.value)}
@@ -450,7 +450,7 @@ const AddTaskModal = ({
             {/* Priority */}
             <div className="md:col-span-1">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Priority</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Priority</label>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {['low', 'medium', 'high'].map((priority) => (
@@ -464,7 +464,7 @@ const AddTaskModal = ({
                         : priority === 'medium'
                           ? 'bg-amber-100 text-amber-700 border-amber-300'
                           : 'bg-primary-ultralight text-primary border-primary-light'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                      : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50 text-gray-600 no-dark:text-gray-400'
                       }`}
                   >
                     {priority.charAt(0).toUpperCase() + priority.slice(1)}
@@ -476,12 +476,12 @@ const AddTaskModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-6 py-4 bg-gray-50 no-dark:bg-gray-800/50 border-t border-gray-200 no-dark:border-gray-700 flex-shrink-0">
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              className="px-4 py-2 text-xs font-medium text-gray-600 no-dark:text-gray-400 bg-white no-dark:bg-gray-800 border border-gray-200 no-dark:border-gray-700 rounded-xl hover:bg-gray-50 no-dark:hover:bg-gray-700 transition-all"
             >
               Cancel
             </button>

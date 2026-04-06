@@ -126,7 +126,7 @@ const ScheduleMeetingModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white no-dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="relative overflow-hidden flex-shrink-0">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600" />
@@ -155,7 +155,7 @@ const ScheduleMeetingModal = ({
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Meeting Name */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 no-dark:text-gray-300 mb-2">
                 <AlignLeft className="h-4 w-4 text-blue-500" />
                 Meeting Name *
               </label>
@@ -173,7 +173,7 @@ const ScheduleMeetingModal = ({
             {/* Times */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 no-dark:text-gray-300 mb-2">
                   <Clock className="h-4 w-4 text-blue-500" />
                   Start Time *
                 </label>
@@ -187,7 +187,7 @@ const ScheduleMeetingModal = ({
                 {formErrors.startTime && <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-red-600" />{formErrors.startTime}</p>}
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 no-dark:text-gray-300 mb-2">
                   <Clock className="h-4 w-4 text-blue-500" />
                   End Time *
                 </label>
@@ -204,7 +204,7 @@ const ScheduleMeetingModal = ({
 
             {/* Participants */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 no-dark:text-gray-300 mb-2">
                 <Users className="h-4 w-4 text-blue-500" />
                 Participants
               </label>
@@ -293,7 +293,7 @@ const ScheduleMeetingModal = ({
 
             {/* Description */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 no-dark:text-gray-300 mb-2">
                 <AlignLeft className="h-4 w-4 text-blue-500" />
                 Description
               </label>
@@ -309,7 +309,7 @@ const ScheduleMeetingModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-6 py-5 bg-gray-50 no-dark:bg-gray-800/50 border-t border-gray-200 no-dark:border-gray-700 flex-shrink-0">
           <div className="flex justify-end gap-3">
             <button
               type="button"

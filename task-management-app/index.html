@@ -1,19 +1,53 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
+<html lang="en" data-bs-theme="light" style="color-scheme: only light;">
 
-    <!-- ✅ Favicon -->
-    <link rel="icon" href="/logo.jpeg" type="image/jpeg">
-    <!-- Add this to your index.html <head> section -->
-<link href="https://fonts.googleapis.com/css2?family=Anek+Telugu:wght@100;200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<head>
+  <meta charset="UTF-8" />
 
-<meta name="google-site-verification" content="T1WiPGZjku11ADVIuxoQhi6VCwvFoOaD58kFG-lgI1o" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Task Management App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  <!-- ✅ Favicon -->
+  <link rel="icon" href="/logo.jpeg" type="image/jpeg">
+  <!-- Add this to your index.html <head> section -->
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Telugu:wght@100;200;300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
+  <meta name="google-site-verification" content="T1WiPGZjku11ADVIuxoQhi6VCwvFoOaD58kFG-lgI1o" />
+  <meta name="color-scheme" content="light">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Management App</title>
+  <script>
+    // Force light mode on every page load and prevented dark mode class
+    (function() {
+      const forceLight = () => {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+        document.body.classList.remove('dark');
+        document.body.style.colorScheme = 'light';
+      };
+      
+      forceLight();
+      
+      // Observer to prevent anything from adding 'dark' class
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && (mutation.attributeName === 'class' || mutation.attributeName === 'style')) {
+            if (document.documentElement.classList.contains('dark') || document.body.classList.contains('dark')) {
+              forceLight();
+            }
+          }
+        });
+      });
+      
+      observer.observe(document.documentElement, { attributes: true });
+      observer.observe(document.body, { attributes: true });
+      
+      window.addEventListener('load', forceLight);
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

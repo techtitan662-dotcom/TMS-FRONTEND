@@ -138,9 +138,9 @@ const EmployeeOfTheMonthCard = ({
   const bgImage = cardBg;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 md:space-y-5">
       {/* Month Selector */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           {headerLeftSlot ? headerLeftSlot : null}
         </div>
@@ -156,7 +156,7 @@ const EmployeeOfTheMonthCard = ({
           </div>
           <button
             type="button"
-            className="ml-5 p-2 mr-4 rounded-lg bg-white/50 text-blue-700 hover:bg-white/70 transition-all border border-blue-300 shadow-sm download-btn-to-hide"
+            className="ml-3 md:ml-5 p-2 rounded-lg bg-white/50 text-blue-700 hover:bg-white/70 transition-all border border-blue-300 shadow-sm download-btn-to-hide"
             title="Download Card"
             onClick={downloadCard}
           >
@@ -168,15 +168,15 @@ const EmployeeOfTheMonthCard = ({
       {/* MAIN CARD - With Background Image */}
       <div
         ref={cardRef}
-        className="relative overflow-hidden rounded-2xl shadow-md w-[1230px] h-[430px]"
+        className="relative overflow-hidden rounded-2xl shadow-md"
         style={{
           backgroundImage: `url(${bgImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
+          minHeight: 'auto',
         }}
       >
-
         {/* Overlay to make content readable */}
         <div
           className="absolute inset-0"
@@ -189,78 +189,70 @@ const EmployeeOfTheMonthCard = ({
         <div
           className="absolute top-0 left-0 right-0 z-[5] overflow-hidden rounded-t-2xl"
           style={{
-            height: '150px',
-            backgroundImage: `url('/image (1).png')`, // Direct public URL
+            height: '120px',
+            backgroundImage: `url('/image (1).png')`,
             backgroundRepeat: 'repeat-x',
             backgroundPosition: 'top left',
-            backgroundSize: 'auto 150px',
-            backgroundColor: '', // Test background to see if div is visible
+            backgroundSize: 'auto 120px',
           }}
         />
 
         {/* Logo - Positioned on top of confetti */}
-        <div className="absolute top-4 left-0 right-0 flex justify-center ">
-          <img src={logo} alt="logo" className="h-40 w-auto opacity-90" />
+        <div className="absolute top-2 left-0 right-0 flex justify-center ">
+          <img src={logo} alt="logo" className="h-24 md:h-32 lg:h-40 w-auto opacity-90" />
         </div>
 
         {/* Content */}
-        <div className="relative  p-6">
-          {/* Top Bar - Adjusted spacing */}
-          <div className="flex items-center justify-between mb-5 min-h-[100px] mt-10 ml-7">
+        <div className="relative p-4 md:p-6 pt-16 md:pt-20 lg:pt-24">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between mb-4 md:mb-5">
             <div>
-              <p className=" text-xs font-bold text-[#0f2a6e]  tracking-wider mt-10 ">
+              <p className="text-[10px] md:text-xs font-bold text-[#0f2a6e] tracking-wider">
                 {formatMonthLabel(monthValue)}
               </p>
-              <h3 className="text-xl font-bold text-[#0f2a6e]">{title}</h3>
+              <h3 className="text-sm md:text-xl font-bold text-[#0f2a6e]">{title}</h3>
             </div>
-
           </div>
 
-          {/* Main Grid */}
-          <div className="grid lg:grid-cols-2 gap-3 items-center">
+          {/* Main Grid - Responsive column layout */}
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 md:gap-6 items-center">
             {/* Left Column */}
-            <div className="space-y-5  ml-7 mb-30">
-              {/* Name & Stars */}
+            <div className="space-y-3 md:space-y-5 w-full px-2 md:px-0">
+              {/* Name & Congratulations */}
               <div>
-                <h1 className="text-1xl lg:text-5xl font-black mb-1 flex flex-wrap items-center gap-3 tracking-tighter ">
-                  {/* Congratulations Section - Tall and Elegant */}
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-start">
                   <span
-                    className="tracking-[0rem]"
+                    className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black tracking-tight"
                     style={{
                       color: "#0f2a6e",
-                      WebkitTextStroke: "1px #daa520",
+                      WebkitTextStroke: "0.5px #daa520",
                       paintOrder: "stroke fill",
                       fontFamily: "'Anek Telugu', serif",
-                      transform: "scaleY(1.15)",
-                      display: "inline-block",
                       fontWeight: "600",
                       letterSpacing: "0.5px"
                     }}
                   >
                     Congratulations
                   </span>
-
-                  {/* Name Section - Same style as Congratulations */}
                   <span
-                    className="tracking-[0rem]"
+                    className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black tracking-tight"
                     style={{
                       color: "#0f2a6e",
-                      WebkitTextStroke: "1px #daa520",
+                      WebkitTextStroke: "0.5px #daa520",
                       paintOrder: "stroke fill",
                       fontFamily: "'Anek Telugu', serif",
-                      transform: "scaleY(1.15)",
-                      display: "inline-block",
                       fontWeight: "600",
                       letterSpacing: "0.5px"
                     }}
                   >
                     {name}
                   </span>
-                </h1>
+                </div>
               </div>
+
               {/* Quote */}
               <p
-                className="text-gray-700 text-xs border-l-3 pl-2 italic leading-relaxed bg-white/50 p-2 rounded-sm inline-block w-auto"
+                className="text-gray-700 text-[10px] sm:text-xs border-l-3 pl-2 italic leading-relaxed bg-white/50 p-2 rounded-sm inline-block w-auto"
                 style={{ borderLeftColor: '#3b82f6', borderLeftWidth: '3px' }}
               >
                 {performance === 'Excellent'
@@ -272,19 +264,19 @@ const EmployeeOfTheMonthCard = ({
                       : '"Continuing to develop skills and contribute to team success"'}
               </p>
 
-              {/* Performance Stats */}
-              <div className="grid grid-cols-3 gap-3 w-[400px]">
-                <div className="rounded-lg p-1.5 bg-white/70 border border-blue-200 shadow-sm backdrop-blur-sm ">
-                  <p className="text-[9px] text-blue-600 font-semibold mb-0.5">Performance</p>
-                  <p className="text-[11px] font-bold text-gray-800">{performance}</p>
+              {/* Performance Stats - Responsive grid */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-[400px]">
+                <div className="rounded-lg p-1.5 bg-white/70 border border-blue-200 shadow-sm backdrop-blur-sm">
+                  <p className="text-[8px] sm:text-[9px] text-blue-600 font-semibold mb-0.5">Performance</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-800 truncate">{performance}</p>
                 </div>
                 <div className="rounded-lg p-1.5 bg-white/70 border border-blue-200 shadow-sm backdrop-blur-sm">
-                  <p className="text-[9px] text-blue-600 font-semibold mb-0.5">Avg Rating</p>
-                  <p className="text-[11px] font-bold text-gray-800">{avg}</p>
+                  <p className="text-[8px] sm:text-[9px] text-blue-600 font-semibold mb-0.5">Avg Rating</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-800">{avg}</p>
                 </div>
                 <div className="rounded-lg p-1.5 bg-white/70 border border-blue-200 shadow-sm backdrop-blur-sm">
-                  <p className="text-[9px] text-blue-600 font-semibold mb-0.5">Review Rate</p>
-                  <p className="text-[11px] font-bold text-gray-800">
+                  <p className="text-[8px] sm:text-[9px] text-blue-600 font-semibold mb-0.5">Review Rate</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-gray-800">
                     {toNumberSafe(totalReviews) > 0 && toNumberSafe(totalTasksReceived) > 0
                       ? `${((toNumberSafe(totalReviews) / toNumberSafe(totalTasksReceived)) * 100).toFixed(0)}%`
                       : '0%'}
@@ -294,9 +286,8 @@ const EmployeeOfTheMonthCard = ({
             </div>
 
             {/* Right Column - Profile Image */}
-            <div className="relative flex justify-center lg:justify-end mr-20">
-              <div className="relative w-64 h-64 lg:w-72 lg:h-72" style={{ top: '-100px', right: '10px' }}>
-
+            <div className="relative flex justify-center w-full mt-4 lg:mt-0">
+              <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72">
                 {/* Gradient Ring */}
                 <div
                   className="absolute inset-0 rounded-full z-[2]"
@@ -320,42 +311,30 @@ const EmployeeOfTheMonthCard = ({
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200">
-                      <span className="text-blue-600 text-5xl font-bold">
+                      <span className="text-blue-600 text-4xl sm:text-5xl font-bold">
                         {(name || 'U').trim().charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
 
                   {/* Employee of the Month Badge */}
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[75%] z-[5]">
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[85%] sm:w-[75%] z-[5]">
                     <div className="relative group">
                       <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-                      <div className="relative px-3 py-1.5 rounded-full bg-white border border-blue-100 shadow-md">
-                        <div className="text-[13px] font-extrabold text-[#1e3a8a] tracking-wide uppercase truncate">
+                      <div className="relative px-2 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white border border-blue-100 shadow-md">
+                        <div className="text-[10px] sm:text-[13px] font-extrabold text-[#1e3a8a] tracking-wide uppercase truncate text-center">
                           {title && title.trim() ? title : 'Employee of the Month'}
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-
-               
-
               </div>
-               {/* Trophy Image - Positioned at bottom right, slightly up */}
-                {/* <div className="absolute right-0 bottom-0 translate-x-[50%] -translate-y-[-10%] z-[4]">
-                  <img
-                    src="../../public/trophy (2).png"
-                    alt="trophy"
-                    className="w-36 h-36 lg:w-80 lg:h-80 opacity-80"
-                    style={{
-                      objectFit: 'contain',
-                      filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))',
-                    }}
-                  />
-                </div> */}
             </div>
           </div>
+
+          {/* Bottom padding to ensure content doesn't touch edge */}
+          <div className="h-4 md:h-6"></div>
         </div>
       </div>
 
@@ -363,26 +342,26 @@ const EmployeeOfTheMonthCard = ({
       {sortedRows.length > 0 && (
         <div className="relative overflow-hidden rounded-xl shadow-sm bg-white border border-blue-200">
           {/* Header */}
-          <div className="relative px-5 py-4 border-b border-blue-200 bg-gradient-to-r from-blue-50/50 to-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100">
-                  <Users className="h-5 w-5 text-blue-600" />
+          <div className="relative px-4 py-3 sm:px-5 sm:py-4 border-b border-blue-200 bg-gradient-to-r from-blue-50/50 to-white">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-blue-100">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-base text-gray-800">Team Performance Dashboard</h3>
-                  <p className="text-xs text-gray-500">Real-time metrics • This month</p>
+                  <h3 className="font-semibold text-sm sm:text-base text-gray-800">Team Performance Dashboard</h3>
+                  <p className="text-[10px] sm:text-xs text-gray-500">Real-time metrics • This month</p>
                 </div>
               </div>
-              <span className="text-xs px-3 py-1.5 rounded-full font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+              <span className="text-[10px] sm:text-xs px-2 py-1 sm:px-3 sm:py-1.5 rounded-full font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                 {sortedRows.length} Team Members
               </span>
             </div>
           </div>
 
-          {/* Team Grid */}
-          <div className="p-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Team Grid - Responsive columns */}
+          <div className="p-4 sm:p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {sortedRows.map((r, index) => {
                 const rank = index + 2;
                 const isEvenIndex = (index % 2 === 0);
@@ -396,18 +375,18 @@ const EmployeeOfTheMonthCard = ({
 
                 return (
                   <div key={r.email} className="group relative">
-                    <div className={`rounded-lg border border-blue-200 p-4 hover:shadow-md hover:border-blue-300 transition-all duration-300 ${cardBgClass}`}>
+                    <div className={`rounded-lg border border-blue-200 p-3 sm:p-4 hover:shadow-md hover:border-blue-300 transition-all duration-300 ${cardBgClass}`}>
                       {/* Rank Badge */}
                       <div
-                        className={`absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm ${rankColor}`}
+                        className={`absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white shadow-sm ${rankColor}`}
                       >
                         #{rank}
                       </div>
 
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-2 sm:gap-3">
                         {/* Avatar */}
-                        <div className="relative">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-blue-200 bg-white">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden border border-blue-200 bg-white">
                             {toAvatarUrl(r?.avatar) ? (
                               <img
                                 src={toAvatarUrl(r?.avatar)}
@@ -417,26 +396,26 @@ const EmployeeOfTheMonthCard = ({
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-blue-100">
-                                <span className="font-bold text-sm text-blue-600">
+                                <span className="font-bold text-xs sm:text-sm text-blue-600">
                                   {(r.name || 'U').trim().charAt(0).toUpperCase()}
                                 </span>
                               </div>
                             )}
                           </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white" />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full border border-white" />
                         </div>
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-800 text-sm mb-0.5 truncate">{r.name}</h4>
-                          <p className="text-xs text-gray-500 mb-2 truncate">{r.email}</p>
+                          <h4 className="font-semibold text-gray-800 text-xs sm:text-sm mb-0.5 truncate">{r.name}</h4>
+                          <p className="text-[10px] sm:text-xs text-gray-500 mb-1.5 sm:mb-2 truncate">{r.email}</p>
 
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs flex-wrap">
                             <div className="flex items-center gap-0.5">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`h-3 w-3 ${i < Math.floor(Number(r.avgStarsLabel))
+                                  className={`h-2.5 w-2.5 sm:h-3 sm:w-3 ${i < Math.floor(Number(r.avgStarsLabel))
                                     ? 'text-blue-500 fill-blue-500'
                                     : i < Number(r.avgStarsLabel)
                                       ? 'text-blue-400 fill-blue-400'
@@ -444,9 +423,9 @@ const EmployeeOfTheMonthCard = ({
                                     }`}
                                 />
                               ))}
-                              <span className="font-medium text-gray-700 ml-1">{r.avgStarsLabel}</span>
+                              <span className="font-medium text-gray-700 ml-0.5 sm:ml-1 text-[10px] sm:text-xs">{r.avgStarsLabel}</span>
                             </div>
-                            <span className="text-gray-500">
+                            <span className="text-gray-500 text-[10px] sm:text-xs">
                               {toNumberSafe(r.total) > 0 && toNumberSafe(r.totalTasksReceived) > 0
                                 ? `${((toNumberSafe(r.total) / toNumberSafe(r.totalTasksReceived)) * 100).toFixed(0)}%`
                                 : '0%'}
