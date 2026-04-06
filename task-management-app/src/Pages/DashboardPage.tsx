@@ -375,7 +375,12 @@ const DashboardPage = () => {
         }
     }, [DASHBOARD_SPOTLIGHT_MANAGER_STORAGE_KEY, dashboardSpotlight, isManagerRole]);
 
-    const effectiveDashboardSpotlight = dashboardSpotlightOverride || (roleIsAdminLike ? dashboardSpotlight : null);
+    const effectiveDashboardSpotlight = dashboardSpotlightOverride || (
+        roleIsAdminLike || 
+        ['assistant', 'sub_assistance', 'assistence', 'sub_assistence'].includes(String((currentUser as any)?.role || '').trim().toLowerCase()) 
+            ? dashboardSpotlight 
+            : null
+    );
 
     const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -6239,7 +6244,7 @@ const DashboardPage = () => {
                                                         )}
                                                     </div>
                                                 ) : null}
-                                                {roleIsAdminLike && effectiveDashboardSpotlight ? (
+                                                {String((currentUser as any)?.role || '').trim().toLowerCase() === 'manager' && effectiveDashboardSpotlight ? (
                                                     <div className="flex items-center mb-4 px-4 sm:px-0">
                                                         <select
                                                             value={dashboardSpotlight}
