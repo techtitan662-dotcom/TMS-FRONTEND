@@ -139,7 +139,7 @@ const EmployeeOfTheMonthCard = ({
 
   return (
     <div className="space-y-4 md:space-y-5">
-      {/* Month Selector */}
+      {/* Month Selector and Download Button */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           {headerLeftSlot ? headerLeftSlot : null}
@@ -189,59 +189,66 @@ const EmployeeOfTheMonthCard = ({
         <div
           className="absolute top-0 left-0 right-0 z-[5] overflow-hidden rounded-t-2xl"
           style={{
-            height: '120px',
+            height: '150px',
             backgroundImage: `url('/image (1).png')`,
             backgroundRepeat: 'repeat-x',
             backgroundPosition: 'top left',
-            backgroundSize: 'auto 120px',
+            backgroundSize: 'auto 150px',
           }}
         />
 
-        {/* Logo - Positioned on top of confetti */}
-        <div className="absolute top-2 left-0 right-0 flex justify-center ">
-          <img src={logo} alt="logo" className="h-24 md:h-32 lg:h-40 w-auto opacity-90" />
-        </div>
-
         {/* Content */}
         <div className="relative p-4 md:p-6 pt-16 md:pt-20 lg:pt-24">
-          {/* Top Bar */}
+          {/* Top Bar - Mobile: Logo Right, Desktop: Logo Center */}
           <div className="flex items-center justify-between mb-4 md:mb-5">
+            {/* Left side text */}
             <div>
               <p className="text-[10px] md:text-xs font-bold text-[#0f2a6e] tracking-wider">
                 {formatMonthLabel(monthValue)}
               </p>
               <h3 className="text-sm md:text-xl font-bold text-[#0f2a6e]">{title}</h3>
             </div>
+            {/* Logo - Mobile me visible, Desktop me hidden (kyuki desktop me center me hai) */}
+            <div className="flex-shrink-0 md:hidden">
+              <img src={logo} alt="logo" className="h-24 w-auto opacity-90" />
+            </div>
+            {/* Desktop me empty div for spacing */}
+            <div className="hidden md:block w-12 md:w-16"></div>
+          </div>
+
+          {/* Desktop Logo - Center */}
+          <div className="hidden md:flex absolute top-4 left-0 right-0 justify-center pointer-events-none">
+            <img src={logo} alt="logo" className="h-40 w-auto opacity-90" />
           </div>
 
           {/* Main Grid - Responsive column layout */}
           <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 md:gap-6 items-center">
             {/* Left Column */}
-            <div className="space-y-3 md:space-y-5 w-full px-2 md:px-0">
-              {/* Name & Congratulations */}
-              <div>
-                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-start">
+            <div className="space-y-3 md:space-y-5 w-full px-2 md:px-0 order-1">
+              {/* Congratulations and Name - Mobile me vertical stacking */}
+              <div className="mb-3 md:mb-4">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-1 sm:gap-2 items-start sm:items-baseline">
                   <span
-                    className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black tracking-tight"
+                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight"
                     style={{
                       color: "#0f2a6e",
                       WebkitTextStroke: "0.5px #daa520",
                       paintOrder: "stroke fill",
                       fontFamily: "'Anek Telugu', serif",
-                      fontWeight: "600",
+                      fontWeight: "700",
                       letterSpacing: "0.5px"
                     }}
                   >
                     Congratulations
                   </span>
                   <span
-                    className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black tracking-tight"
+                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight break-words"
                     style={{
                       color: "#0f2a6e",
                       WebkitTextStroke: "0.5px #daa520",
                       paintOrder: "stroke fill",
                       fontFamily: "'Anek Telugu', serif",
-                      fontWeight: "600",
+                      fontWeight: "700",
                       letterSpacing: "0.5px"
                     }}
                   >
@@ -286,7 +293,7 @@ const EmployeeOfTheMonthCard = ({
             </div>
 
             {/* Right Column - Profile Image */}
-            <div className="relative flex justify-center w-full mt-4 lg:mt-0">
+            <div className="relative flex justify-center w-full mt-4 lg:mt-0 order-2">
               <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72">
                 {/* Gradient Ring */}
                 <div
@@ -318,11 +325,12 @@ const EmployeeOfTheMonthCard = ({
                   )}
 
                   {/* Employee of the Month Badge */}
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[85%] sm:w-[75%] z-[5]">
+                  {/* Employee of the Month Badge - Mobile view me text wrap hoga */}
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[75%] sm:w-[75%] z-[5]">
                     <div className="relative group">
                       <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
-                      <div className="relative px-2 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white border border-blue-100 shadow-md">
-                        <div className="text-[10px] sm:text-[13px] font-extrabold text-[#1e3a8a] tracking-wide uppercase truncate text-center">
+                      <div className="relative px-2 sm:px-3 py-1.5 rounded-full bg-white border border-blue-100 shadow-md">
+                        <div className="text-[9px] sm:text-[13px] font-extrabold text-[#1e3a8a] tracking-wide uppercase text-center whitespace-nowrap sm:whitespace-nowrap">
                           {title && title.trim() ? title : 'Employee of the Month'}
                         </div>
                       </div>
@@ -333,7 +341,7 @@ const EmployeeOfTheMonthCard = ({
             </div>
           </div>
 
-          {/* Bottom padding to ensure content doesn't touch edge */}
+          {/* Bottom padding */}
           <div className="h-4 md:h-6"></div>
         </div>
       </div>
@@ -359,7 +367,7 @@ const EmployeeOfTheMonthCard = ({
             </div>
           </div>
 
-          {/* Team Grid - Responsive columns */}
+          {/* Team Grid */}
           <div className="p-4 sm:p-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {sortedRows.map((r, index) => {
