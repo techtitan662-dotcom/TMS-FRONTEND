@@ -17,6 +17,16 @@ const normalizeText = (v: unknown) => String(v || '').trim().toLowerCase();
 const normalizeCompanyKey = (v: unknown) => normalizeText(v).replace(/\s+/g, '');
 const normalizeRoleKey = (v: unknown) => normalizeText(v).replace(/[\s-]+/g, '_');
 
+const calcCutOffAmount = (activeStrikeCount: number) => {
+  const n = Number(activeStrikeCount);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  let cut = 0;
+  if (n >= 10) cut += 500;
+  if (n >= 11) cut += 250;
+  if (n >= 16) cut += 250;
+  return cut;
+};
+
 type StrikeRemovalEntry = {
   remark: string;
   removedAt: string;
@@ -581,6 +591,7 @@ const MdImpexStrikePage = ({
                 <th className="px-4 py-3 text-center">Total</th>
                 <th className="px-4 py-3 text-center">Removed</th>
                 <th className="px-4 py-3 text-center">Active</th>
+                <th className="px-4 py-3 text-center">Total Cut Off</th>
                 <th className="px-4 py-3 text-right">Action</th>
                </tr>
             </thead>
@@ -612,6 +623,11 @@ const MdImpexStrikePage = ({
                         {r.strike}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="inline-flex px-2 py-0.5 text-[10px] font-bold rounded-md bg-red-50 text-red-700 border border-red-100">
+                        {calcCutOffAmount(r.strike)}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button className="text-gray-400 hover:text-gray-600">
                         {expandedManager === r.managerEmail ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -621,7 +637,7 @@ const MdImpexStrikePage = ({
 
                   {expandedManager === r.managerEmail && (
                     <tr className="bg-gray-50/50">
-                      <td colSpan={5} className="px-4 py-3">
+                      <td colSpan={6} className="px-4 py-3">
                         <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                           <h4 className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                             <AlertCircle className="w-3.5 h-3.5 text-red-500" />

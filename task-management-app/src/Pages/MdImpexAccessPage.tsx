@@ -185,7 +185,7 @@ export default function MdImpexAccessPage() {
 
     const availableAssignees = useMemo(() => {
         if (!selectedPerson) return [];
-        return members.filter(m => m.email !== selectedPerson);
+        return members;
     }, [members, selectedPerson]);
 
     const handleCreateRole = async () => {

@@ -96,6 +96,33 @@ const AssignedToMe: React.FC<AssignedToMeProps> = ({
     return { total, completed, pending, approvedPending };
   }, [tasks]);
 
+  const assignedBySummary = useMemo(() => {
+    const normalizeEmail = (v: unknown) => String(v || '').trim().toLowerCase();
+    const map = new Map<string, { name: string; email: string; total: number; pending: number }>();
+
+    (tasks || []).forEach((t: any) => {
+      const assignedByEmail = normalizeEmail(typeof t.assignedBy === 'object' ? t.assignedBy?.email : t.assignedBy);
+      if (!assignedByEmail) return;
+
+      const assignedByUser = typeof t.assignedBy === 'object'
+        ? t.assignedBy
+        : (users || []).find((u: any) => normalizeEmail(u?.email) === assignedByEmail);
+      const name = String((assignedByUser as any)?.name || assignedByEmail).trim() || assignedByEmail;
+
+      const existing = map.get(assignedByEmail) || { name, email: assignedByEmail, total: 0, pending: 0 };
+      existing.total += 1;
+
+      const status = String((t as any)?.status || '').trim().toLowerCase();
+      if (status === 'pending' || status === 'reassigned') existing.pending += 1;
+
+      map.set(assignedByEmail, existing);
+    });
+
+    const out = Array.from(map.values());
+    out.sort((a, b) => (b.pending - a.pending) || (b.total - a.total) || a.name.localeCompare(b.name));
+    return out;
+  }, [tasks, users]);
+
   const overdueCompletedStats = useMemo(() => {
     const statsMap = new Map<string, { name: string; email: string; count: number; avatar?: string }>();
     
@@ -246,6 +273,44 @@ const AssignedToMe: React.FC<AssignedToMeProps> = ({
             </div>
           </div>
         </div>
+
+      {assignedBySummary.filter((u) => u.pending > 0).length > 0 && (
+        <div className="bg-white rounded-xl border border-[#dbeafe] shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#dbeafe] bg-gradient-to-r from-[#dbeafe]/30 to-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-[#3b82f6]" />
+              <h2 className="text-sm font-semibold text-[#0f2a6e]">Person Wise Summary</h2>
+            </div>
+            <span className="text-[10px] font-medium text-[#3b82f6] bg-[#dbeafe] px-2 py-0.5 rounded-full">
+              Pending by assigner
+            </span>
+          </div>
+          <div className="p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {assignedBySummary.filter((u) => u.pending > 0).map((u) => (
+                <div key={u.email} className="p-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-white transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-gray-900 truncate" title={u.name}>{u.name}</div>
+                      <div className="text-[10px] text-gray-500 truncate" title={u.email}>{u.email}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[9px] text-gray-500">Total</div>
+                      <div className="text-xs font-bold text-gray-900">{u.total}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-[10px] font-semibold text-gray-600">Pending</div>
+                    <div className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                      {u.pending}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overdue After Complete Grid */}
       {overdueCompletedStats.length > 0 && (

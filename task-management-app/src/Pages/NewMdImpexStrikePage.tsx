@@ -35,6 +35,7 @@ export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexS
     time: new Date().toTimeString().slice(0, 5),
     pocEmail: '',
     brandName: '',
+    strikeType: 'small',
     strikeTitle: '',
     company: 'MD-Impex',
     reason: ''
@@ -66,6 +67,7 @@ export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexS
         time: strike.time,
         pocEmail: strike.poc.email,
         brandName: strike.brandName || '',
+        strikeType: (String((strike as any).strikeType || '').trim().toLowerCase() === 'big') ? 'big' : 'small',
         strikeTitle: strike.strikeTitle,
         company: strike.company || 'MD-Impex',
         reason: strike.reason
@@ -78,6 +80,7 @@ export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexS
         time: new Date().toTimeString().slice(0, 5),
         pocEmail: '',
         brandName: '',
+        strikeType: 'small',
         strikeTitle: '',
         company: 'MD-Impex',
         reason: ''
@@ -99,12 +102,18 @@ export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexS
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    const strikeTypeNormalized = String((formData as any).strikeType || '').trim().toLowerCase() === 'big' ? 'big' : 'small';
+    const payload = {
+      ...formData,
+      strikeType: strikeTypeNormalized,
+    };
     
     let res;
     if (isEditMode && editingId) {
-      res = await mdImpexStrikeService.updateStrike(editingId, formData);
+      res = await mdImpexStrikeService.updateStrike(editingId, payload);
     } else {
-      res = await mdImpexStrikeService.createStrike(formData);
+      res = await mdImpexStrikeService.createStrike(payload);
     }
     
     setIsSubmitting(false);
@@ -181,17 +190,67 @@ export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexS
     return dt.toLocaleString('default', { month: 'long', year: 'numeric' });
   }, [selectedMonth]);
 
-  const userStrikeCounts = useMemo(() => {
-    const counts: Record<string, { email: string; name: string; count: number }> = {};
-    strikes.forEach(s => {
-      const email = s.poc.email;
-      if (!counts[email]) {
-        counts[email] = { email, name: s.poc.name, count: 0 };
+  const userStrikeStats = useMemo(() => {
+    const byUser: Record<
+      string,
+      {
+        email: string;
+        name: string;
+        smallStrikeCount: number;
+        bigStrikeCount: number;
+        smallPenalty: number;
+        bigPenalty: number;
+        totalPenalty: number;
       }
-      counts[email].count += 1;
+    > = {};
+
+    const calcSmallPenalty = (smallCount: number) => {
+      if (smallCount <= 3) return 0;
+      if (smallCount === 4) return 250;
+      if (smallCount === 5) return 500;
+      return 500 + (smallCount - 5) * 100;
+    };
+
+    strikes.forEach((s: any) => {
+      const email = String(s?.poc?.email || '').trim().toLowerCase();
+      if (!email) return;
+
+      if (!byUser[email]) {
+        byUser[email] = {
+          email,
+          name: String(s?.poc?.name || s?.poc?.email || '').trim() || email,
+          smallStrikeCount: 0,
+          bigStrikeCount: 0,
+          smallPenalty: 0,
+          bigPenalty: 0,
+          totalPenalty: 0,
+        };
+      }
+
+      const t = String(s?.strikeType || '').trim().toLowerCase();
+      const type = t === 'big' ? 'big' : 'small';
+      if (type === 'big') byUser[email].bigStrikeCount += 1;
+      else byUser[email].smallStrikeCount += 1;
     });
-    return Object.values(counts).sort((a, b) => b.count - a.count);
+
+    const out = Object.values(byUser).map((u) => {
+      const smallPenalty = calcSmallPenalty(u.smallStrikeCount);
+      const bigPenalty = u.bigStrikeCount * 500;
+      return {
+        ...u,
+        smallPenalty,
+        bigPenalty,
+        totalPenalty: smallPenalty + bigPenalty,
+      };
+    });
+
+    out.sort((a, b) => (b.totalPenalty - a.totalPenalty) || (b.smallStrikeCount + b.bigStrikeCount) - (a.smallStrikeCount + a.bigStrikeCount));
+    return out;
   }, [strikes]);
+
+  const totalPenaltyAllUsers = useMemo(() => {
+    return (userStrikeStats || []).reduce((sum, u) => sum + (u.totalPenalty || 0), 0);
+  }, [userStrikeStats]);
 
 return (
     <div className="flex flex-col h-full bg-gray-50/50 min-h-[calc(100vh-80px)] p-3 md:p-4 space-y-4 max-w-5xl mx-auto w-full">
@@ -272,6 +331,7 @@ return (
                    <th className="px-3 py-2.5 min-w-[100px]">Date/Time</th>
                    <th className="px-3 py-2.5 min-w-[150px]">POC</th>
                    <th className="px-3 py-2.5 min-w-[100px]">Brand</th>
+                   <th className="px-3 py-2.5 min-w-[90px]">Type</th>
                    <th className="px-3 py-2.5 min-w-[130px]">Title</th>
                    <th className="px-3 py-2.5 min-w-[160px]">Reason</th>
                    <th className="px-3 py-2.5 min-w-[120px]">Assigned By</th>
@@ -292,6 +352,11 @@ return (
                     <td className="px-3 py-2">
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-800 border border-gray-200">
                         {strike.brandName || '-'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${String((strike as any)?.strikeType || '').trim().toLowerCase() === 'big' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                        {String((strike as any)?.strikeType || '').trim().toLowerCase() === 'big' ? 'Big' : 'Small'}
                       </span>
                     </td>
                     <td className="px-3 py-2 font-semibold text-gray-900 text-xs">
@@ -320,7 +385,7 @@ return (
                 ))}
                 {strikes.length === 0 && !isLoading && (
                   <tr>
-                    <td colSpan={canManage ? 7 : 6} className="px-3 py-10 text-center">
+                    <td colSpan={canManage ? 8 : 7} className="px-3 py-10 text-center">
                        <div className="flex flex-col items-center justify-center">
                          <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mb-2">
                             <AlertCircle className="w-5 h-5 text-gray-400" />
@@ -384,20 +449,39 @@ return (
 
       {/* User Wise Strike Count */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-sm font-bold text-gray-800 mb-2 border-b border-gray-100 pb-2">User-Wise Strike Count</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {userStrikeCounts.map(u => (
-            <div key={u.email} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 hover:border-[var(--color-primary-lighter)] transition-colors">
-              <div className="min-w-0 flex-1 pr-2">
-                <div className="text-xs font-semibold text-gray-900 truncate" title={u.name}>{u.name}</div>
-                <div className="text-[9px] text-gray-500 truncate" title={u.email}>{u.email}</div>
+        <div className="flex items-center justify-between gap-2 mb-2 border-b border-gray-100 pb-2">
+          <h2 className="text-sm font-bold text-gray-800">User-Wise Strike & Penalty</h2>
+          <div className="text-xs font-semibold bg-[var(--color-primary-ultralight)] text-[var(--color-primary-dark)] px-2 py-1 rounded-md border border-[var(--color-primary-lighter)]">
+            Total Cut: {totalPenaltyAllUsers}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {userStrikeStats.map(u => (
+            <div key={u.email} className="p-2 rounded-lg bg-gray-50 border border-gray-100 hover:border-[var(--color-primary-lighter)] transition-colors">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-semibold text-gray-900 truncate" title={u.name}>{u.name}</div>
+                  <div className="text-[9px] text-gray-500 truncate" title={u.email}>{u.email}</div>
+                </div>
+                <div className="bg-red-50 text-red-700 px-2 py-0.5 rounded-md text-xs font-bold shadow-sm border border-red-100">
+                  {u.totalPenalty}
+                </div>
               </div>
-              <div className="bg-[var(--color-primary-ultralight)] text-[var(--color-primary-dark)] px-2 py-0.5 rounded-md text-xs font-bold shadow-sm">
-                {u.count}
+
+              <div className="mt-2 grid grid-cols-2 gap-1">
+                <div className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1">
+                  <div className="text-[9px] font-bold text-blue-800 uppercase">Small</div>
+                  <div className="text-[10px] font-semibold text-blue-900">{u.smallStrikeCount} / {u.smallPenalty}</div>
+                </div>
+                <div className="rounded-md border border-purple-100 bg-purple-50 px-2 py-1">
+                  <div className="text-[9px] font-bold text-purple-800 uppercase">Big</div>
+                  <div className="text-[10px] font-semibold text-purple-900">{u.bigStrikeCount} / {u.bigPenalty}</div>
+                </div>
               </div>
             </div>
           ))}
-          {userStrikeCounts.length === 0 && !isLoading && (
+          {userStrikeStats.length === 0 && !isLoading && (
             <div className="col-span-full text-xs text-gray-500 py-2 text-center">No strikes found for this month.</div>
           )}
         </div>
@@ -480,6 +564,21 @@ return (
                        onChange={handleInputChange}
                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-[var(--color-primary-main)] outline-none transition-all"
                      />
+                   </div>
+
+                   {/* Strike Type */}
+                   <div className="space-y-1">
+                     <label className="text-[10px] font-semibold text-gray-700">Strike Type <span className="text-red-500">*</span></label>
+                     <select
+                       name="strikeType"
+                       required
+                       value={(formData as any).strikeType}
+                       onChange={handleInputChange}
+                       className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-[var(--color-primary-main)] outline-none transition-all"
+                     >
+                       <option value="small">Small</option>
+                       <option value="big">Big</option>
+                     </select>
                    </div>
 
                    {/* Brand Name */}

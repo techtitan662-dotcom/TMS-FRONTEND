@@ -2,61 +2,71 @@
 @config "../tailwind.config.js";
 
 @theme {
-  --variant-dark: :where(.never);
+  --variant-dark: (not all);
 }
 
-/* Theme Variables */
 :root {
-  color-scheme: light;
+  color-scheme: only light !important;
+  --color-scheme: only light !important;
+
   /* Primary Navy Blue */
   --color-primary-dark: #0f2a6e;
   --color-primary-main: #1e3a8a;
   --color-primary-light: #3b82f6;
   --color-primary-lighter: #60a5fa;
   --color-primary-ultralight: #dbeafe;
-  
+
   /* Secondary */
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: #06b6d4;
-  
+
   /* Background */
   --color-bg-white: #ffffff;
   --color-bg-gray: #f9fafb;
   --color-bg-light-gray: #f3f4f6;
   --color-bg-dark: #111827;
-  
+
   /* Text */
   --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
   --color-text-muted: #9ca3af;
   --color-text-white: #ffffff;
-  
+
   /* Border */
   --color-border-light: #e5e7eb;
   --color-border-medium: #d1d5db;
-  
+
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, #1e3a8a, #0f2a6e);
   --gradient-primary-light: linear-gradient(135deg, #3b82f6, #1e3a8a);
-  
+
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
+html, body {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  color-scheme: only light !important;
+}
+
 /* Theme Utility Classes */
 .bg-primary {
   background-color: var(--color-primary-main);
 }
+
 .bg-primary-dark {
   background-color: var(--color-primary-dark);
 }
+
 .bg-primary-light {
   background-color: var(--color-primary-light);
 }
+
 .bg-primary-ultralight {
   background-color: var(--color-primary-ultralight);
 }
@@ -64,9 +74,11 @@
 .text-primary {
   color: var(--color-primary-main);
 }
+
 .text-primary-dark {
   color: var(--color-primary-dark);
 }
+
 .text-primary-light {
   color: var(--color-primary-light);
 }
@@ -82,6 +94,7 @@
 .hover\:bg-primary:hover {
   background-color: var(--color-primary-main);
 }
+
 .hover\:text-primary:hover {
   color: var(--color-primary-main);
 }

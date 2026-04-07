@@ -85,43 +85,84 @@ const MdImpexAddTaskModal = ({
 
   const brandOptions = useMemo(() => {
     const allOptions = getAvailableBrandOptions();
-    const isAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || currentUserRole === 'troubleshoot_manager';
-    if (isMdManager || isAdmin) return allOptions;
-    if (!hasSpecificAccess) return allOptions;
-    if (allowedBrands.length === 0) return allOptions;
 
-    const normalize = (v: unknown) => String(v || '').trim().toLowerCase();
-    const normalizeAllowed = (v: unknown) => normalize(v).replace(/\s+/g, ' ');
-    const cleanLabel = (label: unknown) => {
-      const raw = normalizeAllowed(label);
+    const isAdmin =
+      currentUserRole === 'admin' ||
+      currentUserRole === 'super_admin' ||
+      currentUserRole === 'troubleshoot_manager';
+
+    // Admin and MD Manager get all brands
+    if (isMdManager || isAdmin) return allOptions;
+
+    // No specific access means show all brands
+    if (!hasSpecificAccess) return allOptions;
+
+    // Helper functions
+    const normalize = (v: unknown) =>
+      String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+    const extractBrandName = (label: unknown) => {
+      const raw = String(label || '').trim();
       if (!raw) return '';
-      const parts = raw.split(' - ');
-      if (parts.length >= 2 && /^\d+$/.test(parts[0].trim())) {
-        return parts.slice(1).join(' - ').trim();
-      }
-      return raw;
+      const match = raw.match(/^\d+\s*-\s*(.+)$/);
+      return match ? match[1].trim() : raw;
     };
-    const allowedSet = new Set((allowedBrands || []).map((b) => normalizeAllowed(b)).filter(Boolean));
-    return allOptions.filter((opt) => {
-      const valueKey = normalizeAllowed(opt?.value);
-      const labelKey = normalizeAllowed(opt?.label);
-      const cleanedLabelKey = cleanLabel(opt?.label);
+
+    // ✅ Build brand options from allowedBrands (md_manager sent brands)
+    const allowedBrandOptions: Array<{ value: string; label: string }> =
+      allowedBrands
+        .filter(Boolean)
+        .map((brand) => ({ value: brand.trim(), label: brand.trim() }));
+
+    // ✅ Filter allOptions to user's own added brands
+    const userOwnBrandOptions = allOptions.filter((opt) => {
+      if (opt.ownerId && currentUserId && String(opt.ownerId) === String(currentUserId)) return true;
+      if (opt.createdBy && currentUserId && String(opt.createdBy) === String(currentUserId)) return true;
+      if (opt.createdBy && currentUserEmail && String(opt.createdBy) === String(currentUserEmail)) return true;
+      return false;
+    });
+
+    // ✅ Also filter allOptions that match allowedBrands (md_manager sent)
+    const allowedNormalizedSet = new Set(
+      allowedBrands.map((b) => normalize(b)).filter(Boolean)
+    );
+    const allowedExtractedSet = new Set(
+      allowedBrands.map((b) => normalize(extractBrandName(b))).filter(Boolean)
+    );
+
+    const matchedFromAll = allOptions.filter((opt) => {
+      const valueNorm = normalize(opt?.value);
+      const labelNorm = normalize(opt?.label);
+      const extractedValue = normalize(extractBrandName(opt?.value));
+      const extractedLabel = normalize(extractBrandName(opt?.label));
+
       return (
-        (opt.ownerId && currentUserId && String(opt.ownerId) === String(currentUserId)) ||
-        (opt.createdBy && currentUserId && String(opt.createdBy) === String(currentUserId)) ||
-        (opt.createdBy && currentUserEmail && String(opt.createdBy) === String(currentUserEmail)) ||
-        (valueKey && allowedSet.has(valueKey)) ||
-        (labelKey && allowedSet.has(labelKey)) ||
-        (cleanedLabelKey && allowedSet.has(cleanedLabelKey))
+        (valueNorm && allowedNormalizedSet.has(valueNorm)) ||
+        (labelNorm && allowedNormalizedSet.has(labelNorm)) ||
+        (extractedValue && allowedNormalizedSet.has(extractedValue)) ||
+        (extractedLabel && allowedNormalizedSet.has(extractedLabel)) ||
+        (extractedValue && allowedExtractedSet.has(extractedValue)) ||
+        (extractedLabel && allowedExtractedSet.has(extractedLabel))
       );
     });
-  }, [getAvailableBrandOptions, newTask.companyName, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess, currentUserId, currentUserEmail]);
+
+    // ✅ Merge all three sources: user's own brands + matched from allOptions + md_manager sent brands
+    // Deduplicate by normalized value
+    const merged = [...userOwnBrandOptions, ...matchedFromAll, ...allowedBrandOptions];
+    const seen = new Set<string>();
+    return merged.filter((opt) => {
+      const key = normalize(opt.value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [getAvailableBrandOptions, allowedBrands, isMdManager, currentUserRole, hasSpecificAccess, currentUserId, currentUserEmail]);
 
   useEffect(() => {
     if (open) {
       setLocalTitle(newTask.title);
     }
-  }, [open]);
+  }, [open, newTask.title]);
 
   const handleTitleChange = useCallback((value: string) => {
     setLocalTitle(value);
@@ -136,6 +177,7 @@ const MdImpexAddTaskModal = ({
       hasInitializedRef.current = false;
       setAllowedUsers([]);
       setAllowedTaskTypes([]);
+      setAllowedBrands([]);
       setLocalTitle('');
       return;
     }
@@ -147,7 +189,7 @@ const MdImpexAddTaskModal = ({
     if (newTask.companyName !== MD_IMPEX_COMPANY_NAME) {
       onChange('companyName', MD_IMPEX_COMPANY_NAME);
     }
-  }, [open]);
+  }, [open, MD_IMPEX_COMPANY_NAME, newTask.companyName, newTask.title, onChange]);
 
   useEffect(() => {
     const fetchAccessData = async () => {
@@ -172,7 +214,10 @@ const MdImpexAddTaskModal = ({
           }));
 
           const currentNormalized = normalizeEmail(currentUserEmail);
-          const isAdmin = currentUserRole === 'admin' || currentUserRole === 'super_admin' || currentUserRole === 'troubleshoot_manager';
+          const isAdmin =
+            currentUserRole === 'admin' ||
+            currentUserRole === 'super_admin' ||
+            currentUserRole === 'troubleshoot_manager';
 
           const myInfo = allMembers.find((m: any) => normalizeEmail(m.email) === currentNormalized);
           const myRoleNormalized = myInfo?.role?.toLowerCase()?.replace(/\s+/g, '_') || '';
@@ -189,17 +234,9 @@ const MdImpexAddTaskModal = ({
               const allowedIds = new Set(myAccess.allowedAssignees.map((id: any) => String(id)));
               members = allMembers.filter((m: any) =>
                 allowedIds.has(String(m.id)) || normalizeEmail(m.email) === currentNormalized
-              ).map((m: any) => ({
-                id: m.id,
-                email: m.email,
-                name: m.name
-              }));
+              ).map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
             } else {
-              members = allMembers.map((m: any) => ({
-                id: m.id,
-                email: m.email,
-                name: m.name
-              }));
+              members = allMembers.map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
             }
 
             setAllowedUsers(members);
@@ -216,11 +253,7 @@ const MdImpexAddTaskModal = ({
               allowedIds.has(String(m.id)) || normalizeEmail(m.email) === currentNormalized
             );
 
-            const members = filteredMembers.map((m: any) => ({
-              id: m.id,
-              email: m.email,
-              name: m.name
-            }));
+            const members = filteredMembers.map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
             setAllowedUsers(members);
             setAllowedTaskTypes(myAccess.allowedTaskTypes || []);
             setAllowedBrands(myAccess.allowedBrands || []);
@@ -231,13 +264,10 @@ const MdImpexAddTaskModal = ({
           } else {
             setHasSpecificAccess(false);
             const me = allMembers.filter((m: any) => normalizeEmail(m.email) === currentNormalized);
-            const members = me.map((m: any) => ({
-              id: m.id,
-              email: m.email,
-              name: m.name
-            }));
+            const members = me.map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
             setAllowedUsers(members);
             setAllowedTaskTypes([]);
+            setAllowedBrands([]);
 
             if (!newTask.assignedTo && members.length > 0) {
               onChange('assignedTo', members[0].email);
@@ -245,14 +275,14 @@ const MdImpexAddTaskModal = ({
           }
         }
       } catch (error) {
-        console.error("Error fetching access for MD Impex:", error);
+        console.error("❌ [fetchAccessData] Error fetching access for MD Impex:", error);
       } finally {
         setLoadingUsers(false);
       }
     };
 
     fetchAccessData();
-  }, [open, currentUserEmail, currentUserRole]);
+  }, [open, currentUserEmail, currentUserRole, newTask.assignedTo, onChange]);
 
   const filteredTaskTypes = useMemo(() => {
     const normalizedToOriginal = new Map<string, string>();
@@ -303,11 +333,11 @@ const MdImpexAddTaskModal = ({
 
   useEffect(() => {
     if (!open || !newTask.companyName) return;
-    const brands = getAvailableBrandOptions();
+    const brands = brandOptions;
     if (brands.length === 1 && !newTask.brand) {
       onChange('brand', brands[0].value);
     }
-  }, [open, newTask.companyName]);
+  }, [open, newTask.companyName, brandOptions, newTask.brand, onChange]);
 
   const handleFormSubmit = () => {
     onChange('title', localTitle);
@@ -355,7 +385,7 @@ const MdImpexAddTaskModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="relative bg-white no-dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="relative overflow-hidden flex-shrink-0">
           <div className="absolute inset-0 gradient-primary" />
@@ -384,13 +414,13 @@ const MdImpexAddTaskModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Task Title */}
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Task Title *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Task Title *</label>
               <input
                 type="text"
                 placeholder="What needs to be done?"
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.title
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={localTitle}
                 onChange={(e) => handleTitleChange(e.target.value)}
@@ -401,12 +431,12 @@ const MdImpexAddTaskModal = ({
 
             {/* Due Date */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due Date *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Due Date *</label>
               <input
                 type="date"
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 ${formErrors.dueDate
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={newTask.dueDate}
                 onChange={(e) => onChange('dueDate', e.target.value)}
@@ -417,15 +447,15 @@ const MdImpexAddTaskModal = ({
 
             {/* Assigned To */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Assign To *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Assign To *</label>
               <div ref={emailDropdownRef} className="relative">
                 <button
                   type="button"
                   disabled={loadingUsers}
                   onClick={() => setEmailOpen((v) => !v)}
                   className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.assignedTo
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                    : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                     } ${loadingUsers ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                 >
                   <span className="truncate text-sm">
@@ -443,8 +473,8 @@ const MdImpexAddTaskModal = ({
                 </button>
 
                 {emailOpen && !loadingUsers && (
-                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 no-dark:border-gray-700 bg-white no-dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 no-dark:border-gray-700">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <input
@@ -455,7 +485,7 @@ const MdImpexAddTaskModal = ({
                             setEmailOpen(true);
                           }}
                           placeholder="Search email or name"
-                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 no-dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white no-dark:bg-gray-800"
                           autoFocus
                         />
                       </div>
@@ -492,10 +522,10 @@ const MdImpexAddTaskModal = ({
 
             {/* Company */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Company *</label>
+              <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300 mb-1.5">Company *</label>
               <select
                 value={newTask.companyName}
-                className="w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-600 cursor-not-allowed"
+                className="w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50 text-gray-600 cursor-not-allowed"
                 disabled={true}
               >
                 {companyOptions.map((company) => (
@@ -507,7 +537,7 @@ const MdImpexAddTaskModal = ({
             {/* Brand */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Brand</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Brand</label>
               </div>
               <div ref={brandDropdownRef} className="relative">
                 <button
@@ -518,8 +548,8 @@ const MdImpexAddTaskModal = ({
                     setBrandOpen((v) => !v);
                   }}
                   className={`w-full px-3 py-2 text-sm border rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 flex items-center justify-between ${formErrors.brand
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                    ? 'border-red-500 bg-red-50 no-dark:bg-red-900/10'
+                    : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                     } ${!newTask.companyName ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   <span className="truncate text-sm">
@@ -531,8 +561,8 @@ const MdImpexAddTaskModal = ({
                 </button>
 
                 {brandOpen && newTask.companyName && (
-                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                  <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 no-dark:border-gray-700 bg-white no-dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 no-dark:border-gray-700">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                         <input
@@ -543,14 +573,16 @@ const MdImpexAddTaskModal = ({
                             setBrandOpen(true);
                           }}
                           placeholder="Search brand"
-                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-800"
+                          className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 no-dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white no-dark:bg-gray-800"
                           autoFocus
                         />
                       </div>
                     </div>
                     <div className="max-h-48 overflow-auto">
                       {filteredBrandOptions.length === 0 ? (
-                        <div className="px-3 py-2 text-center text-xs text-gray-500">No results</div>
+                        <div className="px-3 py-2 text-center text-xs text-gray-500">
+                          No brands available
+                        </div>
                       ) : (
                         filteredBrandOptions.map((opt) => (
                           <button
@@ -576,7 +608,7 @@ const MdImpexAddTaskModal = ({
             {/* Task Type */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Task Type</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Task Type</label>
                 {canBulkAddTaskTypes && (
                   <button
                     type="button"
@@ -589,8 +621,8 @@ const MdImpexAddTaskModal = ({
               </div>
               <select
                 className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 ${filteredTaskTypes.length === 0
-                  ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-400'
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                  ? 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50 text-gray-400'
+                  : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50'
                   }`}
                 value={newTask.taskType}
                 onChange={(e) => onChange('taskType', e.target.value)}
@@ -617,7 +649,7 @@ const MdImpexAddTaskModal = ({
             {/* Priority */}
             <div className="md:col-span-1">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Priority</label>
+                <label className="block text-xs font-medium text-gray-700 no-dark:text-gray-300">Priority</label>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {['low', 'medium', 'high'].map((priority) => (
@@ -631,7 +663,7 @@ const MdImpexAddTaskModal = ({
                         : priority === 'medium'
                           ? 'bg-amber-100 text-amber-700 border-amber-300'
                           : 'bg-primary-ultralight text-primary border-primary-light'
-                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400'
+                      : 'border-gray-200 no-dark:border-gray-700 bg-gray-50 no-dark:bg-gray-800/50 text-gray-600 no-dark:text-gray-400'
                       }`}
                   >
                     {priority.charAt(0).toUpperCase() + priority.slice(1)}
@@ -643,12 +675,12 @@ const MdImpexAddTaskModal = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-6 py-4 bg-gray-50 no-dark:bg-gray-800/50 border-t border-gray-200 no-dark:border-gray-700 flex-shrink-0">
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              className="px-4 py-2 text-xs font-medium text-gray-600 no-dark:text-gray-400 bg-white no-dark:bg-gray-800 border border-gray-200 no-dark:border-gray-700 rounded-xl hover:bg-gray-50 no-dark:hover:bg-gray-700 transition-all"
             >
               Cancel
             </button>

@@ -33,6 +33,7 @@ import toast from 'react-hot-toast';
 import type * as React from 'react';
 import { useMemo, useCallback, useState, useEffect, useRef, memo } from 'react';
 import { taskTypeService, type TaskTypeItem } from '../Services/TaskType.service';
+import mdImpexAccessService from '../Services/MdImpexAccess.services';
 import { companyTaskTypeService } from '../Services/CompanyTaskType.service';
 import { companyService } from '../Services/Company.service';
 import { assignService } from '../Services/Assign.service';
@@ -777,6 +778,97 @@ const BulkImporter = memo(({
     return finalUsers;
   }, [currentUser, defaults.companyName, users]);
 
+  // MD Impex specific allowed lists (fetched from access service)
+  const [mdAllowedMembers, setMdAllowedMembers] = useState<UserType[]>([]);
+  const [mdAllowedTaskTypes, setMdAllowedTaskTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchMdAccess = async () => {
+      try {
+        if (!isMdImpexUser || !(currentUser as any)?.email) return;
+
+        const [membersRes, accessRes] = await Promise.all([
+          mdImpexAccessService.getAllMembers(),
+          mdImpexAccessService.getAllPersonAccess(),
+        ]);
+
+        if (!mounted) return;
+
+        if (membersRes.success && membersRes.data) {
+          const allMembers = (membersRes.data || []).map((m: any) => ({
+            id: String(m.id || m._id || ''),
+            email: String(m.email || '').trim(),
+            name: String(m.name || '').trim(),
+            role: String(m.role || '').trim(),
+          }));
+
+          const currentNormalized = String((currentUser as any)?.email || '').trim().toLowerCase();
+          const accessList = (accessRes.success && accessRes.data) ? accessRes.data : [];
+          const myAccess = accessList.find((item: any) => String(item.assignedToEmail || '').trim().toLowerCase() === currentNormalized);
+
+          const myInfo = allMembers.find((m: any) => String(m.email || '').trim().toLowerCase() === currentNormalized) as any;
+          const myRoleNormalized = String(myInfo?.role || '').trim().toLowerCase().replace(/\s+/g, '_');
+          const isAdmin = ['admin', 'super_admin', 'troubleshoot_manager'].includes(String((currentUser as any)?.role || '').trim().toLowerCase());
+
+          if (!defaults.companyName) {
+            onDefaultsChange({ companyName: MD_IMPEX_COMPANY_NAME });
+          }
+
+          if (myRoleNormalized === 'md_manager' || isAdmin) {
+            let members: any[] = [];
+            if (myAccess && myAccess.allowedAssignees && myAccess.allowedAssignees.length > 0) {
+              const allowedIds = new Set((myAccess.allowedAssignees || []).map((id: any) => String(id)));
+              members = allMembers.filter((m: any) => allowedIds.has(String(m.id)) || String(m.email || '').trim().toLowerCase() === currentNormalized);
+            } else {
+              members = allMembers;
+            }
+
+            setMdAllowedMembers(members.map((m: any) => ({ id: m.id, name: m.name, email: m.email, role: m.role || 'user' })));
+            setMdAllowedTaskTypes(myAccess?.allowedTaskTypes || []);
+
+            if (!defaults.assigner && members.length > 0) {
+              onDefaultsChange({ assigner: members[0].email });
+            }
+          } else if (myAccess) {
+            const allowedIds = new Set((myAccess.allowedAssignees || []).map((id: any) => String(id)));
+            const filteredMembers = allMembers.filter((m: any) => allowedIds.has(String(m.id)) || String(m.email || '').trim().toLowerCase() === currentNormalized);
+            const members = filteredMembers.map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
+            setMdAllowedMembers(members.map((m: any) => ({ id: m.id, name: m.name, email: m.email, role: m.role || 'user' })));
+            setMdAllowedTaskTypes(myAccess.allowedTaskTypes || []);
+
+            if (!defaults.assigner && members.length > 0) {
+              onDefaultsChange({ assigner: members[0].email });
+            }
+          } else {
+            // No specific access — only self
+            const me = allMembers.filter((m: any) => String(m.email || '').trim().toLowerCase() === currentNormalized).map((m: any) => ({ id: m.id, email: m.email, name: m.name }));
+            setMdAllowedMembers(me.map((m: any) => ({ id: m.id, name: m.name, email: m.email, role: m.role || 'user' })));
+            setMdAllowedTaskTypes([]);
+            if (!defaults.assigner && me.length > 0) {
+              onDefaultsChange({ assigner: me[0].email });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('❌ [BulkImporter] MD Impex access fetch error:', err);
+      }
+    };
+
+    void fetchMdAccess();
+    return () => { mounted = false; };
+  }, [currentUser, defaults.assigner, isMdImpexUser, onDefaultsChange]);
+
+  const effectiveAssignerUsers = useMemo(() => {
+    if (isMdImpexUser && mdAllowedMembers && mdAllowedMembers.length > 0) return mdAllowedMembers;
+    return assignerUsers;
+  }, [isMdImpexUser, mdAllowedMembers, assignerUsers]);
+
+  const effectiveAvailableTaskTypes = useMemo(() => {
+    if (isMdImpexUser && mdAllowedTaskTypes && mdAllowedTaskTypes.length > 0) return mdAllowedTaskTypes;
+    return availableTaskTypes || [];
+  }, [isMdImpexUser, mdAllowedTaskTypes, availableTaskTypes]);
+
   const availableCompanyOptions = useMemo(() => {
     const role = String((currentUser as any)?.role || '').trim().toLowerCase();
     const keys = Object.keys(companyBrandMap || {});
@@ -1065,7 +1157,7 @@ const BulkImporter = memo(({
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
               >
                 <option value="">Select assigner</option>
-                {assignerUsers.map((user: any) => (
+                {effectiveAssignerUsers.map((user: any) => (
                   <option key={user.id || user._id || user.email} value={user.email}>
                     {String(user.email || '').trim()}
                   </option>
@@ -1188,14 +1280,14 @@ const BulkImporter = memo(({
                 value={defaults.taskType}
                 onChange={(e) => onDefaultsChange({ taskType: e.target.value })}
                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all"
-                disabled={availableTaskTypes.length === 0}
+                disabled={effectiveAvailableTaskTypes.length === 0}
               >
-                {availableTaskTypes.length === 0 ? (
+                {effectiveAvailableTaskTypes.length === 0 ? (
                   <option value="">No types</option>
                 ) : (
                   <>
                     <option value="">Select type</option>
-                    {availableTaskTypes.map((typeName) => (
+                    {effectiveAvailableTaskTypes.map((typeName) => (
                       <option key={typeName} value={typeName.toLowerCase()}>
                         {canonicalizeTaskTypeLabel(typeName)}
                       </option>
@@ -1322,7 +1414,7 @@ const BulkImporter = memo(({
                               className={`w-full px-3 py-2 border ${draft.errors.some(e => e.includes('Assigner') || e.includes('email')) ? 'border-red-300' : 'border-gray-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white`}
                             >
                               <option value="">Select assigner</option>
-                              {assignerUsers.map((user: any) => (
+                              {effectiveAssignerUsers.map((user: any) => (
                                 <option key={user.id || user._id || user.email} value={user.email}>
                                   {String(user.email || '').trim()}
                                 </option>
@@ -1409,20 +1501,20 @@ const BulkImporter = memo(({
                               value={draft.taskType}
                               onChange={(e) => handleFieldChange(draft.id, 'taskType', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              disabled={availableTaskTypes.length === 0}
+                              disabled={effectiveAvailableTaskTypes.length === 0}
                             >
-                              {availableTaskTypes.length === 0 ? (
-                                <option value="">No task types available</option>
-                              ) : (
-                                <>
-                                  <option value="">Select type</option>
-                                  {availableTaskTypes.map((typeName) => (
-                                    <option key={typeName} value={typeName.toLowerCase()}>
-                                      {canonicalizeTaskTypeLabel(typeName)}
-                                    </option>
-                                  ))}
-                                </>
-                              )}
+                              {effectiveAvailableTaskTypes.length === 0 ? (
+                                  <option value="">No task types available</option>
+                                ) : (
+                                  <>
+                                    <option value="">Select type</option>
+                                    {effectiveAvailableTaskTypes.map((typeName) => (
+                                      <option key={typeName} value={typeName.toLowerCase()}>
+                                        {canonicalizeTaskTypeLabel(typeName)}
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
                             </select>
                           </td>
 
@@ -3156,6 +3248,8 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
   const [pageLoading, setPageLoading] = useState(true);
 
   const [companyKeys, setCompanyKeys] = useState<string[]>([]);
+  // MD Impex - top-level allowed brands for filters (so AdvancedFilters shows them)
+  const [mdImpexAllowedBrands, setMdImpexAllowedBrands] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3199,8 +3293,27 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
       }
     });
 
+    // Include MD Impex allowed brands (from access records) so they appear
+    // in dashboard filters and bulk importer even when not present in brands list.
+    try {
+      if (Array.isArray(mdImpexAllowedBrands) && mdImpexAllowedBrands.length > 0) {
+        const mdKeyNormalized = MD_IMPEX_COMPANY_NAME.toString().trim().toLowerCase().replace(/\s+/g, '');
+        // Find an existing company key that matches MD Impex (ignore spaces), else use the literal lowercased name
+        const existingKey = Object.keys(map).find(k => (k || '').toString().trim().toLowerCase().replace(/\s+/g, '') === mdKeyNormalized);
+        const targetKey = existingKey || MD_IMPEX_COMPANY_NAME.toString().trim().toLowerCase();
+        if (!map[targetKey]) map[targetKey] = [];
+        mdImpexAllowedBrands.forEach((bn) => {
+          const name = String(bn || '').trim();
+          if (!name) return;
+          if (!map[targetKey].includes(name)) map[targetKey].push(name);
+        });
+      }
+    } catch {
+      // ignore
+    }
+
     return map;
-  }, [brands, companyKeys]);
+  }, [brands, companyKeys, mdImpexAllowedBrands, MD_IMPEX_COMPANY_NAME]);
 
   // State
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -3249,13 +3362,6 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
 
   // Company-Brand mapping state
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
-
-  const [taskTypes, setTaskTypes] = useState<TaskTypeItem[]>([]);
-
-  const taskTypesFetchedAtRef = useRef<number>(0);
-  const taskTypesFetchInFlightRef = useRef<Promise<void> | null>(null);
-  const TASK_TYPES_TTL_MS = 60_000;
-
   const normalizeText = useCallback((value: unknown): string => {
     return (value == null ? '' : String(value)).trim().toLowerCase();
   }, []);
@@ -3275,6 +3381,48 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
     return normalizeText(value).replace(/\s+/g, '');
   }, [normalizeText]);
 
+  const isMdImpexUserPage = useMemo(() => {
+    const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (roleKey === 'marketer_manager') return true;
+    const myKey = normalizeCompanyKey((currentUser as any)?.companyName || (currentUser as any)?.company || '');
+    const mdKey = normalizeCompanyKey(MD_IMPEX_COMPANY_NAME);
+    return Boolean(myKey && mdKey && myKey === mdKey);
+  }, [currentUser, normalizeCompanyKey]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchMdBrands = async () => {
+      try {
+        if (!isMdImpexUserPage || !(currentUser as any)?.email) {
+          if (mounted) setMdImpexAllowedBrands([]);
+          return;
+        }
+
+        const accessRes = await mdImpexAccessService.getAllPersonAccess();
+        if (!mounted) return;
+        const accessList = accessRes.success && Array.isArray(accessRes.data) ? accessRes.data : [];
+        const currentNormalized = String((currentUser as any)?.email || '').trim().toLowerCase();
+        const myAccess = accessList.find((item: any) => String(item.assignedToEmail || '').trim().toLowerCase() === currentNormalized);
+        if (myAccess && Array.isArray(myAccess.allowedBrands) && myAccess.allowedBrands.length > 0) {
+          setMdImpexAllowedBrands(myAccess.allowedBrands.map((b: any) => String(b || '').trim()).filter(Boolean));
+        } else {
+          setMdImpexAllowedBrands([]);
+        }
+      } catch (err) {
+        console.error('❌ Failed to fetch MD Impex allowed brands:', err);
+        if (mounted) setMdImpexAllowedBrands([]);
+      }
+    };
+
+    void fetchMdBrands();
+    return () => { mounted = false; };
+  }, [currentUser, isMdImpexUserPage]);
+
+  const [taskTypes, setTaskTypes] = useState<TaskTypeItem[]>([]);
+
+  const taskTypesFetchedAtRef = useRef<number>(0);
+  const taskTypesFetchInFlightRef = useRef<Promise<void> | null>(null);
+  const TASK_TYPES_TTL_MS = 60_000;
   const isSpeedEcomUser = useMemo(() => {
     const myKey = normalizeCompanyKey((currentUser as any)?.companyName || (currentUser as any)?.company || '');
     const speedKey = normalizeCompanyKey(SPEED_E_COM_COMPANY_KEY);
@@ -3974,6 +4122,23 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
   // ==================== UTILITY FUNCTIONS ====================
   const getBrandsByCompanyInternal = useCallback((companyName: string): string[] => {
     const role = (currentUser?.role || '').toString().trim().toLowerCase();
+    // If MD Impex user and we have explicit allowed brands from person-access, prefer those
+    try {
+      const requestedKey = normalizeCompanyKey(companyName || '');
+      const mdKey = normalizeCompanyKey(MD_IMPEX_COMPANY_NAME);
+      if (isMdImpexUserPage && mdImpexAllowedBrands && mdImpexAllowedBrands.length > 0) {
+        // If the request is for MD Impex specifically, return only allowed brands
+        if (requestedKey === mdKey) {
+          return Array.from(new Set(mdImpexAllowedBrands)).sort((a, b) => a.localeCompare(b));
+        }
+        // If 'all' is requested and user is MD Impex, show only allowed brands
+        if (!companyName || String(companyName).trim().toLowerCase() === 'all') {
+          return Array.from(new Set(mdImpexAllowedBrands)).sort((a, b) => a.localeCompare(b));
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
     if (role === 'sbm' || role === 'rm' || role === 'am' || role === 'ar') {
       const companyKey = normalizeCompanyKey(companyName);
       const fromMappings = (userMappings || [])
@@ -4013,7 +4178,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
     }
 
     return COMPANY_BRAND_MAP[companyName.toLowerCase()] || [];
-  }, [COMPANY_BRAND_MAP, assistantScopedTasks, currentUser?.role, getBrandsByCompany, normalizeText, userMappings]);
+  }, [COMPANY_BRAND_MAP, assistantScopedTasks, currentUser?.role, getBrandsByCompany, normalizeText, userMappings, mdImpexAllowedBrands, isMdImpexUserPage]);
 
   const getEmailByIdInternal = useCallback((userId: any): string => {
     if (userId && userId.includes('@')) {
