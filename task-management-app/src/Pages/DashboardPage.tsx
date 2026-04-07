@@ -448,7 +448,7 @@ const DashboardPage = () => {
         let mounted = true;
         const fetchReviewedForSummary = async () => {
             try {
-                const res = await taskService.getTaskReviews({ reviewed: true });
+                const res = await taskService.getTaskReviews({});
                 if (!mounted) return;
                 if (res && (res as any).success) {
                     setReviewedTasksForSummary((res as any).data || []);
@@ -475,19 +475,7 @@ const DashboardPage = () => {
         const currentUserCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim().toLowerCase();
         const isMdImpexUser = currentUserCompany.includes('mdimpex') || currentUserCompany.includes('md_impex');
 
-        let reviewedData = reviewedTasksForSummary || [];
-        if (isMdImpexUser) {
-            reviewedData = (tasks || []).filter((t) => {
-                const stars = (t as any).reviewStars;
-                const reviewedAtRaw = (t as any).reviewedAt;
-                if (stars == null) return false;
-                if (!reviewedAtRaw) return false;
-                if (!monthRange) return true;
-                const reviewedAt = new Date(reviewedAtRaw);
-                if (Number.isNaN(reviewedAt.getTime())) return false;
-                return reviewedAt >= monthRange.start && reviewedAt < monthRange.endExclusive;
-            });
-        }
+        const reviewedData = reviewedTasksForSummary || [];
         const reviewed = reviewedData.filter((t) => {
             const stars = (t as any).reviewStars;
             const reviewedAtRaw = (t as any).reviewedAt;
@@ -562,7 +550,7 @@ const DashboardPage = () => {
                 avatar: avatar ? String(avatar) : '',
                 avgStarsLabel: r.avgStarsLabel,
                 total: r.total,
-                totalTasksReceived: (tasks || []).filter((t: any) => {
+                totalTasksReceived: (reviewedData || []).filter((t: any) => {
                     const rowEmail = String((r as any)?.email || '').trim().toLowerCase();
                     const assignedToEmail =
                         normalizeEmailForMatch((t as any)?.assignedToUser?.email)
@@ -604,7 +592,7 @@ const DashboardPage = () => {
             avg: top?.ratingPctLabel || 'Not any yet',
             photoUrl: finalPhotoUrl ? String(finalPhotoUrl) : undefined,
             totalReviews: top ? (summaryRowsBase.find(r => r.email === top.email)?.total ?? 0) : (rows[0]?.total ?? 0),
-            totalTasksReceived: top ? (tasks || []).filter((t: any) => {
+            totalTasksReceived: top ? (reviewedData || []).filter((t: any) => {
                 const topEmail = String((top as any)?.email || '').trim().toLowerCase();
                 const assignedToEmail =
                     normalizeEmailForMatch((t as any)?.assignedTo)
