@@ -25,7 +25,7 @@ type Props = {
   availableCompanies: string[];
   getAvailableBrandOptions: () => Array<{ value: string; label: string; ownerId?: string; createdBy?: string }>;
   availableTaskTypesForNewTask: string[];
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   isSubmitting: boolean;
   currentUserEmail: string;
   currentUserRole?: string;
@@ -163,6 +163,20 @@ const MdImpexAddTaskModal = ({
       setLocalTitle(newTask.title);
     }
   }, [open, newTask.title]);
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleTitleChange = useCallback((value: string) => {
     setLocalTitle(value);
@@ -339,9 +353,22 @@ const MdImpexAddTaskModal = ({
     }
   }, [open, newTask.companyName, brandOptions, newTask.brand, onChange]);
 
-  const handleFormSubmit = () => {
+  const handleFormSubmit = async () => {
     onChange('title', localTitle);
-    onSubmit();
+    // Ensure any returned promise is awaited
+    await Promise.resolve(onSubmit());
+    // Push notification using Web Notification API
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'granted') {
+        new Notification('New MD Impex Task', { body: localTitle });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            new Notification('New MD Impex Task', { body: localTitle });
+          }
+        });
+      }
+    }
   };
 
   const filteredEmailUsers = useMemo(() => {

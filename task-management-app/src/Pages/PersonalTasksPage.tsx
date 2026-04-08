@@ -53,15 +53,16 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
     if (!creatorEmail) return false;
     if (reminderStyle === 'once' && !normalizeText(reminderDate)) return false;
     if (reminderStyle === 'weekly' && !normalizeText(reminderDate)) return false;
-    if ((reminderStyle === 'daily' || reminderStyle === 'weekly' || reminderStyle === 'once') && !normalizeText(reminderTime)) return false; return true;
-  }, [title, creatorEmail, reminderStyle, reminderDate]);
+    if ((reminderStyle === 'daily' || reminderStyle === 'weekly' || reminderStyle === 'once') && !normalizeText(reminderTime)) return false; 
+    return true;
+  }, [title, creatorEmail, reminderStyle, reminderDate, reminderTime]);
 
   useEffect(() => {
     if (reminderStyle === 'none') {
       setReminderDate('');
       setReminderTime('');
     } else if (reminderStyle === 'daily') {
-      setReminderDate(''); // daily ko date nahi chahiye
+      setReminderDate('');
     }
   }, [reminderStyle]);
 
@@ -121,7 +122,23 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
     try {
       const hasDate = Boolean(normalizeText(reminderDate));
       const timePart = normalizeText(reminderTime) || '00:00';
-      const reminderAtIso = hasDate ? new Date(`${reminderDate}T${timePart}`).toISOString() : null;
+      let reminderAtIso: string | null = null;
+      
+      if (reminderStyle === 'once' && hasDate) {
+        reminderAtIso = new Date(`${reminderDate}T${timePart}`).toISOString();
+      } else if (reminderStyle === 'daily') {
+        const today = new Date().toISOString().split('T')[0];
+        reminderAtIso = new Date(`${today}T${timePart}`).toISOString();
+      } else if (reminderStyle === 'weekly' && normalizeText(reminderDate)) {
+        const targetDay = parseInt(reminderDate);
+        const now = new Date();
+        const currentDay = now.getDay();
+        let daysUntil = (targetDay - currentDay + 7) % 7 || 7;
+        const nextDate = new Date(now);
+        nextDate.setDate(now.getDate() + daysUntil);
+        const dateStr = nextDate.toISOString().split('T')[0];
+        reminderAtIso = new Date(`${dateStr}T${timePart}`).toISOString();
+      }
 
       const res = await personalTaskService.create({
         title: normalizeText(title),
@@ -214,12 +231,9 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
       if (reminderStyle === 'once' && normalizeText(reminderDate)) {
         reminderAtIso = new Date(`${reminderDate}T${timePart}`).toISOString();
       } else if (reminderStyle === 'daily') {
-        // Aaj ki date + selected time
         const today = new Date().toISOString().split('T')[0];
         reminderAtIso = new Date(`${today}T${timePart}`).toISOString();
       } else if (reminderStyle === 'weekly' && normalizeText(reminderDate)) {
-        // reminderDate mein weekday number hai (0-6)
-        // Ab next occurrence nikalo us weekday ka
         const targetDay = parseInt(reminderDate);
         const now = new Date();
         const currentDay = now.getDay();
@@ -278,11 +292,8 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
     }
   };
 
-
   return (
     <div className="space-y-5">
-
-
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Create Form - Modern Design */}
@@ -355,7 +366,7 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
               <select
                 value={reminderStyle}
                 onChange={(e) => setReminderStyle(e.target.value as PersonalTaskReminderStyle)}
-                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#3b82f6] outline-none mb-2"
+                className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#3b82f6] outline-none"
               >
                 <option value="none">None</option>
                 <option value="once">Once</option>
@@ -365,9 +376,9 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
 
               {reminderStyle !== 'none' && (
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  {/* Date - sirf "once" ke liye */}
+                  {/* Once - date picker */}
                   {reminderStyle === 'once' && (
-                    <div className="relative col-span-2 sm:col-span-1">
+                    <div className="col-span-2 sm:col-span-1">
                       <input
                         type="date"
                         value={reminderDate}
@@ -398,8 +409,8 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
                     </div>
                   )}
 
-                  {/* Time - sabke liye */}
-                  <div className={`relative ${reminderStyle === 'daily' ? 'col-span-2' : 'col-span-2 sm:col-span-1'}`}>
+                  {/* Time - for all reminder types */}
+                  <div className={`${reminderStyle === 'daily' ? 'col-span-2' : 'col-span-2 sm:col-span-1'}`}>
                     <input
                       type="time"
                       value={reminderTime}
@@ -407,50 +418,6 @@ export default function PersonalTasksPage({ currentUser }: PersonalTasksPageProp
                       className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] outline-none"
                     />
                   </div>
-                </div>
-              )}
-              {/* Weekly - day of week select */}
-              {reminderStyle === 'weekly' && (
-                <select
-                  value={reminderDate} // reminderDate ko weekday store karne ke liye reuse
-                  onChange={(e) => setReminderDate(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-[#3b82f6] outline-none mb-2"
-                >
-                  <option value="">Select Day</option>
-                  <option value="0">Sunday</option>
-                  <option value="1">Monday</option>
-                  <option value="2">Tuesday</option>
-                  <option value="3">Wednesday</option>
-                  <option value="4">Thursday</option>
-                  <option value="5">Friday</option>
-                  <option value="6">Saturday</option>
-                </select>
-              )}
-
-              {/* Once - date picker */}
-              {reminderStyle === 'once' && (
-                <div className="relative mb-2">
-                  <input
-                    type="date"
-                    value={reminderDate}
-                    onChange={(e) => setReminderDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] outline-none"
-                  />
-                  <Calendar className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
-                </div>
-              )}
-
-              {/* Time - once/daily/weekly sab ke liye */}
-              {reminderStyle !== 'none' && (
-                <div className="relative">
-                  <input
-                    type="time"
-                    value={reminderTime}
-                    onChange={(e) => setReminderTime(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b82f6] outline-none"
-                  />
-                  <Clock className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400" />
                 </div>
               )}
             </div>
