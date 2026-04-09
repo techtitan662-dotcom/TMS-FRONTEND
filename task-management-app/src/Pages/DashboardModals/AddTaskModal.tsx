@@ -77,6 +77,13 @@ const AddTaskModal = ({
     }
   }, [open]);
 
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   useEffect(() => {
     if (open) {
       setLocalTask((prev) => ({
@@ -144,6 +151,18 @@ const AddTaskModal = ({
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     onSubmit(localTask);
+    // Push notification using Web Notification API
+    if (typeof Notification !== 'undefined') {
+      if (Notification.permission === 'granted') {
+        new Notification('New Task', { body: localTask.title });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            new Notification('New Task', { body: localTask.title });
+          }
+        });
+      }
+    }
   };
 
   if (!open) return null;

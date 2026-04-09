@@ -55,6 +55,9 @@ type PersonAccessItem = {
     allowedAssignees: string[];
     allowedTaskTypes?: string[];
     allowedBrands?: string[];
+    showEmployeeOfMonth?: boolean;
+    showMonthlyRanking?: boolean;
+    showPowerStar?: boolean;
     createdAt: string;
     updatedAt?: string;
 };
@@ -66,6 +69,9 @@ type CreatePersonAccessPayload = {
     allowedAssignees: string[];
     allowedTaskTypes?: string[];
     allowedBrands?: string[];
+    showEmployeeOfMonth?: boolean;
+    showMonthlyRanking?: boolean;
+    showPowerStar?: boolean;
 };
 
 type UpdatePersonAccessPayload = {
@@ -73,6 +79,9 @@ type UpdatePersonAccessPayload = {
     allowedAssignees: string[];
     allowedTaskTypes?: string[];
     allowedBrands?: string[];
+    showEmployeeOfMonth?: boolean;
+    showMonthlyRanking?: boolean;
+    showPowerStar?: boolean;
 };
 
 class MdImpexAccessService {
