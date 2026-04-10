@@ -14,11 +14,24 @@ interface TasksState {
   lastFetchedAt: number | null;
 }
 
-const initialState = tasksAdapter.getInitialState<TasksState>({
-  status: 'idle',
-  error: null,
-  lastFetchedAt: null,
-});
+const loadCachedTasks = (): Task[] => {
+  try {
+    const raw = localStorage.getItem('tasks_cache');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // ignore
+  }
+  return [];
+};
+
+const initialState = tasksAdapter.setAll(
+  tasksAdapter.getInitialState<TasksState>({
+    status: 'idle',
+    error: null,
+    lastFetchedAt: null,
+  }),
+  loadCachedTasks()
+);
 
 const FETCH_TTL_MS = 60_000;
 
@@ -101,6 +114,11 @@ const tasksSlice = createSlice({
         tasksAdapter.setAll(state, action.payload);
         state.status = 'succeeded';
         state.lastFetchedAt = Date.now();
+        try {
+          localStorage.setItem('tasks_cache', JSON.stringify(action.payload));
+        } catch {
+          // ignore
+        }
       })
       .addCase(fetchTasks.rejected, (state, action) => {
         state.status = 'failed';

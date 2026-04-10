@@ -7,6 +7,7 @@ import { Eye, EyeOff, Mail, Lock, LogIn } from "lucide-react";
 import { useAppDispatch } from "../Store/hooks";
 import { tasksReset } from "../Store/tasksSlice";
 import { linkPushDeviceToUser, registerPushDevice } from "../utils/fcm";
+import { fetchTasks } from "../Store/tasksSlice";
 
 // Theme colors matching the app
 const theme = {
@@ -129,12 +130,12 @@ export default function AuthPage() {
                 }
 
                 dispatch(tasksReset());
+                // Pre-fetch tasks instantly so Dashboard loads fast without skeleton wait
+                await dispatch(fetchTasks({ force: true })).unwrap();
 
-                try {
-                    await linkPushDeviceToUser({});
-                } catch (e) {
+                linkPushDeviceToUser({}).catch(e => {
                     console.error('Push device link failed:', e);
-                }
+                });
 
                 navigate(routepath.dashboard, { replace: true });
 

@@ -46,10 +46,12 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
             <VirtuosoGrid
                 style={{ height: '70vh', width: '100%' }}
                 totalCount={tasks.length}
+                initialItemCount={Math.min(24, tasks.length)}
                 itemClassName="p-2"
                 listClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
                 itemContent={(index) => {
                     const task = tasks[index];
+                    if (!task) return null;
                     return (
                         <TaskGridItem
                             key={task.id}
@@ -98,8 +100,10 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
                 <Virtuoso
                     style={{ height: '70vh' }}
                     totalCount={tasks.length}
+                    initialItemCount={Math.min(20, tasks.length)}
                     itemContent={(index) => {
                         const task = tasks[index];
+                        if (!task) return null;
                         return (
                             <table className="min-w-full">
                                 <tbody className="divide-y divide-gray-50">

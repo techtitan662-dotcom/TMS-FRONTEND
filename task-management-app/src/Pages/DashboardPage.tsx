@@ -91,12 +91,11 @@ import {
     taskRemoved,
     taskUpserted,
     tasksAddedMany,
-    tasksReset
 } from '../Store/tasksSlice';
 import TaskVirtualList from '../Components/TaskVirtualList';
-import { 
-    stripDeletedEmailSuffix, 
-    monthKeyOfDate, 
+import {
+    stripDeletedEmailSuffix,
+    monthKeyOfDate,
     isOverdueFn
 } from '../utils/dashboardUtils';
 import { useDashboardStats } from '../Hooks/useDashboardStats';
@@ -182,24 +181,34 @@ const DashboardPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
-    const [currentUser, setCurrentUser] = useState<UserType>({
-        id: '',
-        name: '',
-        email: '',
-        role: '',
-        password: '',
-        company: '',
-        companyName: '',
-        phone: '',
-        avatar: '',
-        department: '',
-        position: '',
-        joinDate: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-        permissions: {},
-        isActive: true,
-        isEmployee: true
-    } as any);
+    const [currentUser, setCurrentUser] = useState<UserType>(() => {
+        try {
+            const stored = localStorage.getItem('currentUser');
+            if (stored) {
+                return JSON.parse(stored);
+            }
+        } catch {
+            // ignore
+        }
+        return {
+            id: '',
+            name: '',
+            email: '',
+            role: '',
+            password: '',
+            company: '',
+            companyName: '',
+            phone: '',
+            avatar: '',
+            department: '',
+            position: '',
+            joinDate: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            permissions: {},
+            isActive: true,
+            isEmployee: true
+        } as any;
+    });
     const tasks = useAppSelector(selectAllTasks);
     const assignedByMePendingCount = useMemo(() => {
         if (!currentUser?.email) return 0;
@@ -231,9 +240,19 @@ const DashboardPage = () => {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [showLogout, setShowLogout] = useState(false);
-    const [users, setUsers] = useState<UserType[]>([]);
+    const [users, setUsers] = useState<UserType[]>(() => {
+        try {
+            const stored = localStorage.getItem('users_cache');
+            return stored ? JSON.parse(stored) : [];
+        } catch { return []; }
+    });
     const usersRef = useRef<UserType[]>([]);
-    const [apiBrands, setApiBrands] = useState<Brand[]>([]);
+    const [apiBrands, setApiBrands] = useState<Brand[]>(() => {
+        try {
+            const stored = localStorage.getItem('apiBrands_cache');
+            return stored ? JSON.parse(stored) : [];
+        } catch { return []; }
+    });
     const [sendingReminderByTaskId, setSendingReminderByTaskId] = useState<Record<string, boolean>>({});
     const [sendReminderTask, setSendReminderTask] = useState<Task | null>(null);
     const [sendReminderOpen, setSendReminderOpen] = useState(false);
@@ -258,7 +277,7 @@ const DashboardPage = () => {
     const [commentSidebarCommentsByTaskId, setCommentSidebarCommentsByTaskId] = useState<Record<string, CommentType[]>>({});
     const [speedEcomReassignTask, setSpeedEcomReassignTask] = useState<Task | null>(null);
     const [isSpeedEcomReassignSubmitting, setIsSpeedEcomReassignSubmitting] = useState<boolean>(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState<boolean>(tasks.length === 0);
     const [searchTerm, setSearchTerm] = useState('');
     const deferredSearchTerm = useDeferredValue(searchTerm);
     const [taskPage, setTaskPage] = useState(1);
@@ -514,10 +533,10 @@ const DashboardPage = () => {
     useEffect(() => {
         const email = (currentUser?.email || '').toString().trim().toLowerCase();
         if (!email) return;
-        dispatch(tasksReset());
+        // removed dispatch(tasksReset()); here so we don't clear prefetched tasks from LoginPage
         hasFetchedTasksOnceRef.current = false;
         seenTaskIdsRef.current = new Set();
-        setLoading(true);
+        setLoading(tasks.length === 0);
         void dispatch(fetchTasksThunk({ force: true }))
             .finally(() => {
                 setLoading(false);
@@ -4722,6 +4741,11 @@ const DashboardPage = () => {
             }
             setUsers(normalizedUsers);
             usersFetchedAtRef.current = Date.now();
+            try {
+                localStorage.setItem('users_cache', JSON.stringify(normalizedUsers));
+            } catch {
+                // ignore
+            }
         } catch (error) {
             // ignore
         }
@@ -4803,6 +4827,11 @@ const DashboardPage = () => {
             if (response && response.success && Array.isArray(response.data)) {
                 setApiBrands(response.data);
                 brandsFetchedAtRef.current = Date.now();
+                try {
+                    localStorage.setItem('apiBrands_cache', JSON.stringify(response.data));
+                } catch {
+                    // ignore
+                }
             }
         } catch (error) {
             // ignore

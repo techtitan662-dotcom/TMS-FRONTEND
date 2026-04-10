@@ -179,7 +179,9 @@ const AssignedByMe: React.FC<AssignedByMeProps> = ({
     }
   }, [onAdvancedFilterChange]);
 
-  if (tasksStatus === 'loading' || tasksStatus === 'idle') {
+  const isFirstLoad = allTasks.length === 0 && (tasksStatus === 'loading' || tasksStatus === 'idle');
+
+  if (isFirstLoad) {
     return (
       <div className="flex items-center justify-center h-full min-h-[300px]">
         <div className="flex flex-col items-center gap-2">
