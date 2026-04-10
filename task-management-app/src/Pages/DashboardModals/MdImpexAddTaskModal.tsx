@@ -91,8 +91,15 @@ const MdImpexAddTaskModal = ({
       currentUserRole === 'super_admin' ||
       currentUserRole === 'troubleshoot_manager';
 
-    // Admin and MD Manager get all brands
-    if (isMdManager || isAdmin) return allOptions;
+    const isManagerLike =
+      currentUserRole === 'manager' ||
+      currentUserRole === 'md_manager' ||
+      currentUserRole === 'ob_manager' ||
+      currentUserRole === 'all_manager' ||
+      currentUserRole === 'marketer_manager';
+
+    // Admin and Managers get all brands
+    if (isManagerLike || isAdmin) return allOptions;
 
     // No specific access means show all brands
     if (!hasSpecificAccess) return allOptions;
@@ -108,11 +115,11 @@ const MdImpexAddTaskModal = ({
       return match ? match[1].trim() : raw;
     };
 
-    // ✅ Build brand options from allowedBrands (md_manager sent brands)
+    // ✅ Build brand options from allowedBrands (md_manager assigned brands)
     const allowedBrandOptions: Array<{ value: string; label: string }> =
       allowedBrands
         .filter(Boolean)
-        .map((brand) => ({ value: brand.trim(), label: brand.trim() }));
+        .map((brand) => ({ value: extractBrandName(brand), label: brand.trim() }));
 
     // ✅ Filter allOptions to user's own added brands
     const userOwnBrandOptions = allOptions.filter((opt) => {
@@ -122,7 +129,7 @@ const MdImpexAddTaskModal = ({
       return false;
     });
 
-    // ✅ Also filter allOptions that match allowedBrands (md_manager sent)
+    // ✅ Also filter allOptions that match allowedBrands (md_manager assigned)
     const allowedNormalizedSet = new Set(
       allowedBrands.map((b) => normalize(b)).filter(Boolean)
     );

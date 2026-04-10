@@ -2939,8 +2939,10 @@ const DashboardPage = () => {
             const groupNumber = String((brandDoc as any)?.groupNumber || '').trim();
             const label = groupNumber ? `${groupNumber} - ${name}` : name;
 
-            const ownerId = (brandDoc as any)?.ownerId || (brandDoc as any)?.owner?.id || (brandDoc as any)?.owner?._id || (brandDoc as any)?.owner;
-            const createdBy = (brandDoc as any)?.createdBy;
+            const ownerObj = (brandDoc as any)?.ownerId || (brandDoc as any)?.owner;
+            const ownerId = typeof ownerObj === 'string' ? ownerObj : (ownerObj?.id || ownerObj?._id);
+            const createdByObj = (brandDoc as any)?.createdBy;
+            const createdBy = typeof createdByObj === 'string' ? createdByObj : (createdByObj?.id || createdByObj?._id || createdByObj?.email);
 
             byNameKey.set(key, {
                 value: name,
@@ -2970,7 +2972,7 @@ const DashboardPage = () => {
         }
         (brands || [])
             .filter(brand => normalizeCompanyKey(getBrandCompanyNameSafe(brand)) === companyKey)
-            .map(brand => (brand.name || '').toString().trim())
+            .map(brand => getBrandNameSafe(brand))
             .filter(Boolean)
             .forEach(addOption);
         return Array.from(byNameKey.values()).sort((a, b) => a.label.localeCompare(b.label));
@@ -5561,10 +5563,8 @@ const DashboardPage = () => {
             return bName === normalizedName;
         });
         if (hasDuplicate) {
-            const confirmed = window.confirm(`Brand "${name}" already exists for company "${company}". Do you still want to use it?`);
-            if (!confirmed) {
-                return;
-            }
+            toast.error(`Brand "${name}" already exists for company "${company}".`);
+            return;
         }
         setIsCreatingManagerBrand(true);
         try {

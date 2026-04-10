@@ -33,6 +33,22 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
     });
     const [logoPreview, setLogoPreview] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
+    const [hasInitializedRef, setHasInitializedRef] = useState(false);
+
+    React.useEffect(() => {
+        if (isOpen && !hasInitializedRef) {
+            if (companies.length === 1) {
+                setFormData(prev => ({ ...prev, company: companies[0] }));
+            }
+            setHasInitializedRef(true);
+        }
+    }, [isOpen, companies, hasInitializedRef]);
+
+    React.useEffect(() => {
+        if (!isOpen) {
+            setHasInitializedRef(false);
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -145,7 +161,8 @@ const CreateBrandModal: React.FC<CreateBrandModalProps> = ({
                                         value={formData.company}
                                         onChange={handleInputChange}
                                         list="companies-list"
-                                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        disabled={companies.length === 1}
+                                        className={`w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${companies.length === 1 ? 'bg-gray-50 cursor-not-allowed text-gray-500' : ''}`}
                                         placeholder="Enter company name"
                                     />
                                     <datalist id="companies-list">

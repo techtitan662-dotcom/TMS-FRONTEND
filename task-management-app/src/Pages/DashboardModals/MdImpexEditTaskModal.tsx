@@ -235,7 +235,7 @@ const MdImpexEditTaskModal = ({
 
                         setMdAllowedTaskTypes(myAccess.allowedTaskTypes || []);
                         setMdAllowedBrands(myAccess.allowedBrands || []);
-                    } else if (['md_manager', 'admin', 'super_admin', 'troubleshoot_manager'].includes(myRoleNormalized)) {
+                    } else if (['md_manager', 'admin', 'super_admin', 'troubleshoot_manager', 'manager', 'ob_manager', 'all_manager', 'marketer_manager'].includes(myRoleNormalized)) {
                         setMdMembers(allMembers.map((m: any) => ({
                             id: m.id,
                             email: m.email,

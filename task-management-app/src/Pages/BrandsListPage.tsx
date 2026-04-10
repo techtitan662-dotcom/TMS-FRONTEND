@@ -253,7 +253,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
     const [filters, setFilters] = useState<FilterState>({
         status: 'all',
-        company: (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance') ? 'md impex' : 'all',
+        company: 'all',
         category: 'all',
         search: '',
         brand: 'all',
@@ -579,7 +579,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         const fromCompaniesApi = (companyDocs || []).map((c: any) => (c?.name || '').toString().trim()).filter(Boolean);
         const list = [...new Set([...fromBrands, ...fromCompaniesApi])].sort((a, b) => a.localeCompare(b));
 
-        if (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance' || role === 'assistant' || role === 'assistance') {
+        if (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance' || role === 'assistant' || role === 'assistance' || role === 'manager') {
             const rawKey = 'mdimpex';
             const match = list.find((c) => String(c || '').trim().replace(/\s+/g, '').toLowerCase() === rawKey);
             if (match) return [match];
