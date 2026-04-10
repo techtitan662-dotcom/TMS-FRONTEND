@@ -3245,7 +3245,7 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
     };
   }, []);
 
-  const [pageLoading, setPageLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
 
   const [companyKeys, setCompanyKeys] = useState<string[]>([]);
   // MD Impex - top-level allowed brands for filters (so AdvancedFilters shows them)
@@ -3950,8 +3950,6 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
     const isFresh = taskTypesFetchedAtRef.current && Date.now() - taskTypesFetchedAtRef.current < TASK_TYPES_TTL_MS;
     if (taskTypes.length > 0 && isFresh) return;
     if (taskTypesFetchInFlightRef.current) return taskTypesFetchInFlightRef.current;
-
-    setPageLoading(true);
 
     taskTypesFetchInFlightRef.current = (async () => {
       try {

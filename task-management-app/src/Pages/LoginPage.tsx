@@ -131,7 +131,7 @@ export default function AuthPage() {
 
                 dispatch(tasksReset());
                 // Pre-fetch tasks instantly so Dashboard loads fast without skeleton wait
-                await dispatch(fetchTasks({ force: true })).unwrap();
+                dispatch(fetchTasks({ force: true }));
 
                 linkPushDeviceToUser({}).catch(e => {
                     console.error('Push device link failed:', e);
