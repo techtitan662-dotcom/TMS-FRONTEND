@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import {
@@ -42,7 +42,7 @@ import ManagerMonthlyRankingPage from './ManagerMonthlyRankingPage';
 import PowerStarOfTheMonthPage from './PowerStarOfTheMonthPage';
 import SpeedEcomReassignPage from './SpeedEcomReassignPage';
 import AdvancedFilters from './AdvancedFilters';
-import AnalyzePage from './AnalyzePage';
+const AnalyzePage = lazy(() => import('./AnalyzePage'));
 import { DashboardPageSkeleton } from '../Components/LoadingSkeletons';
 import EmployeeOfTheMonthCard from '../Components/EmployeeOfTheMonthCard';
 import TaskReminderCard from '../Components/TaskReminderCard';
@@ -6466,12 +6466,19 @@ const DashboardPage = () => {
                                     })()}
                                 />
                             ) : currentView === 'analyze' ? (
-                                <AnalyzePage
-                                    tasks={tasks}
-                                    users={users}
-                                    currentUserEmail={currentUser?.email}
-                                    currentUserRole={currentUser?.role}
-                                />
+                                <Suspense fallback={
+                                    <div className="flex items-center justify-center p-12">
+                                        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                                        <span className="ml-3 text-gray-600 font-medium">Loading Analytics...</span>
+                                    </div>
+                                }>
+                                    <AnalyzePage
+                                        tasks={tasks}
+                                        users={users}
+                                        currentUserEmail={currentUser?.email}
+                                        currentUserRole={currentUser?.role}
+                                    />
+                                </Suspense>
                             ) : currentView === 'team' ? (
                                 <TeamPage
                                     users={users}

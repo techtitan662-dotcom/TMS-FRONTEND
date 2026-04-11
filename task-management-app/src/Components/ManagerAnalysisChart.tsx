@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import * as echarts from 'echarts';
+import echarts, { type EChartsOption } from '../utils/echarts';
 import { Trash2 } from 'lucide-react';
 
 import type { Task } from '../Types/Types';
@@ -300,7 +300,7 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
             seriesData.labels.length > 0 &&
             seriesData.series.some((s) => (s.data || []).some((v) => (Number(v) || 0) > 0));
 
-        const option: echarts.EChartsOption = {
+        const option: EChartsOption = {
             title: hasData
                 ? undefined
                 : {
@@ -311,11 +311,17 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
                     textStyle: { color: '#9ca3af', fontSize: 14, fontWeight: 400 },
                 },
             tooltip: { trigger: 'axis' },
-            grid: { left: 40, right: 20, top: 30, bottom: 80 },
+            grid: { left: 50, right: 20, top: 30, bottom: 60, containLabel: true },
             xAxis: {
                 type: 'category',
                 data: seriesData.labels,
-                axisLabel: { rotate: 30 },
+                axisLabel: { 
+                    rotate: seriesData.labels.length > 5 ? 45 : 30,
+                    interval: 0,
+                    hideOverlap: true,
+                    overflow: 'break',
+                    width: 70
+                },
             },
             yAxis: {
                 type: 'value',
@@ -356,12 +362,12 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
     }, [seriesData, chartType]);
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4 gap-3">
-                <h2 className="text-lg font-semibold text-gray-900">Manager analysis</h2>
-                <div className="flex items-center gap-2 flex-wrap">
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 flex flex-col h-full hover:shadow-md transition-shadow">
+            <div className="flex flex-wrap items-center justify-between mb-4 gap-3">
+                <h2 className="text-lg font-semibold text-gray-900 truncate">Manager analysis</h2>
+                <div className="flex items-center gap-2 flex-wrap justify-end flex-grow">
                     <select
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
                         value={groupBy}
                         onChange={(e) => setGroupBy(e.target.value as GroupBy)}
                     >
@@ -371,7 +377,7 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
                         <option value="brand">Group: Brand</option>
                     </select>
                     <select
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
                         value={chartType}
                         onChange={(e) => setChartType(e.target.value as ManagerChartType)}
                     >
@@ -380,7 +386,7 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
                         <option value="bar">Bar</option>
                     </select>
                     <select
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
                         value={bucket}
                         onChange={(e) => setBucket(e.target.value as ManagerBucket)}
                     >
@@ -389,7 +395,7 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
                         <option value="yearly">Yearly</option>
                     </select>
                     <select
-                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-sm"
+                        className="border border-gray-300 rounded-lg px-2 py-1 text-gray-700 bg-white text-xs outline-none focus:ring-2 focus:ring-blue-500/20 shadow-sm"
                         value={managerKey}
                         onChange={(e) => setManagerKey(e.target.value)}
                     >
@@ -399,22 +405,16 @@ const ManagerAnalysisChart = ({ tasks, canDelete = false, onDelete }: ManagerAna
                             </option>
                         ))}
                     </select>
-                    <button
-                        type="button"
-                        className={`p-2 rounded-lg transition-colors ${
-                            canDelete
-                                ? 'text-gray-400 hover:text-red-600 hover:bg-red-50'
-                                : 'text-gray-300 cursor-not-allowed'
-                        }`}
-                        aria-label={canDelete ? 'Hide chart' : 'Only admins can hide charts'}
-                        disabled={!canDelete}
-                        onClick={() => {
-                            if (!canDelete) return;
-                            onDelete?.();
-                        }}
-                    >
-                        <Trash2 className="h-5 w-5" />
-                    </button>
+                    {canDelete && (
+                        <button
+                            type="button"
+                            className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+                            aria-label="Hide chart"
+                            onClick={() => onDelete?.()}
+                        >
+                            <Trash2 className="h-5 w-5" />
+                        </button>
+                    )}
                 </div>
             </div>
             <div ref={chartRef} className="w-full" style={{ height: 360 }} />
