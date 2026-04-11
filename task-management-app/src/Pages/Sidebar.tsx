@@ -94,6 +94,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     // If no explicit permission, admins get access by default
     if (isAdminUser) return true;
     
+    // These modules should be visible to everyone by default unless explicitly denied
+    if (['dashboard', 'assigned_by_me', 'assigned_to_me'].includes(moduleId)) return true;
+    
     if (moduleId === 'access_management' && (role === 'am' || role === 'rm')) return false;
     if (!hasPermsObj) return true;
     
