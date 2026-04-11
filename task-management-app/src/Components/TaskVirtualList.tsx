@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
+import {  VirtuosoGrid, TableVirtuoso } from 'react-virtuoso';
 import type { Task, UserType, TaskStatus } from '../Types/Types';
 import TaskGridItem from './TaskGridItem';
 import TaskListRow from './TaskListRow';
@@ -78,52 +78,41 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
     return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-                <table className="min-w-full">
-                    <thead className="bg-gray-50/50">
-                        <tr className="text-left text-xs font-medium text-gray-500">
-                            <th className="px-4 py-3">Task</th>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3">Priority</th>
-                            <th className="px-4 py-3">Due Date</th>
-                            <th className="px-4 py-3">Brand</th>
-                            <th className="px-4 py-3">Assigned To</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                        {/* 
-                            Note: Direct virtualization inside a table tbody is tricky.
-                            Using Virtuoso with custom components for table rows is the recommended way.
-                        */}
-                    </tbody>
-                </table>
-                <Virtuoso
+                <TableVirtuoso
                     style={{ height: '70vh' }}
-                    totalCount={tasks.length}
+                    data={tasks}
                     initialItemCount={Math.min(20, tasks.length)}
-                    itemContent={(index) => {
-                        const task = tasks[index];
-                        if (!task) return null;
-                        return (
-                            <table className="min-w-full">
-                                <tbody className="divide-y divide-gray-50">
-                                    <TaskListRow
-                                        key={task.id}
-                                        task={task}
-                                        users={users}
-                                        onDelete={onDelete}
-                                        onEdit={onEdit}
-                                        onSendReminder={onSendReminder}
-                                        formatBrand={formatBrand}
-                                        formatDate={formatDate}
-                                        canEditTask={canEditTask}
-                                        canEditDeleteTask={canEditDeleteTask}
-                                        canSendReminderForTask={canSendReminderForTask}
-                                        sendingReminder={!!sendingReminderByTaskId[task.id]}
-                                    />
-                                </tbody>
-                            </table>
-                        );
+                    fixedHeaderContent={() => (
+                        <tr className="text-left text-xs font-medium text-gray-500">
+                            <th className="px-4 py-3 bg-gray-50/50">Task</th>
+                            <th className="px-4 py-3 bg-gray-50/50">Status</th>
+                            <th className="px-4 py-3 bg-gray-50/50">Priority</th>
+                            <th className="px-4 py-3 bg-gray-50/50">Due Date</th>
+                            <th className="px-4 py-3 bg-gray-50/50">Brand</th>
+                            <th className="px-4 py-3 bg-gray-50/50">Assigned To</th>
+                            <th className="px-4 py-3 text-right bg-gray-50/50">Actions</th>
+                        </tr>
+                    )}
+                    itemContent={(_index, task) => (
+                        <TaskListRow
+                            key={task.id}
+                            task={task}
+                            users={users}
+                            onDelete={onDelete}
+                            onEdit={onEdit}
+                            onSendReminder={onSendReminder}
+                            formatBrand={formatBrand}
+                            formatDate={formatDate}
+                            canEditTask={canEditTask}
+                            canEditDeleteTask={canEditDeleteTask}
+                            canSendReminderForTask={canSendReminderForTask}
+                            sendingReminder={!!sendingReminderByTaskId[task.id]}
+                        />
+                    )}
+                    components={{
+                        Table: (props) => <table {...props} className="min-w-full" />,
+                        TableBody: React.forwardRef((props, ref) => <tbody {...props} ref={ref} className="divide-y divide-gray-50" />),
+                        TableRow: (props) => <tr {...props} className="hover:bg-gray-50/50 transition-colors group" />,
                     }}
                 />
             </div>

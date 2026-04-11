@@ -54,7 +54,7 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
     const displayAssignedTo = assignedInfo.name || (assignedInfo.email ? stripDeletedEmailSuffix(assignedInfo.email).split('@')[0] : '') || assignedInfo.email || '—';
 
     return (
-        <tr className="hover:bg-gray-50/50 transition-colors group">
+        <>
             <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                     <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-amber-500' : 'bg-blue-500'}`} />
@@ -128,7 +128,7 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
                     )}
                 </div>
             </td>
-        </tr>
+        </>
     );
 };
 
