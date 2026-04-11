@@ -15,6 +15,7 @@ import apiClient from '../Services/apiClient';
 import { authService } from '../Services/User.Services';
 import { UserProfileSkeleton } from '../Components/LoadingSkeletons';
 import { userAvatarUrl } from '../utils/avatar';
+import { getNotificationPermission, registerPushDevice } from '../utils/fcm';
 
 // Theme colors matching the app
 const theme = {
@@ -42,6 +43,9 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
     const [googleActionLoading, setGoogleActionLoading] = useState(false);
     const [googleConnected, setGoogleConnected] = useState<boolean>(false);
     const [googleConnectedAt, setGoogleConnectedAt] = useState<string | null>(null);
+
+    const [pushPermission, setPushPermission] = useState<string>('default');
+    const [pushRegistering, setPushRegistering] = useState(false);
 
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -198,6 +202,10 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
     }, [hasUserProp]);
 
     useEffect(() => {
+        setPushPermission(getNotificationPermission());
+    }, []);
+
+    useEffect(() => {
         fetchGoogleStatus();
     }, [fetchGoogleStatus]);
 
@@ -223,6 +231,19 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
             setGoogleActionLoading(false);
         }
     }, [fetchGoogleStatus]);
+
+    const handleEnableNotifications = useCallback(async () => {
+        setPushRegistering(true);
+        try {
+            const result = await registerPushDevice({ prompt: true, userEmail: profileUser?.email });
+            setPushPermission(getNotificationPermission());
+            if (result.token) {
+                // Success
+            }
+        } finally {
+            setPushRegistering(false);
+        }
+    }, [profileUser?.email]);
 
     const handleSelectAvatarFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
@@ -459,6 +480,68 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Push Notifications Section */}
+                                {isOwnProfile && (
+                                    <div className="mb-5">
+                                        <h3 className="text-xs font-semibold text-gray-900 mb-2 pb-1 border-b border-gray-200">
+                                            Push Notifications
+                                        </h3>
+                                        <div className={`p-3 bg-[${theme.primaryUltralight}] rounded-lg`}>
+                                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                                <div>
+                                                    <p className="text-[10px] text-gray-500 mb-0.5">Status</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className={`text-xs font-medium ${pushPermission === 'granted' ? 'text-emerald-700' : pushPermission === 'denied' ? 'text-red-700' : 'text-gray-900'}`}>
+                                                            {pushPermission === 'granted'
+                                                                ? 'Enabled'
+                                                                : pushPermission === 'denied'
+                                                                    ? 'Blocked'
+                                                                    : pushPermission === 'unsupported'
+                                                                        ? 'Not supported on this browser'
+                                                                        : 'Not enabled'}
+                                                        </p>
+                                                        {pushPermission === 'granted' && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+                                                    </div>
+                                                    <p className="text-[9px] text-gray-500 mt-0.5">
+                                                        Receive updates for new tasks and reminders on your device.
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {pushPermission !== 'granted' && pushPermission !== 'unsupported' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleEnableNotifications}
+                                                            disabled={pushRegistering}
+                                                            className={`px-3 py-1.5 rounded-lg bg-[${theme.primary}] text-white text-[10px] font-medium hover:bg-[${theme.primaryDark}] disabled:opacity-50 flex items-center gap-1.5`}
+                                                        >
+                                                            {pushRegistering ? (
+                                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                            ) : null}
+                                                            Enable Notifications
+                                                        </button>
+                                                    )}
+                                                    {pushPermission === 'granted' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleEnableNotifications}
+                                                            disabled={pushRegistering}
+                                                            className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 text-[10px] font-medium hover:bg-gray-50 disabled:opacity-50"
+                                                        >
+                                                            Refresh Token
+                                                        </button>
+                                                    )}
+                                                    {pushPermission === 'denied' && (
+                                                        <p className="text-[9px] text-red-600 font-medium text-right">
+                                                            Blocked in browser settings.<br/>Please enable manually.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Additional Info if available */}
                                 {(profileUser.position || profileUser.phone) && (

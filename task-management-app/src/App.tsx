@@ -469,6 +469,18 @@ export default function App() {
   useEffect(() => {
     void initPushIfAlreadyGranted();
     void initForegroundPushListener();
+
+    // Check for mobile and prompt if not enabled
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && 'Notification' in window && Notification.permission === 'default') {
+      setTimeout(() => {
+        toast("Enable notifications to receive task updates on your phone!", {
+          icon: '🔔',
+          duration: 6000,
+          position: 'bottom-center'
+        });
+      }, 3000);
+    }
   }, []);
 
   useEffect(() => {

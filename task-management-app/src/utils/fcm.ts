@@ -181,6 +181,11 @@ export const linkPushDeviceToUser = async ({ deviceId, token }: { deviceId?: str
   });
 };
 
+export const getNotificationPermission = () => {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+};
+
 export const initPushIfAlreadyGranted = async () => {
   if (!('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
