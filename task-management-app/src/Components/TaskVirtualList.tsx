@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import {  VirtuosoGrid, TableVirtuoso } from 'react-virtuoso';
+import { VirtuosoGrid, TableVirtuoso } from 'react-virtuoso';
 import type { Task, UserType, TaskStatus } from '../Types/Types';
 import TaskGridItem from './TaskGridItem';
 import TaskListRow from './TaskListRow';

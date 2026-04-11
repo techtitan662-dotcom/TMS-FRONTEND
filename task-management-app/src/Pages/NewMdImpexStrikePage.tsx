@@ -15,7 +15,7 @@ interface NewMdImpexStrikePageProps {
 export default function NewMdImpexStrikePage({ currentUser, users }: NewMdImpexStrikePageProps) {
   const role = normalizeRole(currentUser?.role);
   // Allowed roles to Add/Edit
-  const canManage = ['md_manager', 'ob_manager', 'admin'].includes(role);
+  const canManage = ['md_manager', 'ob_manager', 'admin', 'super_admin'].includes(role);
   
   // Date states
   const now = new Date();

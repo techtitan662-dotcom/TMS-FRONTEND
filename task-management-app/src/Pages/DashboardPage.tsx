@@ -4127,9 +4127,9 @@ const DashboardPage = () => {
         let count = 0;
         const isCompanyForced = (availableCompanies || []).length === 1;
         Object.entries(filters).forEach(([key, value]) => {
-            if (key === 'brand') return;
+            if (key === 'brand' || key === 'sort') return;
             if (key === 'company' && isCompanyForced) return;
-            if (value !== 'all') count++;
+            if (value !== 'all' && value !== '') count++;
         });
         return count;
     }, [availableCompanies, filters]);
@@ -6320,7 +6320,10 @@ const DashboardPage = () => {
                                     users={users}
                                 />
                             ) : currentView === 'md-impex-access' ? (
-                                <MdImpexAccessPage />
+                                <MdImpexAccessPage
+                                    allBrands={apiBrands}
+                                    allTaskTypes={taskTypes}
+                                />
                             ) : currentView === 'all-tasks' ? (
                                 <AllTasksPage
                                     tasks={tasks}
@@ -6475,6 +6478,7 @@ const DashboardPage = () => {
                                     <AnalyzePage
                                         tasks={tasks}
                                         users={users}
+                                        apiCompanies={availableCompanies}
                                         currentUserEmail={currentUser?.email}
                                         currentUserRole={currentUser?.role}
                                     />
@@ -6617,12 +6621,14 @@ const DashboardPage = () => {
             {(() => {
                 const currentUserCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim().toLowerCase();
                 const currentUserRole = String((currentUser as any)?.role || '').trim().toLowerCase();
-                const isMdImpexUser = currentUserCompany.includes('mdimpex') ||
+                const isMdImpexUser = (currentUserCompany.includes('mdimpex') ||
                     currentUserCompany.includes('md_impex') ||
                     currentUserCompany.includes('md impex') ||
                     currentUserRole === 'md_manager' ||
                     currentUserRole === 'assistant' ||
-                    currentUserRole === 'assistance';
+                    currentUserRole === 'assistance') && 
+                    currentUserRole !== 'admin' && 
+                    currentUserRole !== 'super_admin';
                 if (isMdImpexUser) {
                     return (
                         <MdImpexAddTaskModal

@@ -352,7 +352,7 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
 
     useEffect(() => {
         if (!canViewTeamPage) return;
-        if (isCurrentUserAdmin) return;
+        if (isCurrentUserAdmin || isCurrentUserMdManager) return;
         const userCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim();
         if (!userCompany) return;
         const currentKey = normalizeText(filterCompany === 'all' ? '' : filterCompany);
@@ -422,20 +422,9 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
         if (!targetId) return false;
         if (isCurrentUserAdmin) return true;
         if (isCurrentUserMdManager) {
-            const r = normalizeRole(target?.role);
-            if (currentUserIdValue && targetId && currentUserIdValue.toString() === targetId.toString()) return true;
-            const targetCreatedByEmail = (target as any)?.createdByEmail?.toString().trim().toLowerCase() || '';
-            const currentUserEmail = (currentUser as any)?.email?.toString().trim().toLowerCase() || '';
-            if (targetCreatedByEmail && currentUserEmail && targetCreatedByEmail === currentUserEmail) {
-                return true;
-            }
-            if (r === 'super_admin' || r === 'admin' || r === 'ob_manager' || r === 'sbm' || r === 'rm' || r === 'am') return false;
-            const currentCompany = ((currentUser as any)?.companyName || (currentUser as any)?.company || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-            const targetCompany = ((target as any)?.companyName || (target as any)?.company || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-            if (currentCompany && targetCompany && currentCompany === targetCompany) return true;
-            if (r === 'manager') return true;
-            if (r === 'troubleshoot_manager') return true;
-            if (r !== 'assistant' && r !== 'sub_assistance') return false;
+            const targetRole = normalizeRole(target?.role);
+            // MD Manager should be able to manage anyone except super_admin
+            if (targetRole === 'super_admin') return false;
             return true;
         }
         if (isCurrentUserObManager) {
@@ -786,7 +775,7 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
         setCompaniesLoading(true);
         try {
             const role = normalizeRole(currentUserRole);
-            const needsAllowedCompanies = role === 'md_manager' || role === 'ob_manager' || role === 'manager' || role === 'assistant' || role === 'sbm' || role === 'rm' || role === 'am';
+            const needsAllowedCompanies = role === 'ob_manager' || role === 'manager' || role === 'assistant' || role === 'sbm' || role === 'rm' || role === 'am';
             const res = needsAllowedCompanies
                 ? await companyService.getAllowedCompanies()
                 : await companyService.getCompanies();

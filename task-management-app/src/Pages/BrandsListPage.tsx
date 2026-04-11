@@ -37,7 +37,6 @@ import toast from 'react-hot-toast';
 
 import type { Brand, BrandHistory, BrandStatus, Task, UserType } from '../Types/Types';
 import { brandService } from '../Services/Brand.service';
-import { taskService } from '../Services/Task.services';
 import { authService } from '../Services/User.Services';
 import { companyService } from '../Services/Company.service';
 import CreateBrandModal from './CreateBrandModal';
@@ -54,6 +53,7 @@ import {
     brandRemoved,
 } from '../Store/brandsSlice';
 import { selectAllUsers, usersSetAll } from '../Store/usersSlice';
+import { fetchTasks as fetchTasksThunk, selectAllTasks as selectTasksFromStore } from '../Store/tasksSlice';
 
 import { routepath } from '../Routes/route';
 
@@ -117,11 +117,11 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         if (!perms || typeof perms !== 'object') return true;
         if (Object.keys(perms).length === 0) return true;
 
-        if (typeof (perms as any)[moduleId] === 'undefined') return true;
         const perm = String((perms as any)[moduleId] || '').trim().toLowerCase();
-        if (['deny', 'no', 'false', '0', 'disabled'].includes(perm)) return false;
+        // Strict check: Only show if explicitly allowed
         if (['allow', 'allowed', 'yes', 'true', '1'].includes(perm)) return true;
-        return perm !== 'deny';
+        // Hide if explicitly denied OR undefined
+        return false;
     }, [currentUser]);
 
     const canViewBrands = useMemo(() => hasAccess('brands_page'), [hasAccess]);
@@ -165,6 +165,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
     const apiBrands = useAppSelector(selectAllBrands);
     const allUsers = useAppSelector(selectAllUsers);
+    const cachedTasks = useAppSelector(selectTasksFromStore);
 
     const [deletedBrands, setDeletedBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -175,7 +176,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [taskDisplayType, setTaskDisplayType] = useState<TaskDisplayType>(null);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [allTasks, setAllTasks] = useState<Task[]>([]);
+    const [allTasks, ] = useState<Task[]>([]);
     const [companyDocs, setCompanyDocs] = useState<any[]>([]);
     const [deletedCompanyDocs, setDeletedCompanyDocs] = useState<any[]>([]);
     const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
@@ -198,8 +199,10 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const effectiveTasks = useMemo(() => {
         const safePropTasks = Array.isArray(propTasks) ? propTasks : [];
         if (safePropTasks.length > 0) return safePropTasks;
+        const safeCachedTasks = Array.isArray(cachedTasks) ? cachedTasks : [];
+        if (safeCachedTasks.length > 0) return safeCachedTasks;
         return Array.isArray(allTasks) ? allTasks : [];
-    }, [propTasks, allTasks]);
+    }, [propTasks, cachedTasks, allTasks]);
 
     const reportTasks = useMemo(() => {
         const tasks = Array.isArray(effectiveTasks) ? effectiveTasks : [];
@@ -601,9 +604,24 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     }, [filters]);
 
     const companies = useMemo(() => {
-        const fromBrands = (accessibleBrands || []).map(brand => (brand.company || '').toString().trim()).filter(Boolean);
-        const fromCompaniesApi = (companyDocs || []).map((c: any) => (c?.name || '').toString().trim()).filter(Boolean);
-        const list = [...new Set([...fromBrands, ...fromCompaniesApi])].sort((a, b) => a.localeCompare(b));
+        const map = new Map<string, string>();
+        
+        (accessibleBrands || []).forEach(brand => {
+            const raw = (brand.company || '').toString().trim();
+            if (!raw) return;
+            const key = raw.toLowerCase();
+            if (!map.has(key)) map.set(key, raw);
+        });
+
+        (companyDocs || []).forEach((c: any) => {
+            const raw = (c?.name || '').toString().trim();
+            if (!raw) return;
+            const key = raw.toLowerCase();
+            if (!map.has(key)) map.set(key, raw);
+        });
+
+        const list = Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+
 
         if (roleKey === 'md_manager' || roleKey === 'marketer_manager' || roleKey === 'assistant' || roleKey === 'assistance' || role === 'assistant' || role === 'assistance' || role === 'manager') {
             const rawKey = 'mdimpex';
@@ -781,10 +799,10 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         return /^[a-f\d]{24}$/i.test(fallback) ? fallback : '';
     }, []);
 
-    const fetchBrands = useCallback(async () => {
+    const fetchBrands = useCallback(async (force = false) => {
         try {
             setIsLoading(true);
-            await dispatch(fetchBrandsThunk({ force: true }));
+            await dispatch(fetchBrandsThunk({ force }));
             if (canDeleteBrand) {
                 const deletedRes = await brandService.getDeletedBrands();
                 const rawDeleted = Array.isArray((deletedRes as any)?.data) ? (deletedRes as any).data : [];
@@ -898,19 +916,16 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         }
     }, [canViewBrandsCompaniesReport]);
 
-    const fetchTasks = useCallback(async () => {
+    const fetchTasks = useCallback(async (force = false) => {
         if (Array.isArray(propTasks) && propTasks.length > 0) {
             return;
         }
         try {
-            const res = await taskService.getAllTasks();
-            const safeTasks = Array.isArray((res as any)?.data) ? (res as any).data : [];
-            setAllTasks(safeTasks);
+            await dispatch(fetchTasksThunk({ force }));
         } catch (error) {
             console.error('Error fetching tasks:', error);
-            setAllTasks([]);
         }
-    }, [propTasks]);
+    }, [propTasks, dispatch]);
 
     const handleDeleteBrand = useCallback(async (brand: Brand) => {
         if (!canDeleteBrand) {
@@ -949,9 +964,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                 }
 
                 setOpenMenuId(null);
-                toast.success('Brand deleted successfully!');
-
-                fetchBrands();
+                fetchBrands(true);
             } else {
                 toast.error(response?.message || 'Failed to delete brand');
             }
@@ -967,7 +980,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
             if (response && response.success) {
                 toast.success('Brand created successfully!');
                 setShowCreateModal(false);
-                fetchBrands();
+                fetchBrands(true);
             } else {
                 toast.error('Failed to create brand');
             }
@@ -983,7 +996,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
             if (res.success) {
                 toast.success(`${res.data.length} brands processed successfully`);
                 setShowBulkAddModal(false);
-                fetchBrands();
+                fetchBrands(true);
             }
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to bulk add brands');
@@ -1005,7 +1018,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                 toast.success('Brand updated successfully!');
                 setShowEditModal(false);
                 setSelectedBrand(null);
-                fetchBrands();
+                fetchBrands(true);
             } else {
                 const message = (response as any)?.message || 'Failed to update brand';
                 toast.error(message);
@@ -1148,10 +1161,13 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
         const candidate = (accessibleBrands || []).find((b: any) => {
             const n = String(b?.name || '').trim().toLowerCase();
-            if (n !== name.toLowerCase()) return false;
+            const brandMatch = n === name.toLowerCase();
+            if (!brandMatch) return false;
 
             if (filters.company !== 'all') {
-                return String(b?.company || '').trim() === String(filters.company || '').trim();
+                const companyFilter = String(filters.company || '').trim().toLowerCase();
+                const brandCompany = String(b?.company || '').trim().toLowerCase();
+                return brandCompany === companyFilter;
             }
 
             return true;
@@ -1162,15 +1178,18 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
         const company = String((candidate as any).company || '').trim();
         const groupNumber = String((candidate as any).groupNumber || '').trim();
 
-        if (company === 'speed Ecom' && groupNumber) {
-            return `${groupNumber} - ${name}`;
+        if (company.toLowerCase() === 'speed ecom' && groupNumber) {
+            return `${groupNumber} - ${candidate.name || name}`;
         }
 
-        return name;
+        return candidate.name || name;
     };
 
+
     const filteredBrands = getFilteredBrands();
-    const totalBrands = Number(brandsTotal || 0);
+    const serverTotalCount = Number(brandsTotal || 0);
+    const totalBrands = (serverTotalCount > 0) ? serverTotalCount : accessibleBrands.length;
+
     const totalPages = Math.max(1, Math.ceil(totalBrands / brandsPerPage));
     const currentPageSafe = Math.min(currentPage, totalPages);
 
@@ -1261,22 +1280,15 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const calculateStats = useCallback(() => {
         const safeBrands = Array.isArray(accessibleBrands) ? accessibleBrands : [];
         const safeTasks = Array.isArray(reportTasks) ? reportTasks : [];
-
-        // Always use brandsTotal from the server as it correctly reflects the total for current filters
         const serverTotal = Number(brandsTotal || 0);
 
-        // ✅ IMPORTANT: If we have all brands on the client (one page), use the de-duplicated count
-        // Otherwise use serverTotal. This solves the "Showing 1-19 of 23" issue when duplicates exist.
-        const totalBrands = (serverTotal > 0 && apiBrands.length === serverTotal)
-            ? safeBrands.length
-            : serverTotal;
-
-        const activeBrands = getActiveFilterCount() > 0 || filters.search
-            ? safeBrands.filter((brand) => brand.status === 'active').length
-            : totalBrands; // Adjusted to match the unique total if applicable
+        // ✅ IMPORTANT: If serverTotal is 0 or we have all brands on the client, use the de-duplicated count
+        const totalBrands = (serverTotal > 0) ? serverTotal : safeBrands.length;
+        const activeBrands = safeBrands.filter((brand) => brand.status === 'active').length;
 
         const totalTasks = safeTasks.length;
         const averageTasksPerBrand = totalBrands > 0 ? totalTasks / totalBrands : 0;
+
 
         setStats({
             totalBrands,
@@ -1311,7 +1323,7 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
 
     useEffect(() => {
         const handler = () => {
-            void fetchBrands();
+            void fetchBrands(true);
         };
 
         window.addEventListener('brandUpdated', handler as any);
@@ -1330,10 +1342,21 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
     const availableBrandsForFilter = useMemo(() => {
         let list = accessibleBrands;
         if (filters.company !== 'all') {
-            list = accessibleBrands.filter((b) => b.company === filters.company);
+            const companyLower = filters.company.toLowerCase();
+            list = accessibleBrands.filter((b) => (b.company || '').toLowerCase() === companyLower);
         }
-        return [...new Set(list.map((b) => b.name))].filter(Boolean).sort();
+        
+        const map = new Map<string, string>();
+        list.forEach(brand => {
+            const name = (brand.name || '').toString().trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (!map.has(key)) map.set(key, name);
+        });
+
+        return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
     }, [accessibleBrands, filters.company]);
+
 
     const isNewBrand = useCallback((brand: Brand) => {
         if (!brand.createdAt) return false;
@@ -1669,8 +1692,11 @@ const BrandsListPage: React.FC<BrandsListPageProps> = ({
                                 <div>
                                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Brands</p>
                                     <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
-                                        {totalBrands}
+                                        {getActiveFilterCount() > 0 || filters.search
+                                            ? filteredBrands.length
+                                            : totalBrands}
                                     </p>
+
                                 </div>
                                 <div className={`p-2 rounded-lg transition-colors duration-200 ${taskDisplayType === 'total-brands'
                                     ? 'bg-blue-100'

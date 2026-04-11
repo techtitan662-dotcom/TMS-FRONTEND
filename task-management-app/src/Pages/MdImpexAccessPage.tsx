@@ -52,7 +52,7 @@ const ROLE_OPTIONS = [
     { value: 'troubleshoot_manager', label: 'Troubleshoot Manager' },
 ];
 
-export default function MdImpexAccessPage() {
+export default function MdImpexAccessPage({ allBrands, allTaskTypes }: { allBrands?: any[], allTaskTypes?: TaskTypeItem[] }) {
     const [roles, setRoles] = useState<RoleItem[]>([]);
     const [members, setMembers] = useState<MemberItem[]>([]);
     const [personAccess, setPersonAccess] = useState<PersonAccessItem[]>([]);
@@ -109,51 +109,20 @@ export default function MdImpexAccessPage() {
 
     const totalPages = Math.ceil(personAccess.length / itemsPerPage);
 
-    const loadTaskTypes = async () => {
-        try {
-            const res = await taskTypeService.getTaskTypes();
-            if (res?.success) setTaskTypes(res.data || []);
-            else setTaskTypes([]);
-        } catch {
-            setTaskTypes([]);
-        }
-    };
-
-    const loadBrands = async () => {
-        try {
-            const res = await brandService.getBrands({ limit: 5000, includeDeleted: true });
-            if (res?.success && Array.isArray(res.data)) {
-                const mdImpexBrands = res.data.filter((b: any) => {
-                    const company = String(b?.company || b?.companyName || "").trim().toLowerCase().replace(/\s+/g, "");
-                    return company === "mdimpex";
-                });
-                setBrands(mdImpexBrands);
-            } else {
-                setBrands([]);
-            }
-        } catch (error) {
-            console.error("Failed to load brands", error);
-            setBrands([]);
-        }
-    };
-
-    const _memberById = useMemo(() => {
-        const map = new Map<string, MemberItem>();
-        (members || []).forEach((m) => {
-            if (m?.id) map.set(m.id, m);
-        });
-        return map;
-    }, [members]);
-    void _memberById;
-
     const loadData = async () => {
         setLoading(true);
         setError('');
         try {
-            const [rolesRes, membersRes, personAccessRes] = await Promise.all([
+            // Task types and Brands might be passed from parent
+            const fetchTaskTypes = !allTaskTypes || allTaskTypes.length === 0;
+            const fetchBrands = !allBrands || allBrands.length === 0;
+
+            const [rolesRes, membersRes, personAccessRes, taskTypesRes, brandsRes] = await Promise.all([
                 mdImpexAccessService.getAllRoles(),
                 mdImpexAccessService.getAllMembers(),
-                mdImpexAccessService.getAllPersonAccess()
+                mdImpexAccessService.getAllPersonAccess(),
+                fetchTaskTypes ? taskTypeService.getTaskTypes() : Promise.resolve({ success: true, data: allTaskTypes }),
+                fetchBrands ? brandService.getBrands({ limit: 5000, includeDeleted: true }) : Promise.resolve({ success: true, data: allBrands })
             ]);
 
             if (rolesRes.success) setRoles(rolesRes.data);
@@ -165,7 +134,18 @@ export default function MdImpexAccessPage() {
             if (personAccessRes.success) setPersonAccess(personAccessRes.data);
             else setError(personAccessRes.message);
 
-            await loadBrands();
+            if (taskTypesRes?.success) {
+                setTaskTypes(taskTypesRes.data || []);
+            }
+
+            const rawBrands = brandsRes?.data || [];
+            if (Array.isArray(rawBrands)) {
+                const mdImpexBrands = rawBrands.filter((b: any) => {
+                    const company = String(b?.company || b?.companyName || "").trim().toLowerCase().replace(/\s+/g, "");
+                    return company === "mdimpex";
+                });
+                setBrands(mdImpexBrands);
+            }
         } catch (e: any) {
             setError(e?.message || 'Failed to load data');
         } finally {
@@ -175,7 +155,6 @@ export default function MdImpexAccessPage() {
 
     useEffect(() => {
         void loadData();
-        void loadTaskTypes();
     }, []);
 
     const filteredMembers = useMemo(() => {

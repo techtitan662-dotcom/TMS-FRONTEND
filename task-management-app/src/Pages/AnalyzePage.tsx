@@ -58,11 +58,12 @@ const BUILTIN_CHARTS = [
 export interface AnalyzePageProps {
     tasks: Task[];
     users?: UserType[];
+    apiCompanies?: string[];
     currentUserEmail?: string;
     currentUserRole?: string;
 }
 
-const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], currentUserEmail: currentUserEmailProp, currentUserRole }) => {
+const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCompanies, currentUserEmail: currentUserEmailProp, currentUserRole }) => {
     const navigate = useNavigate();
     
     // Global Filter State
@@ -133,13 +134,16 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], curre
 
     // Data Processing Helpers
     const companies = useMemo(() => {
-        const set = new Set<string>();
+        if (apiCompanies && apiCompanies.length > 0) return apiCompanies;
+        const map = new Map<string, string>();
         (tasks || []).forEach((t: any) => {
-            const c = normalizeText(t.companyName || t.company);
-            if (c) set.add(c);
+            const raw = (t.companyName || t.company || '').toString().trim();
+            if (!raw) return;
+            const key = raw.toLowerCase();
+            if (!map.has(key)) map.set(key, raw);
         });
-        return Array.from(set).sort();
-    }, [tasks]);
+        return Array.from(map.values()).sort();
+    }, [tasks, apiCompanies]);
 
     const effectiveDateRange = useMemo(() => {
         if (globalTimePeriod === 'all') return { start: '', end: '' };
@@ -169,7 +173,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], curre
     const filteredTasksByGlobalDates = useMemo(() => {
         let list = tasks;
         if (globalCompany !== 'all') {
-            list = list.filter((t: any) => normalizeText(t.companyName || t.company).toLowerCase() === globalCompany.toLowerCase());
+            const filterLower = globalCompany.toLowerCase();
+            list = list.filter((t: any) => (t.companyName || t.company || '').toString().trim().toLowerCase() === filterLower);
         }
         const { start, end } = effectiveDateRange;
         if (start || end) {
@@ -369,14 +374,40 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], curre
     }, [filteredTasksByGlobalDates, currentUserEmailProp]);
 
     const trendsOptions = useMemo(() => {
-        const assigns = new Set<string>(['all']), comps = new Set<string>(['all']), brs = new Set<string>(['all']);
+        const assigneesMap = new Map<string, string>();
+        const companiesMap = new Map<string, string>();
+        const brandsMap = new Map<string, string>();
+        
+        assigneesMap.set('all', 'all');
+        companiesMap.set('all', 'all');
+        brandsMap.set('all', 'all');
+
         tasks.forEach((t: any) => {
-            assigns.add(extractUserLabel(t.assignedTo, t.assignedToName));
-            comps.add(normalizeText(t.companyName || t.company));
-            brs.add(normalizeText(t.brand));
+            const u = extractUserLabel(t.assignedTo, t.assignedToName);
+            if (u) {
+                const uk = u.toLowerCase();
+                if (!assigneesMap.has(uk)) assigneesMap.set(uk, u);
+            }
+            
+            const c = (t.companyName || t.company || '').toString().trim();
+            if (c) {
+                const ck = c.toLowerCase();
+                if (!companiesMap.has(ck)) companiesMap.set(ck, c);
+            }
+            
+            const b = (t.brand || '').toString().trim();
+            if (b) {
+                const bk = b.toLowerCase();
+                if (!brandsMap.has(bk)) brandsMap.set(bk, b);
+            }
         });
-        return { assignees: Array.from(assigns).sort(), companies: Array.from(comps).sort(), brands: Array.from(brs).sort() };
-    }, [tasks]);
+
+        return { 
+            assignees: Array.from(assigneesMap.values()).sort(), 
+            companies: apiCompanies && apiCompanies.length > 0 ? ['all', ...apiCompanies] : Array.from(companiesMap.values()).sort(), 
+            brands: Array.from(brandsMap.values()).sort() 
+        };
+    }, [tasks, apiCompanies]);
 
     const completionTrendsData = useMemo(() => {
         let list = tasks;

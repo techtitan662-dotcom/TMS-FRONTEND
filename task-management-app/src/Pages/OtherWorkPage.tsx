@@ -37,6 +37,10 @@ const OtherWorkPage = ({ currentUser, tasks, onRefreshTasks }: { currentUser: Us
             if (taskTypeKey !== 'other work') return false;
 
             if (isManagerRole) {
+                // Admins and MD Managers see everything for "Other Work"
+                if (role === 'super_admin' || role === 'admin' || role === 'md_manager') return true;
+                
+                // Other managers only see what they assigned
                 if (assignedBy !== myEmail) return false;
                 return true;
             }

@@ -80,33 +80,45 @@ const Sidebar: React.FC<SidebarProps> = ({
     const role = String((currentUser as any)?.role || '').trim().toLowerCase();
     const isAdminUser = role === 'admin' || role === 'super_admin';
     
+    const perms = (currentUser as any)?.permissions;
+    const hasPermsObj = perms && typeof perms === 'object' && Object.keys(perms).length > 0;
+
+    if (hasPermsObj) {
+      const perm = String((perms as any)[moduleId] || '').trim().toLowerCase();
+      // If explicitly denied, return false immediately even for admins
+      if (['no', 'false', '0', 'denied'].includes(perm)) return false;
+      // If explicitly allowed, return true
+      if (['allow', 'allowed', 'yes', 'true', '1'].includes(perm)) return true;
+    }
+
+    // If no explicit permission, admins get access by default
     if (isAdminUser) return true;
     
     if (moduleId === 'access_management' && (role === 'am' || role === 'rm')) return false;
-    const perms = (currentUser as any)?.permissions;
-    if (!perms || typeof perms !== 'object') return true;
-    if (Object.keys(perms).length === 0) return true;
-    if (typeof (perms as any)[moduleId] === 'undefined') return true;
-    const perm = String((perms as any)[moduleId] || '').trim().toLowerCase();
-    if (['deny', 'no', 'false', '0', 'disabled'].includes(perm)) return false;
-    return perm !== 'deny';
+    if (!hasPermsObj) return true;
+    
+    // For non-admins, if not explicitly allowed above, it's denied
+    return false;
   };
 
   const roleKey = String((currentUser as any)?.role || '').trim().toLowerCase();
   const isAdmin = roleKey === 'admin' || roleKey === 'super_admin';
   
-  const canSeeAccess = isAdmin ? true : hasAccess('access_management');
-  const canSeeTeam = isAdmin ? true : hasAccess('team_page');
-  const canSeeTasks = isAdmin ? true : hasAccess('tasks_page');
-  const canSeeCalendar = isAdmin ? true : hasAccess('calendar_page');
-  const canSeeBrands = isAdmin ? true : hasAccess('brands_page');
-  const canSeeProfile = isAdmin ? true : hasAccess('profile_page');
-  const canSeeAnalyze = isAdmin ? true : hasAccess('reports_analytics');
-  const canSeeReviews = isAdmin ? true : hasAccess('reviews_page');
-  const canSeePersonalTasks = isAdmin ? true : hasAccess('personal_tasks_page');
-  const canSeeStrike = isAdmin ? true : hasAccess('strike_page');
-  const canSeeOtherWork = isAdmin ? true : hasAccess('other_work_page');
-  const canSeeAssignPage = isAdmin ? true : hasAccess('assign_page');
+  const canSeeDashboard = hasAccess('dashboard');
+  const canSeeAssignedByMe = hasAccess('assigned_by_me');
+  const canSeeAssignedToMe = hasAccess('assigned_to_me');
+  const canSeeAccess = hasAccess('access_management');
+  const canSeeTeam = hasAccess('team_page');
+  const canSeeTasks = hasAccess('tasks_page');
+  const canSeeCalendar = hasAccess('calendar_page');
+  const canSeeBrands = hasAccess('brands_page');
+  const canSeeProfile = hasAccess('profile_page');
+  const canSeeAnalyze = hasAccess('reports_analytics');
+  const canSeeReviews = hasAccess('reviews_page');
+  const canSeePersonalTasks = hasAccess('personal_tasks_page');
+  const canSeeStrike = hasAccess('strike_page');
+  const canSeeOtherWork = hasAccess('other_work_page');
+  const canSeeAssignPage = hasAccess('assign_page');
   const canSeeMdImpexAccess = isAdmin ? true : (roleKey === 'md_manager');
 
   const userCompany = String((currentUser as any)?.companyName || (currentUser as any)?.company || '').trim().toLowerCase();
@@ -128,7 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       id: 'main',
       title: '',
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard', badge: 0 },
+        ...(canSeeDashboard ? [{ name: 'Dashboard', icon: LayoutDashboard, id: 'dashboard', badge: 0 }] : []),
       ]
     },
     {
@@ -137,8 +149,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         ...(canSeeTasks ? [{ name: 'All Tasks', icon: CheckSquare, id: 'all-tasks', badge: 0 }] : []),
         ...(canSeePersonalTasks ? [{ name: 'Personal Tasks', icon: ListTodo, id: 'personal-tasks', badge: 0 }] : []),
-        { name: 'Assigned By Me', icon: UserCheck, id: 'assigned-by-me', badge: assignedByMePendingCount },
-        { name: 'Assigned To Me', icon: ClipboardList, id: 'assigned-to-me', badge: assignedToMePendingCount },
+        ...(canSeeAssignedByMe ? [{ name: 'Assigned By Me', icon: UserCheck, id: 'assigned-by-me', badge: assignedByMePendingCount }] : []),
+        ...(canSeeAssignedToMe ? [{ name: 'Assigned To Me', icon: ClipboardList, id: 'assigned-to-me', badge: assignedToMePendingCount }] : []),
         ...(canSeeCalendar ? [{ name: 'Calendar', icon: Calendar, id: 'calendar', badge: 0 }] : []),
         ...(canSeeAnalyze ? [{ name: 'Analytics', icon: TrendingUp, id: 'analyze', badge: 0 }] : []),
       ]

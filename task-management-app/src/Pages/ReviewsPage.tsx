@@ -225,14 +225,23 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
   }, [currentUser, isAssistant, normalizeEmailKey]);
 
   const filteredTasks = useMemo(() => {
+    let list = tasks || [];
+    
+    // Apply reviewed filter from top select
+    if (filter === 'reviewed') {
+      list = list.filter((t: any) => t.reviewStars != null);
+    } else if (filter === 'pending') {
+      list = list.filter((t: any) => t.reviewStars == null);
+    }
+
     if (isAssistant) {
-      const base = (tasks || []).filter((t: any) => assistantAllowedAssigneeSet.has(resolveAssigneeEmailKey(t)));
+      const base = list.filter((t: any) => assistantAllowedAssigneeSet.has(resolveAssigneeEmailKey(t)));
       if (selectedAssigneeKey === 'all') return base;
       return base.filter((t: any) => resolveAssigneeEmailKey(t) === selectedAssigneeKey);
     }
-    if (selectedAssigneeKey === 'all') return tasks;
-    return (tasks || []).filter((t: any) => resolveAssigneeEmailKey(t) === selectedAssigneeKey);
-  }, [assistantAllowedAssigneeSet, isAssistant, resolveAssigneeEmailKey, selectedAssigneeKey, tasks]);
+    if (selectedAssigneeKey === 'all') return list;
+    return list.filter((t: any) => resolveAssigneeEmailKey(t) === selectedAssigneeKey);
+  }, [assistantAllowedAssigneeSet, isAssistant, resolveAssigneeEmailKey, selectedAssigneeKey, tasks, filter]);
 
   const tableTasks = useMemo(() => {
     const list = filteredTasks || [];
@@ -288,7 +297,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
     return { total: list.length, done, pending, reviewed, reviewPending };
   }, [filteredTasks]);
 
-  const fetchReviews = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!canView) {
       toast.error('Access denied');
       return;
@@ -296,10 +305,13 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
 
     setLoading(true);
     try {
-      const reviewedParam = filter === 'all' ? undefined : (filter === 'reviewed' ? true : false);
-      const res = await taskService.getTaskReviews({ reviewed: reviewedParam });
+      // Fetch all tasks for review once
+      const res = await taskService.getTaskReviews();
       if (res.success) {
-        setTasks(res.data || []);
+        const allFetchedTasks = res.data || [];
+        setTasks(allFetchedTasks);
+        // Consolidate reviewed tasks for summary
+        setReviewedTasks(allFetchedTasks.filter((t: any) => t.reviewStars != null));
       } else {
         toast.error(res.message || 'Failed to fetch reviews');
       }
@@ -308,28 +320,11 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
     } finally {
       setLoading(false);
     }
-  }, [canView, filter]);
-
-  useEffect(() => {
-    void fetchReviews();
-  }, [fetchReviews]);
-
-  const fetchReviewedForSummary = useCallback(async () => {
-    if (!canView) return;
-
-    try {
-      const res = await taskService.getTaskReviews({ reviewed: true });
-      if (res.success) {
-        setReviewedTasks(res.data || []);
-      }
-    } catch {
-      return;
-    }
   }, [canView]);
 
   useEffect(() => {
-    void fetchReviewedForSummary();
-  }, [fetchReviewedForSummary]);
+    void fetchData();
+  }, [fetchData]);
 
   const monthlySummary = useMemo(() => {
     const parseMonth = (value: string) => {
@@ -530,7 +525,7 @@ const ReviewsPage = ({ currentUser, users }: { currentUser: UserType; users?: Us
         setEditingId(null);
         setComment('');
         setStars(5);
-        await fetchReviews();
+        await fetchData();
       } else {
         toast.error(res.message || 'Failed to save review');
       }

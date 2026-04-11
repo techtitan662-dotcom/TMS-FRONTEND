@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
-import { 
-    CheckCircle, 
-    Edit, 
-    Trash2, 
-    Bell 
+import {
+    CheckCircle,
+    Edit,
+    Trash2,
+    Bell
 } from 'lucide-react';
 import type { Task, UserType } from '../Types/Types';
 import { stripDeletedEmailSuffix, isOverdueFn } from '../utils/dashboardUtils';
@@ -38,14 +38,14 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
     const getAssignedUserInfo = () => {
         const assignedTo = task.assignedTo;
         const assignedToUser = task.assignedToUser;
-        
+
         if (assignedToUser && typeof assignedToUser === 'object') {
             return assignedToUser;
         }
-        
+
         const email = typeof assignedTo === 'string' ? assignedTo : assignedTo?.email;
         if (!email) return { email: '', name: '' };
-        
+
         const found = users.find(u => u.email === email);
         return found || { email, name: '' };
     };
