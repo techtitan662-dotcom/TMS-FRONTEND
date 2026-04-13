@@ -157,6 +157,7 @@ interface AdvancedFilters {
   brand: string;
   rm: string;
   rmTeam?: string;
+  sort: string;
 }
 
 function parseMultiValue(value: string): string[] {
@@ -3338,7 +3339,8 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
     company: 'all',
     brand: 'all',
     rm: 'all',
-    rmTeam: ''
+    rmTeam: '',
+    sort: 'desc'
   });
 
   const effectiveAdvancedFilters = advancedFilters || localAdvancedFilters;
@@ -5803,10 +5805,13 @@ const AllTasksPage: React.FC<AllTasksPageProps> = memo(({
       return true;
     });
 
-    // Sorting - Show newest tasks first by creation date
+    // Sorting - Support both newest and oldest first
     filtered.sort((a, b) => {
       const aValue = new Date(a.createdAt || a.id).getTime();
       const bValue = new Date(b.createdAt || b.id).getTime();
+      if (effectiveAdvancedFilters.sort === 'asc') {
+        return aValue - bValue; // Ascending order (oldest first)
+      }
       return bValue - aValue; // Descending order (newest first)
     });
 

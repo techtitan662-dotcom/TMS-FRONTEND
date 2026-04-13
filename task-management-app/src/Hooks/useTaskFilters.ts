@@ -169,7 +169,7 @@ export const useTaskFilters = ({
         }).sort((a, b) => {
             const aDate = new Date(a.createdAt || 0).getTime();
             const bDate = new Date(b.createdAt || 0).getTime();
-            return bDate - aDate;
+            return filters.sort === 'asc' ? aDate - bDate : bDate - aDate;
         });
     }, [tasks, filters, searchTerm, currentUserEmail, currentUserRole, isOverdue, applyRoleVisibility, isTaskAssignee, isTaskAssigner, canonicalizeTaskType, normalizeText, normalizeRoleKey, normalizeCompanyKey]);
 

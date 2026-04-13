@@ -178,6 +178,7 @@ export interface FilterState {
     taskType: string;
     company: string;
     brand: string;
+    sort: string;
 }
 export type TaskHistory = {
     id: string;
