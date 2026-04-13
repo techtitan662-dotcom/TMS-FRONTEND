@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Users, Shield, X, Check, Loader2, ChevronDown, ChevronLeft, ChevronRight, Settings, UserCheck, Tags, Briefcase } from 'lucide-react';
+import { Plus, Trash2, Users, Shield, X, Check, CheckCircle, Loader2, ChevronDown, ChevronLeft, ChevronRight, Settings, UserCheck, Tags, Briefcase, Award, Star } from 'lucide-react';
 import mdImpexAccessService from '../Services/MdImpexAccess.services';
 import { taskTypeService, type TaskTypeItem } from '../Services/TaskType.service';
 import { brandService } from '../Services/Brand.service';
@@ -40,6 +40,9 @@ type PersonAccessItem = {
     allowedAssignees: string[];
     allowedTaskTypes?: string[];
     allowedBrands?: string[];
+    showEmployeeOfMonth?: boolean;
+    showMonthlyRanking?: boolean;
+    showPowerStar?: boolean;
     createdAt: string;
     updatedAt?: string;
 };
@@ -157,10 +160,112 @@ export default function MdImpexAccessPage({ allBrands, allTaskTypes }: { allBran
         void loadData();
     }, []);
 
+    const [updatingAccess, setUpdatingAccess] = useState<Record<string, boolean>>({});
+
+    const toggleExtraAccess = async (member: MemberItem, field: 'showEmployeeOfMonth' | 'showPowerStar') => {
+        const pAccess = personAccess.find(p => p.assignedToEmail === member.email);
+        const newValue = !(pAccess?.[field]);
+        const updateKey = `${member.email}-${field}`;
+
+        setUpdatingAccess(prev => ({ ...prev, [updateKey]: true }));
+
+        // Optimistically update local state so the UI doesn't re-render/flash
+        if (pAccess) {
+            setPersonAccess(prev =>
+                prev.map(p =>
+                    p.id === pAccess.id ? { ...p, [field]: newValue } : p
+                )
+            );
+        }
+
+        try {
+            if (pAccess) {
+                const res = await mdImpexAccessService.updatePersonAccess(pAccess.id, {
+                    allowedAssignees: pAccess.allowedAssignees || [],
+                    allowedTaskTypes: pAccess.allowedTaskTypes,
+                    allowedBrands: pAccess.allowedBrands,
+                    showEmployeeOfMonth: field === 'showEmployeeOfMonth' ? newValue : pAccess.showEmployeeOfMonth,
+                    showPowerStar: field === 'showPowerStar' ? newValue : pAccess.showPowerStar,
+                    showMonthlyRanking: pAccess.showMonthlyRanking
+                });
+                if (res.success) {
+                    toast.success(`Updated ${member.name}`);
+                    // Sync the record returned from server if present, otherwise keep optimistic value
+                    if (res.data) {
+                        setPersonAccess(prev =>
+                            prev.map(p => p.id === pAccess.id ? { ...p, ...res.data } : p)
+                        );
+                    }
+                } else {
+                    // Rollback on failure
+                    setPersonAccess(prev =>
+                        prev.map(p =>
+                            p.id === pAccess.id ? { ...p, [field]: !newValue } : p
+                        )
+                    );
+                    toast.error(res.message || 'Failed to update access');
+                }
+            } else {
+                const res = await mdImpexAccessService.createPersonAccess({
+                    assignedToEmail: member.email,
+                    assignedToRole: member.role || 'manager',
+                    allowedAssignees: [],
+                    [field]: newValue,
+                });
+                if (res.success) {
+                    toast.success(`Access initialized & updated for ${member.name}`);
+                    // Add the new record to local state
+                    if (res.data) {
+                        setPersonAccess(prev => [...prev, res.data]);
+                    } else {
+                        // Fallback: fetch fresh data only when a NEW record is created
+                        void loadData();
+                    }
+                } else {
+                    toast.error(res.message || 'Failed to create access');
+                }
+            }
+        } catch (error: any) {
+            // Rollback optimistic update on error
+            if (pAccess) {
+                setPersonAccess(prev =>
+                    prev.map(p =>
+                        p.id === pAccess.id ? { ...p, [field]: !newValue } : p
+                    )
+                );
+            }
+            toast.error(error?.message || 'Error occurred');
+        } finally {
+            setUpdatingAccess(prev => ({ ...prev, [updateKey]: false }));
+        }
+    };
+
     const filteredMembers = useMemo(() => {
         if (!selectedRole) return [];
         return members.filter(m => m.role.toLowerCase() === selectedRole.toLowerCase());
     }, [members, selectedRole]);
+
+    const sortedMarketerMembers = useMemo(() => {
+        return [...members].sort((a, b) => {
+            const aAccess = personAccess.find(p => p.assignedToEmail === a.email);
+            const bAccess = personAccess.find(p => p.assignedToEmail === b.email);
+            const aChecked = aAccess?.showEmployeeOfMonth ? 1 : 0;
+            const bChecked = bAccess?.showEmployeeOfMonth ? 1 : 0;
+            if (aChecked !== bChecked) return bChecked - aChecked;
+            return a.name.localeCompare(b.name);
+        });
+    }, [members, personAccess]);
+
+    const sortedPowerStarMembers = useMemo(() => {
+        return [...members].sort((a, b) => {
+            const aAccess = personAccess.find(p => p.assignedToEmail === a.email);
+            const bAccess = personAccess.find(p => p.assignedToEmail === b.email);
+            const aChecked = aAccess?.showPowerStar ? 1 : 0;
+            const bChecked = bAccess?.showPowerStar ? 1 : 0;
+            if (aChecked !== bChecked) return bChecked - aChecked;
+            return a.name.localeCompare(b.name);
+        });
+    }, [members, personAccess]);
 
     const availableAssignees = useMemo(() => {
         if (!selectedPerson) return [];
@@ -506,7 +611,7 @@ export default function MdImpexAccessPage({ allBrands, allTaskTypes }: { allBran
                                                                 </span>
                                                             </div>
                                                             <p className="text-[10px] text-gray-500 truncate mb-1">{item.assignedToEmail}</p>
-                                                            
+
                                                             {item.allowedBrands && item.allowedBrands.length > 0 && (
                                                                 <div className="mb-1">
                                                                     <div className="flex flex-wrap gap-0.5">
@@ -578,6 +683,103 @@ export default function MdImpexAccessPage({ allBrands, allTaskTypes }: { allBran
                                         )}
                                     </>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Extra Access Features - Marketer of the month & Power star */}
+                {!loading && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                        {/* Marketer of the Month Card */}
+                        <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm flex flex-col h-[400px]`}>
+                            <div className={`px-3 py-2 border-b border-gray-200 bg-[${theme.primaryUltralight}] shrink-0`}>
+                                <h2 className="font-semibold text-xs text-gray-700 flex items-center gap-1.5">
+                                    <Award className="w-3.5 h-3.5 text-blue-600" />
+                                    Marketer of the Month
+                                </h2>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                <ul className="divide-y divide-gray-100">
+                                    {sortedMarketerMembers.map(member => {
+                                        const pAccess = personAccess.find(p => p.assignedToEmail === member.email);
+                                        const isChecked = !!pAccess?.showEmployeeOfMonth;
+                                        const updateKey = `${member.email}-showEmployeeOfMonth`;
+                                        const isUpdating = updatingAccess[updateKey];
+
+                                        return (
+                                            <li key={`motm-${member.id}`} className="p-2.5 flex items-center justify-between hover:bg-gray-50">
+                                                <div className="flex-1 min-w-0 pr-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <p className="font-medium text-xs text-gray-900 truncate">{member.name}</p>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500 truncate flex items-center gap-1">
+                                                        {member.email}
+                                                        {isChecked && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
+                                                    </p>
+                                                </div>
+                                                <div className="shrink-0 flex items-center justify-center w-6">
+                                                    {isUpdating ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                                                    ) : (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => toggleExtraAccess(member, 'showEmployeeOfMonth')}
+                                                            className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Power Star of the Month Card */}
+                        <div className={`bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm flex flex-col h-[400px]`}>
+                            <div className={`px-3 py-2 border-b border-gray-200 bg-[${theme.primaryUltralight}] shrink-0`}>
+                                <h2 className="font-semibold text-xs text-gray-700 flex items-center gap-1.5">
+                                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-current" />
+                                    Power Star of the Month
+                                </h2>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                <ul className="divide-y divide-gray-100">
+                                    {sortedPowerStarMembers.map(member => {
+                                        const pAccess = personAccess.find(p => p.assignedToEmail === member.email);
+                                        const isChecked = !!pAccess?.showPowerStar;
+                                        const updateKey = `${member.email}-showPowerStar`;
+                                        const isUpdating = updatingAccess[updateKey];
+
+                                        return (
+                                            <li key={`psotm-${member.id}`} className="p-2.5 flex items-center justify-between hover:bg-gray-50">
+                                                <div className="flex-1 min-w-0 pr-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <p className="font-medium text-xs text-gray-900 truncate">{member.name}</p>
+                                                    </div>
+                                                    <p className="text-[10px] text-gray-500 truncate flex items-center gap-1">
+                                                        {member.email}
+                                                        {isChecked && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
+                                                    </p>
+                                                </div>
+                                                <div className="shrink-0 flex items-center justify-center w-6">
+                                                    {isUpdating ? (
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                                                    ) : (
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => toggleExtraAccess(member, 'showPowerStar')}
+                                                            className="w-3.5 h-3.5 text-blue-600 rounded cursor-pointer"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
                             </div>
                         </div>
                     </div>

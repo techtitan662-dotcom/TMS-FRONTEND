@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, Users, Trophy, Download, Calendar } from 'lucide-react';
+import { Star, CheckCircle, Users, Trophy, Download, Calendar, Trash2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 import type { UserType } from '../Types/Types';
@@ -9,13 +9,8 @@ import { toAvatarUrl } from '../utils/avatar';
 import logo from '../../public/logo (2).png';
 import cardBg from '../../public/Marble Iphone Wallpaper • The Best Marble Backgrounds.jpg.jpeg';
 
-const EXCLUDED_POWERSTAR_EMAILS = new Set([
-    'drashtismartbiz@gmail.com',
-    'krunalsmartbiz@gmail.com',
-    'harshsmartbiz@gmail.com',
-    'vadadoriyanency8@gmail.com',
-    'ysiddhapura6@gmail.com'
-].map((e) => e.trim().toLowerCase()));
+import mdImpexAccessService from '../Services/MdImpexAccess.services';
+// Static list removed - now uses dynamic data from mdImpexAccessService
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const monthKeyOfDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
@@ -68,23 +63,10 @@ const formatMetricTotal = (metric: MetricKey, n: number) => {
     return String(Math.round(n));
 };
 
-const getEmployeeOfTheMonthEmails = (): Set<string> => {
-    try {
-        const stored = localStorage.getItem('employeeOfTheMonthEmails');
-        if (stored) {
-            const emails = JSON.parse(stored);
-            return new Set(Array.isArray(emails) ? emails.map(String) : []);
-        }
-    } catch (e) {
-        console.warn('Failed to parse employeeOfTheMonthEmails from localStorage', e);
-    }
-    return new Set();
-};
-
-const isExcludedFromPowerStar = (email: unknown): boolean => {
+// Dynamic check instead of static exclusion
+const isIncludedInPowerStar = (email: unknown, dynamicEmails: Set<string>): boolean => {
     const key = String(email || '').trim().toLowerCase();
-    if (!key) return false;
-    return EXCLUDED_POWERSTAR_EMAILS.has(key);
+    return dynamicEmails.has(key);
 };
 
 const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => {
@@ -102,7 +84,40 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
 
     const [data, setData] = useState<PowerStarMonthlyResponse | null>(null);
     const [rowsDraft, setRowsDraft] = useState<PowerStarMonthlyRow[]>([]);
+    const [dynamicPowerStarEmails, setDynamicPowerStarEmails] = useState<Set<string>>(new Set());
+    const [hiddenUserIds, setHiddenUserIds] = useState<Set<string>>(new Set());
     const cardRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(`psom_hidden_${monthKey}`);
+            if (stored) {
+                setHiddenUserIds(new Set(JSON.parse(stored)));
+            } else {
+                setHiddenUserIds(new Set());
+            }
+        } catch (e) {
+            setHiddenUserIds(new Set());
+        }
+    }, [monthKey]);
+
+    const handleHideUser = useCallback((userId: string) => {
+        setHiddenUserIds(prev => {
+            const next = new Set(prev);
+            next.add(userId);
+            localStorage.setItem(`psom_hidden_${monthKey}`, JSON.stringify(Array.from(next)));
+            return next;
+        });
+    }, [monthKey]);
+
+    const handleRestoreUser = useCallback((userId: string) => {
+        setHiddenUserIds(prev => {
+            const next = new Set(prev);
+            next.delete(userId);
+            localStorage.setItem(`psom_hidden_${monthKey}`, JSON.stringify(Array.from(next)));
+            return next;
+        });
+    }, [monthKey]);
 
     const downloadCard = async () => {
         if (!cardRef.current) {
@@ -137,14 +152,24 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
     const fetchMonthly = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await powerStarMonthlyService.getMonthly(monthKey);
-            if (!res?.success || !res.data) {
+            // Fetch dynamic emails from MdImpexAccess
+            const [psRes, accessRes] = await Promise.all([
+                powerStarMonthlyService.getMonthly(monthKey),
+                mdImpexAccessService.getMonthlyCardUsers()
+            ]);
+
+            if (accessRes.success && accessRes.data) {
+                const emails = new Set<string>((accessRes.data.powerStar || []).map((u: any) => String(u.email || '').trim().toLowerCase()));
+                setDynamicPowerStarEmails(emails);
+            }
+
+            if (!psRes?.success || !psRes.data) {
                 setData(null);
-                setRowsDraft([]); 
+                setRowsDraft([]);
                 return;
             }
-            setData(res.data);
-            setRowsDraft(res.data.rows || []);
+            setData(psRes.data);
+            setRowsDraft(psRes.data.rows || []);
         } catch (err) {
             console.error('fetchMonthly error:', err);
         } finally {
@@ -158,7 +183,7 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
 
     const rowsNormalized = useMemo(() => {
         const list = Array.isArray(rowsDraft) ? rowsDraft : [];
-        return list.map((r) => ({
+        return list.filter((r) => !hiddenUserIds.has(String(r.userId))).map((r) => ({
             ...r,
             churn: normalizeWeekArray((r as any).churn),
             liveAssign: normalizeWeekArray((r as any).liveAssign),
@@ -248,14 +273,12 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
             liveAssign: null,
             hits: null
         };
-        const employeeOfTheMonthEmails = getEmployeeOfTheMonthEmails();
         (metricMeta || []).forEach((m) => {
             const key = m.key;
             const freezeField = key === 'churn' ? 'freezeChurn' : key === 'liveAssign' ? 'freezeLiveAssign' : 'freezeHits';
             const sorted = [...rowsNormalized]
                 .filter((r) => !(r as any)[freezeField])
-                .filter((r) => !employeeOfTheMonthEmails.has(String(r?.email || '').trim().toLowerCase()))
-                .filter((r) => !isExcludedFromPowerStar((r as any)?.email))
+                .filter((r) => isIncludedInPowerStar((r as any)?.email, dynamicPowerStarEmails))
                 .sort((a, b) => {
                     const ta = metricTotal(key, (a as any)[key]);
                     const tb = metricTotal(key, (b as any)[key]);
@@ -287,12 +310,10 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
     }, [topRowsByMetric]);
 
     const topActiveRow = useMemo(() => {
-        const employeeOfTheMonthEmails = getEmployeeOfTheMonthEmails();
         const freezeField = activeMetric === 'churn' ? 'freezeChurn' : activeMetric === 'liveAssign' ? 'freezeLiveAssign' : 'freezeHits';
         const sorted = [...rowsNormalized]
             .filter((r) => !(r as any)[freezeField])
-            .filter((r) => !employeeOfTheMonthEmails.has(String(r?.email || '').trim().toLowerCase()))
-            .filter((r) => !isExcludedFromPowerStar((r as any)?.email))
+            .filter((r) => isIncludedInPowerStar((r as any)?.email, dynamicPowerStarEmails))
             .sort((a, b) => {
                 const ta = metricTotal(activeMetric, (a as any)[activeMetric]);
                 const tb = metricTotal(activeMetric, (b as any)[activeMetric]);
@@ -302,14 +323,12 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
     }, [activeMetric, rowsNormalized]);
 
     const rowsSortedForActiveMetric = useMemo(() => {
-        const employeeOfTheMonthEmails = getEmployeeOfTheMonthEmails();
         const freezeField = activeMetric === 'churn' ? 'freezeChurn' : activeMetric === 'liveAssign' ? 'freezeLiveAssign' : 'freezeHits';
         const unfrozen = [...rowsNormalized].filter((r) => !(r as any)[freezeField]);
         const frozen = [...rowsNormalized].filter((r) => (r as any)[freezeField]);
         const all = [...unfrozen, ...frozen];
         const filtered = all
-            .filter((r) => !employeeOfTheMonthEmails.has(String(r?.email || '').trim().toLowerCase()))
-            .filter((r) => !isExcludedFromPowerStar((r as any)?.email));
+            .filter((r) => isIncludedInPowerStar((r as any)?.email, dynamicPowerStarEmails));
         const sortFn = (a: any, b: any) => {
             const ta = metricTotal(activeMetric, (a as any)[activeMetric]);
             const tb = metricTotal(activeMetric, (b as any)[activeMetric]);
@@ -639,13 +658,12 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
                                     key={m.key}
                                     type="button"
                                     onClick={() => setActiveMetric(m.key)}
-                                    className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all ${
-                                        isActive
+                                    className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all ${isActive
                                             ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                             : isTopMetric
                                                 ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                    }`}
+                                        }`}
                                 >
                                     {m.title}
                                 </button>
@@ -705,9 +723,8 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
                                         <div className={`rounded-lg border p-3 sm:p-4 hover:shadow-md hover:border-blue-300 transition-all duration-300 ${cardBgClass} ${isTop ? 'ring-1 ring-amber-400' : ''} border-blue-200`}>
                                             {/* Rank Badge */}
                                             <div
-                                                className={`absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white shadow-sm ${
-                                                    isTop ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-blue-500 to-blue-600'
-                                                }`}
+                                                className={`absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold text-white shadow-sm ${isTop ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                                                    }`}
                                             >
                                                 #{index + 1}
                                             </div>
@@ -719,6 +736,18 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
                                                         Freeze
                                                     </span>
                                                 </div>
+                                            )}
+
+                                            {/* Delete Button */}
+                                            {canEdit && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleHideUser(String(r.userId))}
+                                                    className="absolute top-2 right-6 sm:right-8 p-1 sm:p-1.5 text-gray-400 hover:text-red-500 bg-white/70 hover:bg-red-50 rounded-full transition-colors z-[10] shadow-sm border border-transparent hover:border-red-100"
+                                                    title="Delete User"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             )}
 
                                             <div className="flex items-start gap-2 sm:gap-3">
@@ -774,11 +803,10 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
                                                                 type="button"
                                                                 onClick={() => handleFreezeToggle(r.userId, activeMetric)}
                                                                 disabled={saving || loading}
-                                                                className={`text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded font-medium transition-all ${
-                                                                    isFrozen
+                                                                className={`text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded font-medium transition-all ${isFrozen
                                                                         ? 'bg-rose-100 text-rose-700 border border-rose-200'
                                                                         : 'bg-blue-100 text-blue-700 border border-blue-200'
-                                                                } disabled:opacity-60`}
+                                                                    } disabled:opacity-60`}
                                                             >
                                                                 {isFrozen ? 'Unfreeze' : 'Freeze'}
                                                             </button>
@@ -812,6 +840,37 @@ const PowerStarOfTheMonthPage = ({ currentUser }: { currentUser: UserType }) => 
                                 );
                             })}
                         </div>
+
+                        {/* Hidden Users Panel for MD Manager - Inside Team Section */}
+                        {canEdit && rowsDraft.some(r => hiddenUserIds.has(String(r.userId))) && (
+                            <div className="mt-6 pt-6 border-t border-blue-100 download-btn-to-hide">
+                                <h3 className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                                    <Trash2 className="w-4 h-4" />
+                                    Deleted Team Members
+                                </h3>
+                                <div className="space-y-2">
+                                    {rowsDraft.filter(r => hiddenUserIds.has(String(r.userId))).map((r) => (
+                                        <div key={r.userId} className="flex flex-wrap items-center justify-between p-3 bg-gray-50/80 border border-gray-200 rounded-lg opacity-80 gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200">
+                                                    {(r as any).avatar ? <img src={toAvatarUrl((r as any).avatar)} className="w-full h-full object-cover opacity-50 grayscale" /> : <div className="w-full h-full bg-gray-200"></div>}
+                                                </div>
+                                                <span className="text-xs sm:text-sm font-medium text-gray-600 line-through">
+                                                    {(r as any).name} <span className="text-gray-400 font-normal ml-1">({r.email})</span>
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRestoreUser(String(r.userId))}
+                                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
+                                            >
+                                                Restore Item
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

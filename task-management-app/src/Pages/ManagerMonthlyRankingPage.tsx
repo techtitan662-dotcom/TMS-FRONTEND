@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, Users, Download, Calendar } from 'lucide-react';
+import { Star, CheckCircle, Users, Download, Calendar, Trash2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
 import type { UserType } from '../Types/Types';
@@ -9,11 +9,8 @@ import { toAvatarUrl } from '../utils/avatar';
 import logo from '../../public/logo (2).png';
 import cardBg from '../../public/Marble Iphone Wallpaper • The Best Marble Backgrounds.jpg.jpeg';
 
-const ALLOWED_MARKETER_MANAGER_EMAILS = new Set([
-    'drashtismartbiz@gmail.com',
-    'krunalsmartbiz@gmail.com',
-    'harshsmartbiz@gmail.com'
-].map((e) => e.trim().toLowerCase()));
+import mdImpexAccessService from '../Services/MdImpexAccess.services';
+// Static list removed - now uses dynamic data from mdImpexAccessService
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const monthKeyOfDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
@@ -49,7 +46,40 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
 
     const [data, setData] = useState<ManagerMonthlyRankingResponse | null>(null);
     const [rowsDraft, setRowsDraft] = useState<ManagerMonthlyRankingRow[]>([]);
+    const [dynamicMarketerEmails, setDynamicMarketerEmails] = useState<Set<string>>(new Set());
+    const [hiddenUserIds, setHiddenUserIds] = useState<Set<string>>(new Set());
     const cardRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem(`mmr_hidden_${monthKey}`);
+            if (stored) {
+                setHiddenUserIds(new Set(JSON.parse(stored)));
+            } else {
+                setHiddenUserIds(new Set());
+            }
+        } catch (e) {
+            setHiddenUserIds(new Set());
+        }
+    }, [monthKey]);
+
+    const handleHideUser = useCallback((userId: string) => {
+        setHiddenUserIds(prev => {
+            const next = new Set(prev);
+            next.add(userId);
+            localStorage.setItem(`mmr_hidden_${monthKey}`, JSON.stringify(Array.from(next)));
+            return next;
+        });
+    }, [monthKey]);
+
+    const handleRestoreUser = useCallback((userId: string) => {
+        setHiddenUserIds(prev => {
+            const next = new Set(prev);
+            next.delete(userId);
+            localStorage.setItem(`mmr_hidden_${monthKey}`, JSON.stringify(Array.from(next)));
+            return next;
+        });
+    }, [monthKey]);
 
     const downloadCard = async () => {
         if (!cardRef.current) {
@@ -84,14 +114,27 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
     const fetchMonthly = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await managerMonthlyRankingService.getMonthlyRanking(monthKey);
-            if (!res?.success || !res.data) {
+            // Fetch dynamic emails from MdImpexAccess
+            const [mmrRes, accessRes] = await Promise.all([
+                managerMonthlyRankingService.getMonthlyRanking(monthKey),
+                mdImpexAccessService.getMonthlyCardUsers()
+            ]);
+
+            if (accessRes.success && accessRes.data) {
+                const emails = new Set<string>([
+                    ...(accessRes.data.marketerOfMonth || []).map((u: any) => normalizeEmailKey(u.email)),
+                    ...(accessRes.data.monthlyRanking || []).map((u: any) => normalizeEmailKey(u.email))
+                ]);
+                setDynamicMarketerEmails(emails);
+            }
+
+            if (!mmrRes?.success || !mmrRes.data) {
                 setData(null);
                 setRowsDraft([]);
                 return;
             }
-            setData(res.data);
-            setRowsDraft(res.data.rows || []);
+            setData(mmrRes.data);
+            setRowsDraft(mmrRes.data.rows || []);
         } catch (err) {
             console.error('fetchMonthly error:', err);
         } finally {
@@ -106,9 +149,10 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
     const computedRows = useMemo(() => {
         const list = Array.isArray(rowsDraft) ? rowsDraft : [];
         const filtered = list.filter((r) => {
+            if (hiddenUserIds.has(String(r.userId))) return false;
             const email = normalizeEmailKey((r as any).email);
-            const role = normalizeRoleKey((r as any).role);
-            return ALLOWED_MARKETER_MANAGER_EMAILS.has(email) || role === 'marketer_manager';
+            // Dynamic filtering based on MD Impex Access selections
+            return dynamicMarketerEmails.has(email);
         });
         const mapped = filtered.map((r) => {
             const assign = clampNonNegativeInt(toNumberSafe((r as any).assign));
@@ -484,6 +528,18 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
                                                 #{rank}
                                             </div>
 
+                                            {/* Delete Button */}
+                                            {canEdit && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleHideUser(String(r.userId))}
+                                                    className="absolute top-2 right-6 sm:right-8 p-1 sm:p-1.5 text-gray-400 hover:text-red-500 bg-white/70 hover:bg-red-50 rounded-full transition-colors z-[10] shadow-sm border border-transparent hover:border-red-100"
+                                                    title="Delete User"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+
                                             <div className="flex items-start gap-2 sm:gap-3">
                                                 {/* Avatar */}
                                                 <div className="relative flex-shrink-0">
@@ -543,10 +599,10 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
                                                     {/* Performance tag */}
                                                     <span
                                                         className={`inline-block text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded font-medium mt-1 ${r.percent >= 90
-                                                                ? 'bg-green-100 text-green-700'
-                                                                : r.percent >= 70
-                                                                    ? 'bg-blue-100 text-blue-700'
-                                                                    : 'bg-amber-100 text-amber-700'
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : r.percent >= 70
+                                                                ? 'bg-blue-100 text-blue-700'
+                                                                : 'bg-amber-100 text-amber-700'
                                                             }`}
                                                     >
                                                         {r.percent >= 90 ? 'Excellent' : r.percent >= 70 ? 'Good' : 'Needs Improvement'}
@@ -589,6 +645,37 @@ const ManagerMonthlyRankingPage = ({ currentUser }: { currentUser: UserType }) =
                                 );
                             })}
                         </div>
+
+                        {/* Hidden Users Panel for MD Manager - Inside Team Section */}
+                        {canEdit && rowsDraft.some(r => hiddenUserIds.has(String(r.userId))) && (
+                            <div className="mt-6 pt-6 border-t border-blue-100 download-btn-to-hide">
+                                <h3 className="text-sm font-semibold text-gray-500 mb-3 flex items-center gap-2">
+                                    <Trash2 className="w-4 h-4" />
+                                    Deleted Team Members
+                                </h3>
+                                <div className="space-y-2">
+                                    {rowsDraft.filter(r => hiddenUserIds.has(String(r.userId))).map((r) => (
+                                        <div key={r.userId} className="flex flex-wrap items-center justify-between p-3 bg-gray-50/80 border border-gray-200 rounded-lg opacity-80 gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200">
+                                                    {r.avatar ? <img src={toAvatarUrl(r.avatar)} className="w-full h-full object-cover opacity-50 grayscale" /> : <div className="w-full h-full bg-gray-200"></div>}
+                                                </div>
+                                                <span className="text-xs sm:text-sm font-medium text-gray-600 line-through">
+                                                    {r.name} <span className="text-gray-400 font-normal ml-1">({r.email})</span>
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRestoreUser(String(r.userId))}
+                                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"
+                                            >
+                                                Restore Item
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

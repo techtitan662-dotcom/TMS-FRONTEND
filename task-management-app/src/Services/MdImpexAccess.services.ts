@@ -283,6 +283,31 @@ class MdImpexAccessService {
             };
         }
     }
+
+    // Fetch users selected for Marketer-of-Month / Power-Star-of-Month cards (display pages)
+    async getMonthlyCardUsers() {
+        try {
+            const res = await apiClient.get(`${this.baseUrl}monthly-card-users`);
+            return {
+                success: Boolean(res.data.success),
+                data: (res.data.data || { marketerOfMonth: [], powerStar: [], monthlyRanking: [] }) as {
+                    marketerOfMonth: Array<{ email: string; name: string; role: string; position: string; avatar: string; companyName: string }>;
+                    powerStar: Array<{ email: string; name: string; role: string; position: string; avatar: string; companyName: string }>;
+                    monthlyRanking: Array<{ email: string; name: string; role: string; position: string; avatar: string; companyName: string }>;
+                },
+                message: res.data.message || 'Monthly card users fetched successfully'
+            };
+        } catch (err: any) {
+            if (isDev) console.error('❌ Get Monthly Card Users Error:', describeAxiosError(err));
+            const backendMessage = err.response?.data?.message || err.response?.data?.msg;
+            const backendError = err.response?.data?.error;
+            return {
+                success: false,
+                data: { marketerOfMonth: [], powerStar: [], monthlyRanking: [] },
+                message: backendMessage || backendError || err.message || 'Failed to fetch monthly card users'
+            };
+        }
+    }
 }
 
 const mdImpexAccessService = new MdImpexAccessService();
