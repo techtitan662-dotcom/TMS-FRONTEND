@@ -278,7 +278,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                     const email = normalizeText(typeof t.assignedTo === 'string' ? t.assignedTo : (t as any).assignedTo?.email).toLowerCase();
                     if (email && userRoleMap.has(email)) role = userRoleMap.get(email)!;
                 }
-                userMap[u] = { name: u, role: role || 'No Role', total: 0, completed: 0, pending: 0, reassigned: 0, pendingApproval: 0, overdue: 0, overdueCompleted: 0 };
+                userMap[u] = { name: u, role: role || 'No Role', total: 0, completed: 0, pending: 0, reassigned: 0, pendingApproval: 0, overdue: 0, overdueCompleted: 0, completedBeforeOverdue: 0 };
             }
             userMap[u].total++;
             const status = normalizeText(t.status).toLowerCase();
@@ -294,9 +294,15 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 const due = new Date(normalizeText((t as any)?.dueDate));
                 const cmp = new Date(normalizeText((t as any)?.completedAt || (t as any)?.updatedAt));
                 if (!isNaN(due.getTime()) && !isNaN(cmp.getTime()) && cmp > due) userMap[u].overdueCompleted++;
+                if (!isNaN(due.getTime()) && !isNaN(cmp.getTime()) && cmp <= due) userMap[u].completedBeforeOverdue++;
             }
         });
-        return Object.values(userMap).map(u => ({ ...u, rate: u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0 })).sort((a, b) => b.completed - a.completed);
+        return Object.values(userMap).map(u => ({
+            ...u,
+            rate: u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0,
+            overdueCompletedRate: u.total > 0 ? Math.round((u.overdueCompleted / u.total) * 100) : 0,
+            completedBeforeOverdueRate: u.total > 0 ? Math.round((u.completedBeforeOverdue / u.total) * 100) : 0
+        })).sort((a, b) => b.completed - a.completed);
     }, [filteredTasksByGlobalDates, reportFilterCompany, users]);
 
     const groupedUserReportData = useMemo(() => {
@@ -311,8 +317,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
 
     const handleExportReport = () => {
         if (!userReportData.length) return;
-        const headers = ['User', 'Role', 'Total Tasks', 'Completed', 'Pending', 'Reassigned', 'Pending Approval', 'Overdue', 'Overdue Completed', 'Success Rate (%)'];
-        const rows = userReportData.map(r => [r.name, r.role, r.total, r.completed, r.pending, r.reassigned, r.pendingApproval, r.overdue, r.overdueCompleted, r.rate]);
+        const headers = ['User', 'Role', 'Total Tasks', 'Completed', 'Pending', 'Reassigned', 'Pending Approval', 'Overdue', 'Overdue Completed', 'Overdue Completed %', 'Completed Before Overdue', 'Completed Before Overdue %', 'Success Rate (%)'];
+        const rows = userReportData.map(r => [r.name, r.role, r.total, r.completed, r.pending, r.reassigned, r.pendingApproval, r.overdue, r.overdueCompleted, `${r.overdueCompletedRate}%`, r.completedBeforeOverdue, `${r.completedBeforeOverdueRate}%`, r.rate]);
         const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');

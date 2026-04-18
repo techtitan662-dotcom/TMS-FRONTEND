@@ -11,6 +11,9 @@ interface UserReportRow {
     pendingApproval: number;
     overdue: number;
     overdueCompleted: number;
+    overdueCompletedRate: number;
+    completedBeforeOverdue: number;
+    completedBeforeOverdueRate: number;
     rate: number;
 }
 
@@ -90,13 +93,14 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-blue-600">Pending Approval</th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-red-600">Overdue</th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-purple-600">Ovre due complete</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center text-indigo-600">Completed Before Overdue</th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Success Rate</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {data.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="px-6 py-12 text-center text-gray-400 italic">
+                                <td colSpan={10} className="px-6 py-12 text-center text-gray-400 italic">
                                     No user data found for this selection
                                 </td>
                             </tr>
@@ -104,7 +108,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({
                             Object.entries(groupedData).map(([role, roleUsers]) => (
                                 <React.Fragment key={role}>
                                     <tr className="bg-gray-50/80">
-                                        <td colSpan={9} className="px-6 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest border-y border-gray-100 flex items-center gap-2">
+                                        <td colSpan={10} className="px-6 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest border-y border-gray-100 flex items-center gap-2">
                                             <div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>
                                             ROLE: {role}
                                         </td>
@@ -153,9 +157,20 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 font-mono">
-                                                    {row.overdueCompleted}
-                                                </span>
+                                                <div className="flex flex-col items-center">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 font-mono">
+                                                        {row.overdueCompleted}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold text-purple-400 mt-0.5">{row.overdueCompletedRate}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                <div className="flex flex-col items-center">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 font-mono">
+                                                        {row.completedBeforeOverdue}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold text-indigo-400 mt-0.5">{row.completedBeforeOverdueRate}%</span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
                                                 <div className="flex items-center gap-3">
