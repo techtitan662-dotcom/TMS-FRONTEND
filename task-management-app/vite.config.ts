@@ -25,7 +25,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-router', 'react-redux', '@reduxjs/toolkit'],
           'vendor-ui': ['lucide-react', 'react-hot-toast', 'react-toastify', 'react-bootstrap', 'react-virtuoso'],
           'vendor-charts': ['echarts'],
-          'vendor-firebase': ['firebase'],
+          'vendor-firebase': ['firebase/app', 'firebase/messaging'],
           'vendor-utils': ['axios', 'socket.io-client', 'html-to-image', 'html2canvas'],
         },
       },
