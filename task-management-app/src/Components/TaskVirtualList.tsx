@@ -64,19 +64,6 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
         );
     }, [tasks, users, onToggleStatus, onDelete, onSendReminder, onOpenComments, formatBrand, formatDate, canMarkTaskDone, canEditDeleteTask, canSendReminderForTask, isSbmUser, sendingReminderByTaskId]);
 
-    if (viewMode === 'grid') {
-        return (
-            <VirtuosoGrid
-                style={{ height: '70vh', width: '100%' }}
-                totalCount={tasks.length}
-                initialItemCount={Math.min(24, tasks.length)}
-                itemClassName="p-2"
-                listClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-                itemContent={gridItemContent}
-            />
-        );
-    }
-
     const listItemContent = useCallback((_index: number, task: Task) => (
         <TaskListRow
             key={task.id}
@@ -105,6 +92,19 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
             <th className="px-4 py-3 text-right bg-gray-50/50">Actions</th>
         </tr>
     ), []);
+
+    if (viewMode === 'grid') {
+        return (
+            <VirtuosoGrid
+                style={{ height: '70vh', width: '100%' }}
+                totalCount={tasks.length}
+                initialItemCount={Math.min(24, tasks.length)}
+                itemClassName="p-2"
+                listClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+                itemContent={gridItemContent}
+            />
+        );
+    }
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
