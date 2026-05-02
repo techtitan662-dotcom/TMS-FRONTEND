@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, RefreshCw, MoreVertical, CheckCircle, XCircle, Calendar, Clock, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, RefreshCw, MoreVertical, CheckCircle, XCircle, Calendar, Clock, Users, Video } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import type { Task, TaskStatus, UserType } from '../Types/Types';
@@ -155,8 +155,19 @@ const CalendarView: React.FC<CalendarViewProps> = (props) => {
   const fetchAllUsers = useCallback(async () => {
     try {
       const res = await authService.getAllUsers();
-      if (res && Array.isArray(res.result)) {
-        setAllUsers(res.result);
+      if (!res) return;
+      
+      let users: UserType[] = [];
+      if (Array.isArray(res.data)) {
+        users = res.data;
+      } else if (Array.isArray(res.result)) {
+        users = res.result;
+      } else if (Array.isArray(res)) {
+        users = res;
+      }
+      
+      if (users.length > 0) {
+        setAllUsers(users);
       }
     } catch (err) {
       console.error('Failed to fetch all users:', err);
@@ -183,6 +194,22 @@ const CalendarView: React.FC<CalendarViewProps> = (props) => {
       toast.error(err?.message || 'Failed to schedule meeting');
     } finally {
       setIsSubmittingMeeting(false);
+    }
+  };
+
+  const handleEndMeeting = async (meetingId: string) => {
+    if (!window.confirm('Are you sure you want to end this meeting for all participants?')) return;
+    
+    try {
+      const res = await meetingService.endMeeting(meetingId);
+      if (res?.success) {
+        toast.success('Meeting ended successfully');
+        fetchMeetings();
+      } else {
+        toast.error(res?.message || 'Failed to end meeting');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to end meeting');
     }
   };
 
@@ -1264,6 +1291,69 @@ const CalendarView: React.FC<CalendarViewProps> = (props) => {
                           <p className="mt-3 text-xs text-emerald-700 italic border-l-2 border-emerald-200 pl-2">
                             {meeting.description}
                           </p>
+                        )}
+                        {meeting.isZoomMeeting && meeting.zoomJoinUrl && (
+                          <div className="mt-4 pt-3 border-t border-emerald-100 flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+                                <Video className="h-4 w-4" />
+                                <span>Zoom Meeting</span>
+                              </div>
+                              {meeting.status === 'completed' && (
+                                <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                  Completed
+                                </span>
+                              )}
+                            </div>
+
+                            {(() => {
+                              const now = new Date();
+                              const endTime = new Date(meeting.endTime);
+                              const isPast = now > endTime;
+                              const isCompleted = meeting.status === 'completed';
+                              const userRole = (currentUser as any)?.role?.toLowerCase();
+                              const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+                              const isCreator = (meeting.createdBy as any)?._id === (currentUser as any)?._id || (meeting.createdBy as any)?._id === (currentUser as any)?.id;
+
+                              return (
+                                <>
+                                  {!isCompleted && !isPast && (
+                                    <a
+                                      href={meeting.zoomJoinUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all active:scale-95"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                      Join Zoom Meeting
+                                    </a>
+                                  )}
+
+                                  {!isCompleted && (isAdmin || isCreator) && (
+                                    <button
+                                      onClick={() => handleEndMeeting(meeting._id)}
+                                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold rounded-lg transition-all border border-rose-100 active:scale-95"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      End Meeting for All
+                                    </button>
+                                  )}
+
+                                  {isPast && !isCompleted && (
+                                    <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 text-center font-medium">
+                                      This meeting session has ended.
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+
+                            {meeting.zoomPassword && meeting.status !== 'completed' && (
+                              <div className="text-[10px] text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                <span className="font-semibold">Passcode:</span> {meeting.zoomPassword}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}

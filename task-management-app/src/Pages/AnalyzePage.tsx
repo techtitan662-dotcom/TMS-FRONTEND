@@ -7,23 +7,24 @@ import {
     CalendarClock,
     Loader2
 } from 'lucide-react';
-import ManagerAnalysisChart from '../Components/ManagerAnalysisChart';
+import { lazy, Suspense } from 'react';
+const ManagerAnalysisChart = lazy(() => import('../Components/ManagerAnalysisChart'));
 import type { Task, UserType } from '../Types/Types';
 import apiClient from '../Services/apiClient';
 import toast from 'react-hot-toast';
 
-// Modular Components
-import OverdueByUserChart from '../Components/Analytics/OverdueByUserChart';
-import AssignByChart from '../Components/Analytics/AssignByChart';
-import AssignedChart from '../Components/Analytics/AssignedChart';
-import AssignedToChart from '../Components/Analytics/AssignedToChart';
-import CompletionTrendsChart from '../Components/Analytics/CompletionTrendsChart';
-import LeaderboardChart from '../Components/Analytics/LeaderboardChart';
-import StatusBreakdownChart from '../Components/Analytics/StatusBreakdownChart';
-import CustomWidgetChart from '../Components/Analytics/CustomWidgetChart';
-import SummaryCards from '../Components/Analytics/SummaryCards';
-import SmartInsights from '../Components/Analytics/SmartInsights';
-import PerformanceReport from '../Components/Analytics/PerformanceReport';
+// Modular Components (Lazy Loaded)
+const OverdueByUserChart = lazy(() => import('../Components/Analytics/OverdueByUserChart'));
+const AssignByChart = lazy(() => import('../Components/Analytics/AssignByChart'));
+const AssignedChart = lazy(() => import('../Components/Analytics/AssignedChart'));
+const AssignedToChart = lazy(() => import('../Components/Analytics/AssignedToChart'));
+const CompletionTrendsChart = lazy(() => import('../Components/Analytics/CompletionTrendsChart'));
+const LeaderboardChart = lazy(() => import('../Components/Analytics/LeaderboardChart'));
+const StatusBreakdownChart = lazy(() => import('../Components/Analytics/StatusBreakdownChart'));
+const CustomWidgetChart = lazy(() => import('../Components/Analytics/CustomWidgetChart'));
+const SummaryCards = lazy(() => import('../Components/Analytics/SummaryCards'));
+const SmartInsights = lazy(() => import('../Components/Analytics/SmartInsights'));
+const PerformanceReport = lazy(() => import('../Components/Analytics/PerformanceReport'));
 
 // Utilities & Types
 import {
@@ -134,15 +135,27 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
 
     // Data Processing Helpers
     const companies = useMemo(() => {
-        if (apiCompanies && apiCompanies.length > 0) return apiCompanies;
         const map = new Map<string, string>();
+        
+        // 1. If apiCompanies provided, deduplicate them case-insensitively
+        if (apiCompanies && apiCompanies.length > 0) {
+            apiCompanies.forEach(c => {
+                const raw = String(c || '').trim();
+                if (!raw) return;
+                const key = raw.toLowerCase();
+                if (!map.has(key)) map.set(key, raw);
+            });
+        } 
+        
+        // 2. Also incorporate companies from tasks to ensure full coverage (deduplicated)
         (tasks || []).forEach((t: any) => {
             const raw = (t.companyName || t.company || '').toString().trim();
             if (!raw) return;
             const key = raw.toLowerCase();
             if (!map.has(key)) map.set(key, raw);
         });
-        return Array.from(map.values()).sort();
+        
+        return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
     }, [tasks, apiCompanies]);
 
     const effectiveDateRange = useMemo(() => {
@@ -265,7 +278,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                     const email = normalizeText(typeof t.assignedTo === 'string' ? t.assignedTo : (t as any).assignedTo?.email).toLowerCase();
                     if (email && userRoleMap.has(email)) role = userRoleMap.get(email)!;
                 }
-                userMap[u] = { name: u, role: role || 'No Role', total: 0, completed: 0, pending: 0, reassigned: 0, pendingApproval: 0, overdue: 0, overdueCompleted: 0 };
+                userMap[u] = { name: u, role: role || 'No Role', total: 0, completed: 0, pending: 0, reassigned: 0, pendingApproval: 0, overdue: 0, overdueCompleted: 0, completedBeforeOverdue: 0 };
             }
             userMap[u].total++;
             const status = normalizeText(t.status).toLowerCase();
@@ -281,9 +294,15 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 const due = new Date(normalizeText((t as any)?.dueDate));
                 const cmp = new Date(normalizeText((t as any)?.completedAt || (t as any)?.updatedAt));
                 if (!isNaN(due.getTime()) && !isNaN(cmp.getTime()) && cmp > due) userMap[u].overdueCompleted++;
+                if (!isNaN(due.getTime()) && !isNaN(cmp.getTime()) && cmp <= due) userMap[u].completedBeforeOverdue++;
             }
         });
-        return Object.values(userMap).map(u => ({ ...u, rate: u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0 })).sort((a, b) => b.completed - a.completed);
+        return Object.values(userMap).map(u => ({
+            ...u,
+            rate: u.total > 0 ? Math.round((u.completed / u.total) * 100) : 0,
+            overdueCompletedRate: u.total > 0 ? Math.round((u.overdueCompleted / u.total) * 100) : 0,
+            completedBeforeOverdueRate: u.total > 0 ? Math.round((u.completedBeforeOverdue / u.total) * 100) : 0
+        })).sort((a, b) => b.completed - a.completed);
     }, [filteredTasksByGlobalDates, reportFilterCompany, users]);
 
     const groupedUserReportData = useMemo(() => {
@@ -298,8 +317,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
 
     const handleExportReport = () => {
         if (!userReportData.length) return;
-        const headers = ['User', 'Role', 'Total Tasks', 'Completed', 'Pending', 'Reassigned', 'Pending Approval', 'Overdue', 'Overdue Completed', 'Success Rate (%)'];
-        const rows = userReportData.map(r => [r.name, r.role, r.total, r.completed, r.pending, r.reassigned, r.pendingApproval, r.overdue, r.overdueCompleted, r.rate]);
+        const headers = ['User', 'Role', 'Total Tasks', 'Completed', 'Pending', 'Reassigned', 'Pending Approval', 'Overdue', 'Overdue Completed', 'Overdue Completed %', 'Completed Before Overdue', 'Completed Before Overdue %', 'Success Rate (%)'];
+        const rows = userReportData.map(r => [r.name, r.role, r.total, r.completed, r.pending, r.reassigned, r.pendingApproval, r.overdue, r.overdueCompleted, `${r.overdueCompletedRate}%`, r.completedBeforeOverdue, `${r.completedBeforeOverdueRate}%`, r.rate]);
         const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -404,10 +423,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
 
         return { 
             assignees: Array.from(assigneesMap.values()).sort(), 
-            companies: apiCompanies && apiCompanies.length > 0 ? ['all', ...apiCompanies] : Array.from(companiesMap.values()).sort(), 
+            companies: ['all', ...companies], 
             brands: Array.from(brandsMap.values()).sort() 
         };
-    }, [tasks, apiCompanies]);
+    }, [tasks, companies]);
 
     const completionTrendsData = useMemo(() => {
         let list = tasks;
@@ -578,7 +597,14 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 </div>
             </div>
 
-            <SummaryCards {...globalSummary} />
+            <Suspense fallback={
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+                    <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
+                    <p className="text-gray-500 font-medium">Loading statistics...</p>
+                </div>
+            }>
+                <SummaryCards {...globalSummary} />
+            </Suspense>
 
             <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-6">
                 <div className="flex flex-col gap-2 min-w-[220px]">
@@ -650,18 +676,32 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 </button>
             </div>
 
-            {smartInsights && <SmartInsights insights={smartInsights} summary={globalSummary} />}
+            <Suspense fallback={
+                <div className="h-48 bg-white rounded-3xl border border-dashed border-gray-200 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-blue-500 animate-spin mr-3" />
+                    <span className="text-gray-500 font-medium">Generating smart insights...</span>
+                </div>
+            }>
+                {smartInsights && <SmartInsights insights={smartInsights} summary={globalSummary} />}
+            </Suspense>
 
-            <PerformanceReport
-                data={userReportData}
-                groupedData={groupedUserReportData}
-                selectedCompany={reportFilterCompany}
-                onCompanyChange={setReportFilterCompany}
-                companies={companies}
-                onExport={handleExportReport}
-                currentMonth={globalMonth}
-                globalCompany={globalCompany}
-            />
+            <Suspense fallback={
+                <div className="h-64 bg-white rounded-3xl border border-dashed border-gray-200 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-blue-500 animate-spin mr-3" />
+                    <span className="text-gray-500 font-medium">Generating performance report...</span>
+                </div>
+            }>
+                <PerformanceReport
+                    data={userReportData}
+                    groupedData={groupedUserReportData}
+                    selectedCompany={reportFilterCompany}
+                    onCompanyChange={setReportFilterCompany}
+                    companies={companies}
+                    onExport={handleExportReport}
+                    currentMonth={globalMonth}
+                    globalCompany={globalCompany}
+                />
+            </Suspense>
 
             {isAdminUser && (hiddenBuiltinCharts.length > 0 || hiddenCustomWidgetIds.length > 0) && (
                 <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-4">
@@ -676,144 +716,155 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 </div>
             )}
 
-            <div
-                ref={gridRef}
-                className={`grid grid-cols-1 ${chartsPerRow === 2 ? 'lg:grid-cols-2' : chartsPerRow === 3 ? 'lg:grid-cols-3' : chartsPerRow === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-6`}
-            >
-                {!hiddenBuiltinSet.has('overdue_by_company') && (
-                    <OverdueByUserChart
-                        data={overdueByCategoryData}
-                        companies={companies}
-                        selectedCompany={overdueChartCompany}
-                        onCompanyChange={setOverdueChartCompany}
-                        onDelete={() => toggleBuiltinChart('overdue_by_company')}
-                        isAdminUser={isAdminUser}
-                    />
-                )}
-
-                {!hiddenBuiltinSet.has('assign_by') && (
-                    <AssignByChart
-                        categories={creatorCounts.categories}
-                        values={creatorCounts.data}
-                        chartType={assignByChartType}
-                        totalTasks={globalSummary.total}
-                        onChartTypeChange={setAssignByChartType}
-                        onDelete={() => toggleBuiltinChart('assign_by')}
-                        isAdminUser={isAdminUser}
-                        chartTypeOptions={CHART_TYPE_OPTIONS}
-                    />
-                )}
-
-                {!hiddenBuiltinSet.has('assigned') && (
-                    <AssignedChart
-                        categories={['Assigned By Me', 'Assigned To Me']}
-                        values={[assignedByMeToMe.byMe, assignedByMeToMe.toMe]}
-                        chartType={assignedChartType}
-                        onChartTypeChange={setAssignedChartType}
-                        onDelete={() => toggleBuiltinChart('assigned')}
-                        isAdminUser={isAdminUser}
-                        chartTypeOptions={CHART_TYPE_OPTIONS}
-                    />
-                )}
-
-                {!hiddenBuiltinSet.has('assigned_to') && (
-                    <AssignedToChart
-                        categories={assignedToByMeData.categories}
-                        values={assignedToByMeData.data}
-                        chartType={assignedToChartType}
-                        onChartTypeChange={setAssignedToChartType}
-                        onDelete={() => toggleBuiltinChart('assigned_to')}
-                        isAdminUser={isAdminUser}
-                        chartTypeOptions={CHART_TYPE_OPTIONS}
-                    />
-                )}
-
-                {!hiddenBuiltinSet.has('completion_trends') && (
-                    <div className={chartsPerRow === 1 ? 'col-span-1' : 'col-span-2'}>
-                        <CompletionTrendsChart
-                            data={completionTrendsData}
-                            granularity={trendsGranularity}
-                            onGranularityChange={setTrendsGranularity}
-                            assignee={trendsAssignee}
-                            onAssigneeChange={setTrendsAssignee}
-                            assignees={trendsOptions.assignees}
-                            company={trendsCompany}
-                            onCompanyChange={setTrendsCompany}
-                            companies={trendsOptions.companies}
-                            brand={trendsBrand}
-                            onBrandChange={setTrendsBrand}
-                            brands={trendsOptions.brands}
-                            startDate={trendsStartDate}
-                            onStartDateChange={setTrendsStartDate}
-                            endDate={trendsEndDate}
-                            onEndDateChange={setTrendsEndDate}
-                            onDelete={() => toggleBuiltinChart('completion_trends')}
+            <Suspense fallback={
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map(n => (
+                        <div key={n} className="h-[400px] bg-white rounded-3xl border border-gray-100 animate-pulse flex flex-col p-6">
+                            <div className="h-6 w-32 bg-gray-100 rounded-lg mb-4" />
+                            <div className="flex-1 bg-gray-50 rounded-2xl" />
+                        </div>
+                    ))}
+                </div>
+            }>
+                <div
+                    ref={gridRef}
+                    className={`grid grid-cols-1 ${chartsPerRow === 2 ? 'lg:grid-cols-2' : chartsPerRow === 3 ? 'lg:grid-cols-3' : chartsPerRow === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-6`}
+                >
+                    {!hiddenBuiltinSet.has('overdue_by_company') && (
+                        <OverdueByUserChart
+                            data={overdueByCategoryData}
+                            companies={companies}
+                            selectedCompany={overdueChartCompany}
+                            onCompanyChange={setOverdueChartCompany}
+                            onDelete={() => toggleBuiltinChart('overdue_by_company')}
                             isAdminUser={isAdminUser}
                         />
-                    </div>
-                )}
+                    )}
 
-                {!hiddenBuiltinSet.has('leaderboard') && (
-                    <LeaderboardChart
-                        categories={leaderboardData.categories}
-                        values={leaderboardData.values}
-                        metricLabel={leaderboardData.metricLabel}
-                        metric={leaderboardMetric}
-                        onMetricChange={setLeaderboardMetric}
-                        company={leaderboardCompany}
-                        onCompanyChange={setLeaderboardCompany}
-                        companies={trendsOptions.companies}
-                        brand={leaderboardBrand}
-                        onBrandChange={setLeaderboardBrand}
-                        brands={trendsOptions.brands}
-                        startDate={leaderboardStartDate}
-                        onStartDateChange={setLeaderboardStartDate}
-                        endDate={leaderboardEndDate}
-                        onEndDateChange={setLeaderboardEndDate}
-                        topN={leaderboardTopN}
-                        onTopNChange={setLeaderboardTopN}
-                        onDelete={() => toggleBuiltinChart('leaderboard')}
-                        isAdminUser={isAdminUser}
-                    />
-                )}
+                    {!hiddenBuiltinSet.has('assign_by') && (
+                        <AssignByChart
+                            categories={creatorCounts.categories}
+                            values={creatorCounts.data}
+                            chartType={assignByChartType}
+                            totalTasks={globalSummary.total}
+                            onChartTypeChange={setAssignByChartType}
+                            onDelete={() => toggleBuiltinChart('assign_by')}
+                            isAdminUser={isAdminUser}
+                            chartTypeOptions={CHART_TYPE_OPTIONS}
+                        />
+                    )}
 
-                {!hiddenBuiltinSet.has('status_breakdown') && (
-                    <StatusBreakdownChart
-                        data={statusBreakdownData}
-                        groupBy={performanceGroupBy}
-                        onGroupByChange={setPerformanceGroupBy}
-                        startDate={performanceStartDate}
-                        onStartDateChange={setPerformanceStartDate}
-                        endDate={performanceEndDate}
-                        onEndDateChange={setPerformanceEndDate}
-                        onDelete={() => toggleBuiltinChart('status_breakdown')}
-                        isAdminUser={isAdminUser}
-                    />
-                )}
+                    {!hiddenBuiltinSet.has('assigned') && (
+                        <AssignedChart
+                            categories={['Assigned By Me', 'Assigned To Me']}
+                            values={[assignedByMeToMe.byMe, assignedByMeToMe.toMe]}
+                            chartType={assignedChartType}
+                            onChartTypeChange={setAssignedChartType}
+                            onDelete={() => toggleBuiltinChart('assigned')}
+                            isAdminUser={isAdminUser}
+                            chartTypeOptions={CHART_TYPE_OPTIONS}
+                        />
+                    )}
 
-                {!hiddenBuiltinSet.has('manager_analysis') && (
-                    <ManagerAnalysisChart 
-                        tasks={filteredTasksByGlobalDates} 
-                        canDelete={isAdminUser}
-                        onDelete={() => toggleBuiltinChart('manager_analysis')}
-                    />
-                )}
+                    {!hiddenBuiltinSet.has('assigned_to') && (
+                        <AssignedToChart
+                            categories={assignedToByMeData.categories}
+                            values={assignedToByMeData.data}
+                            chartType={assignedToChartType}
+                            onChartTypeChange={setAssignedToChartType}
+                            onDelete={() => toggleBuiltinChart('assigned_to')}
+                            isAdminUser={isAdminUser}
+                            chartTypeOptions={CHART_TYPE_OPTIONS}
+                        />
+                    )}
 
-                {customWidgets.filter(w => !hiddenCustomWidgetSet.has(w.id)).map(w => (
-                    <CustomWidgetChart
-                        key={w.id}
-                        id={w.id}
-                        title={w.title || getAutoWidgetTitle({ xAxis: w.xAxis, groupBy: w.groupBy, metrics: w.metrics || [w.metric || 'count'] })}
-                        option={buildOptionForWidget(w, tasks)}
-                        isAdminUser={isAdminUser}
-                        onDelete={() => toggleCustomWidgetHidden(w.id)}
-                        onChartClick={(params) => {
-                             const filters = mapDimensionToFilters(w.xAxis, params.name);
-                             navigateToTasks(filters);
-                        }}
-                    />
-                ))}
-            </div>
+                    {!hiddenBuiltinSet.has('completion_trends') && (
+                        <div className={chartsPerRow === 1 ? 'col-span-1' : 'col-span-2'}>
+                            <CompletionTrendsChart
+                                data={completionTrendsData}
+                                granularity={trendsGranularity}
+                                onGranularityChange={setTrendsGranularity}
+                                assignee={trendsAssignee}
+                                onAssigneeChange={setTrendsAssignee}
+                                assignees={trendsOptions.assignees}
+                                company={trendsCompany}
+                                onCompanyChange={setTrendsCompany}
+                                companies={trendsOptions.companies}
+                                brand={trendsBrand}
+                                onBrandChange={setTrendsBrand}
+                                brands={trendsOptions.brands}
+                                startDate={trendsStartDate}
+                                onStartDateChange={setTrendsStartDate}
+                                endDate={trendsEndDate}
+                                onEndDateChange={setTrendsEndDate}
+                                onDelete={() => toggleBuiltinChart('completion_trends')}
+                                isAdminUser={isAdminUser}
+                            />
+                        </div>
+                    )}
+
+                    {!hiddenBuiltinSet.has('leaderboard') && (
+                        <LeaderboardChart
+                            categories={leaderboardData.categories}
+                            values={leaderboardData.values}
+                            metricLabel={leaderboardData.metricLabel}
+                            metric={leaderboardMetric}
+                            onMetricChange={setLeaderboardMetric}
+                            company={leaderboardCompany}
+                            onCompanyChange={setLeaderboardCompany}
+                            companies={trendsOptions.companies}
+                            brand={leaderboardBrand}
+                            onBrandChange={setLeaderboardBrand}
+                            brands={trendsOptions.brands}
+                            startDate={leaderboardStartDate}
+                            onStartDateChange={setLeaderboardStartDate}
+                            endDate={leaderboardEndDate}
+                            onEndDateChange={setLeaderboardEndDate}
+                            topN={leaderboardTopN}
+                            onTopNChange={setLeaderboardTopN}
+                            onDelete={() => toggleBuiltinChart('leaderboard')}
+                            isAdminUser={isAdminUser}
+                        />
+                    )}
+
+                    {!hiddenBuiltinSet.has('status_breakdown') && (
+                        <StatusBreakdownChart
+                            data={statusBreakdownData}
+                            groupBy={performanceGroupBy}
+                            onGroupByChange={setPerformanceGroupBy}
+                            startDate={performanceStartDate}
+                            onStartDateChange={setPerformanceStartDate}
+                            endDate={performanceEndDate}
+                            onEndDateChange={setPerformanceEndDate}
+                            onDelete={() => toggleBuiltinChart('status_breakdown')}
+                            isAdminUser={isAdminUser}
+                        />
+                    )}
+
+                    {!hiddenBuiltinSet.has('manager_analysis') && (
+                        <ManagerAnalysisChart
+                            tasks={filteredTasksByGlobalDates}
+                            canDelete={isAdminUser}
+                            onDelete={() => toggleBuiltinChart('manager_analysis')}
+                        />
+                    )}
+
+                    {customWidgets.filter(w => !hiddenCustomWidgetSet.has(w.id)).map(w => (
+                        <CustomWidgetChart
+                            key={w.id}
+                            id={w.id}
+                            title={w.title || getAutoWidgetTitle({ xAxis: w.xAxis, groupBy: w.groupBy, metrics: w.metrics || [w.metric || 'count'] })}
+                            option={buildOptionForWidget(w, tasks)}
+                            isAdminUser={isAdminUser}
+                            onDelete={() => toggleCustomWidgetHidden(w.id)}
+                            onChartClick={(params) => {
+                                const filters = mapDimensionToFilters(w.xAxis, params.name);
+                                navigateToTasks(filters);
+                            }}
+                        />
+                    ))}
+                </div>
+            </Suspense>
 
             {isAdminUser && isAddWidgetOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">

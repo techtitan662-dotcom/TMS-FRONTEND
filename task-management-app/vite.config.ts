@@ -22,11 +22,17 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react', 'react-hot-toast'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-router', 'react-redux', '@reduxjs/toolkit'],
+          'vendor-ui': ['lucide-react', 'react-hot-toast', 'react-toastify', 'react-bootstrap', 'react-virtuoso'],
+          'vendor-charts': ['echarts'],
+          'vendor-firebase': ['firebase/app', 'firebase/messaging'],
+          'vendor-utils': ['axios', 'socket.io-client', 'html-to-image', 'html2canvas'],
         },
       },
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000,
+    minify: 'esbuild',
+    sourcemap: false,
+    cssMinify: true,
   },
 })

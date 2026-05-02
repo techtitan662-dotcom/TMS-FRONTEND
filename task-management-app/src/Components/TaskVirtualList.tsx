@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { VirtuosoGrid, TableVirtuoso } from 'react-virtuoso';
 import type { Task, UserType, TaskStatus } from '../Types/Types';
 import TaskGridItem from './TaskGridItem';
@@ -41,6 +41,58 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
     isSbmUser,
     sendingReminderByTaskId
 }) => {
+    const gridItemContent = useCallback((index: number) => {
+        const task = tasks[index];
+        if (!task) return null;
+        return (
+            <TaskGridItem
+                key={task.id}
+                task={task}
+                users={users}
+                onToggleStatus={onToggleStatus}
+                onDelete={onDelete}
+                onSendReminder={onSendReminder}
+                onOpenComments={onOpenComments}
+                formatBrand={formatBrand}
+                formatDate={formatDate}
+                canMarkTaskDone={canMarkTaskDone}
+                canEditDeleteTask={canEditDeleteTask}
+                canSendReminderForTask={canSendReminderForTask}
+                isSbmUser={isSbmUser}
+                sendingReminder={!!sendingReminderByTaskId[task.id]}
+            />
+        );
+    }, [tasks, users, onToggleStatus, onDelete, onSendReminder, onOpenComments, formatBrand, formatDate, canMarkTaskDone, canEditDeleteTask, canSendReminderForTask, isSbmUser, sendingReminderByTaskId]);
+
+    const listItemContent = useCallback((_index: number, task: Task) => (
+        <TaskListRow
+            key={task.id}
+            task={task}
+            users={users}
+            onDelete={onDelete}
+            onEdit={onEdit}
+            onSendReminder={onSendReminder}
+            formatBrand={formatBrand}
+            formatDate={formatDate}
+            canEditTask={canEditTask}
+            canEditDeleteTask={canEditDeleteTask}
+            canSendReminderForTask={canSendReminderForTask}
+            sendingReminder={!!sendingReminderByTaskId[task.id]}
+        />
+    ), [users, onDelete, onEdit, onSendReminder, formatBrand, formatDate, canEditTask, canEditDeleteTask, canSendReminderForTask, sendingReminderByTaskId]);
+
+    const fixedHeaderContent = useCallback(() => (
+        <tr className="text-left text-xs font-medium text-gray-500">
+            <th className="px-4 py-3 bg-gray-50/50">Task</th>
+            <th className="px-4 py-3 bg-gray-50/50">Status</th>
+            <th className="px-4 py-3 bg-gray-50/50">Priority</th>
+            <th className="px-4 py-3 bg-gray-50/50">Due Date</th>
+            <th className="px-4 py-3 bg-gray-50/50">Brand</th>
+            <th className="px-4 py-3 bg-gray-50/50">Assigned To</th>
+            <th className="px-4 py-3 text-right bg-gray-50/50">Actions</th>
+        </tr>
+    ), []);
+
     if (viewMode === 'grid') {
         return (
             <VirtuosoGrid
@@ -49,28 +101,7 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
                 initialItemCount={Math.min(24, tasks.length)}
                 itemClassName="p-2"
                 listClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-                itemContent={(index) => {
-                    const task = tasks[index];
-                    if (!task) return null;
-                    return (
-                        <TaskGridItem
-                            key={task.id}
-                            task={task}
-                            users={users}
-                            onToggleStatus={onToggleStatus}
-                            onDelete={onDelete}
-                            onSendReminder={onSendReminder}
-                            onOpenComments={onOpenComments}
-                            formatBrand={formatBrand}
-                            formatDate={formatDate}
-                            canMarkTaskDone={canMarkTaskDone}
-                            canEditDeleteTask={canEditDeleteTask}
-                            canSendReminderForTask={canSendReminderForTask}
-                            isSbmUser={isSbmUser}
-                            sendingReminder={!!sendingReminderByTaskId[task.id]}
-                        />
-                    );
-                }}
+                itemContent={gridItemContent}
             />
         );
     }
@@ -82,33 +113,8 @@ const TaskVirtualList: React.FC<TaskVirtualListProps> = ({
                     style={{ height: '70vh' }}
                     data={tasks}
                     initialItemCount={Math.min(20, tasks.length)}
-                    fixedHeaderContent={() => (
-                        <tr className="text-left text-xs font-medium text-gray-500">
-                            <th className="px-4 py-3 bg-gray-50/50">Task</th>
-                            <th className="px-4 py-3 bg-gray-50/50">Status</th>
-                            <th className="px-4 py-3 bg-gray-50/50">Priority</th>
-                            <th className="px-4 py-3 bg-gray-50/50">Due Date</th>
-                            <th className="px-4 py-3 bg-gray-50/50">Brand</th>
-                            <th className="px-4 py-3 bg-gray-50/50">Assigned To</th>
-                            <th className="px-4 py-3 text-right bg-gray-50/50">Actions</th>
-                        </tr>
-                    )}
-                    itemContent={(_index, task) => (
-                        <TaskListRow
-                            key={task.id}
-                            task={task}
-                            users={users}
-                            onDelete={onDelete}
-                            onEdit={onEdit}
-                            onSendReminder={onSendReminder}
-                            formatBrand={formatBrand}
-                            formatDate={formatDate}
-                            canEditTask={canEditTask}
-                            canEditDeleteTask={canEditDeleteTask}
-                            canSendReminderForTask={canSendReminderForTask}
-                            sendingReminder={!!sendingReminderByTaskId[task.id]}
-                        />
-                    )}
+                    fixedHeaderContent={fixedHeaderContent}
+                    itemContent={listItemContent}
                     components={{
                         Table: (props) => <table {...props} className="min-w-full" />,
                         TableBody: React.forwardRef((props, ref) => <tbody {...props} ref={ref} className="divide-y divide-gray-50" />),

@@ -17,8 +17,13 @@ export interface Meeting {
         email: string;
     }[];
     description?: string;
+    isZoomMeeting?: boolean;
+    zoomMeetingId?: string;
+    zoomJoinUrl?: string;
+    zoomPassword?: string;
     createdAt?: string;
     updatedAt?: string;
+    status?: string;
 }
 
 export const meetingService = {
@@ -52,6 +57,15 @@ export const meetingService = {
     deleteMeeting: async (id: string) => {
         try {
             const response = await apiClient.delete(`/meetings/${id}`);
+            return response.data;
+        } catch (error: any) {
+            throw error.response?.data || error.message;
+        }
+    },
+
+    endMeeting: async (id: string) => {
+        try {
+            const response = await apiClient.put(`/meetings/${id}/end`);
             return response.data;
         } catch (error: any) {
             throw error.response?.data || error.message;

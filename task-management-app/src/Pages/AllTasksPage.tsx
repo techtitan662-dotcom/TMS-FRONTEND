@@ -157,7 +157,7 @@ interface AdvancedFilters {
   brand: string;
   rm: string;
   rmTeam?: string;
-  sort: string;
+  sort?: string;
 }
 
 function parseMultiValue(value: string): string[] {

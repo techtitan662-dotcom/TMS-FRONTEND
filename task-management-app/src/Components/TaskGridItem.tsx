@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { 
     CheckCircle, 
     UserCheck, 
@@ -45,7 +45,8 @@ const TaskGridItem: React.FC<TaskGridItemProps> = ({
     isSbmUser,
     sendingReminder
 }) => {
-    const getAssignedUserInfo = () => {
+    // Memoize expensive user lookups
+    const assignedUserInfo = useMemo(() => {
         const assignedTo = task.assignedTo;
         const assignedToUser = task.assignedToUser;
         
@@ -58,10 +59,9 @@ const TaskGridItem: React.FC<TaskGridItemProps> = ({
         
         const found = users.find(u => u.email === email);
         return found || { email, name: '' };
-    };
+    }, [task.assignedTo, task.assignedToUser, users]);
 
-    const assignedInfo = getAssignedUserInfo();
-    const assignedByInfo = (() => {
+    const assignedByInfo = useMemo(() => {
         const assignedByUser = task.assignedByUser;
         const assignedBy = task.assignedBy;
         const rawEmail = (assignedByUser && typeof assignedByUser === 'object' ? assignedByUser?.email : '') ||
@@ -69,10 +69,19 @@ const TaskGridItem: React.FC<TaskGridItemProps> = ({
         const rawName = (assignedByUser && typeof assignedByUser === 'object' ? assignedByUser?.name : '') ||
                       (typeof (assignedBy as any) === 'object' ? (assignedBy as any)?.name : '') || '';
         return { email: rawEmail, name: rawName };
-    })();
+    }, [task.assignedBy, task.assignedByUser]);
 
-    const displayAssignedTo = assignedInfo.name || (assignedInfo.email ? stripDeletedEmailSuffix(assignedInfo.email).split('@')[0] : '') || assignedInfo.email || '—';
-    const displayAssignedBy = assignedByInfo.name || (assignedByInfo.email ? stripDeletedEmailSuffix(assignedByInfo.email).split('@')[0] : '') || assignedByInfo.email || '—';
+    const displayAssignedTo = useMemo(() => 
+        assignedUserInfo.name || (assignedUserInfo.email ? stripDeletedEmailSuffix(assignedUserInfo.email).split('@')[0] : '') || assignedUserInfo.email || '—',
+        [assignedUserInfo]
+    );
+
+    const displayAssignedBy = useMemo(() => 
+        assignedByInfo.name || (assignedByInfo.email ? stripDeletedEmailSuffix(assignedByInfo.email).split('@')[0] : '') || assignedByInfo.email || '—',
+        [assignedByInfo]
+    );
+
+    const isTaskOverdue = useMemo(() => isOverdueFn(task.dueDate, task.status), [task.dueDate, task.status]);
 
     return (
         <div className="group bg-white rounded-xl border border-gray-100 hover:border-[#3b82f6]/30 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
@@ -135,7 +144,7 @@ const TaskGridItem: React.FC<TaskGridItemProps> = ({
                             <CalendarDays className="h-3.5 w-3.5" />
                             <span>Due date</span>
                         </div>
-                        <span className={`font-medium ${isOverdueFn(task.dueDate, task.status) ? 'text-rose-600' : 'text-black'}`}>
+                        <span className={`font-medium ${isTaskOverdue ? 'text-rose-600' : 'text-black'}`}>
                             {task.dueDate ? formatDate(task.dueDate) : '—'}
                         </span>
                     </div>

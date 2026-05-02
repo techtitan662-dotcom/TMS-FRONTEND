@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, ArrowLeft, MoreVertical, User, CheckCheck, Check } from 'lucide-react';
+import { Send, ArrowLeft, MoreVertical, CheckCheck, Check } from 'lucide-react';
 import { chatService } from '../Services/Chat.service';
 import type { ChatMessage } from '../Services/Chat.service';
 import { userAvatarUrl } from '../utils/avatar';
@@ -31,6 +31,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, selectedUser }) 
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
+    const [imgError, setImgError] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +46,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, selectedUser }) 
 
     useEffect(() => {
         if (isOpen && selectedUser) {
+            setImgError(false);
             loadChatHistory();
             checkOnlineStatus();
             inputRef.current?.focus();
@@ -186,15 +188,24 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, selectedUser }) 
                         </button>
 
                         <div className="relative">
-                            {selectedUser.avatar ? (
+                            {selectedUser.avatar && !imgError ? (
                                 <img
-                                    src={userAvatarUrl(selectedUser.avatar)}
+                                    src={userAvatarUrl(selectedUser)}
                                     alt={selectedUser.name}
+                                    onError={() => setImgError(true)}
                                     className="w-8 h-8 rounded-full object-cover border border-gray-200"
                                 />
                             ) : (
-                                <div className={`w-8 h-8 rounded-full bg-[${theme.primaryUltralight}] flex items-center justify-center`}>
-                                    <User className="w-4 h-4 text-[${theme.primary}]" />
+                                <div 
+                                    className="w-8 h-8 rounded-full flex items-center justify-center border border-gray-200"
+                                    style={{ backgroundColor: theme.primaryUltralight }}
+                                >
+                                    <span 
+                                        className="text-[12px] font-bold"
+                                        style={{ color: theme.primary }}
+                                    >
+                                        {selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : 'U'}
+                                    </span>
                                 </div>
                             )}
                             <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-300'}`}></div>
