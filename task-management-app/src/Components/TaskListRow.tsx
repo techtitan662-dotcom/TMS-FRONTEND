@@ -57,7 +57,7 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
         <>
             <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
-                    <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full ${task.status === 'completed' ? 'bg-emerald-500' : task.status === 'in-progress' ? 'bg-amber-500' : task.status === 'overdue' ? 'bg-rose-500' : 'bg-blue-500'}`} />
                     <div>
                         <div className="text-sm font-medium text-black group-hover:text-[#3b82f6] transition-colors">
                             {task.title}
@@ -72,8 +72,8 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
                 </div>
             </td>
             <td className="px-4 py-3">
-                <span className={`text-xs font-medium ${task.status === 'completed' ? 'text-emerald-600' : task.status === 'in-progress' ? 'text-amber-600' : 'text-blue-600'}`}>
-                    {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : 'Pending'}
+                <span className={`text-xs font-medium ${task.status === 'completed' ? 'text-emerald-600' : task.status === 'in-progress' ? 'text-amber-600' : task.status === 'overdue' ? 'text-rose-600' : 'text-blue-600'}`}>
+                    {task.status === 'completed' ? 'Done' : task.status === 'in-progress' ? 'In Progress' : task.status === 'overdue' ? 'Overdue' : 'Pending'}
                 </span>
             </td>
             <td className="px-4 py-3">

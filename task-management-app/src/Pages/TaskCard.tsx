@@ -143,6 +143,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             <CheckCircle className="h-4 w-4 text-green-500" />
                         ) : task.status === 'in-progress' ? (
                             <Clock className="h-4 w-4 text-blue-500" />
+                        ) : task.status === 'overdue' ? (
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
                         ) : (
                             <AlertTriangle className="h-4 w-4 text-yellow-500" />
                         )}
@@ -223,7 +225,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 ? 'bg-green-100 text-green-800'
                                 : task.status === 'in-progress'
                                     ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                    : task.status === 'overdue'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-yellow-100 text-yellow-800'
                                 }`}
                         >
                             {task.status.replace('-', ' ')}

@@ -348,7 +348,7 @@ const MdImpexEditTaskModal = ({
                                     <option value="completed">Completed</option>
                                 </select>
                             </div>
-                             {/* Brand */}
+                            {/* Brand */}
                             <div>
                                 <label className="block text-[11px] font-medium text-gray-700 mb-1">Brand</label>
                                 <select
@@ -446,7 +446,7 @@ const MdImpexEditTaskModal = ({
                                 </select>
                             </div>
 
-                           
+
                         </div>
                     </div>
                 </div>

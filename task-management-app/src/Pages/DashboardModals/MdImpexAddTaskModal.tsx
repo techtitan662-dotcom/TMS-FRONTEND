@@ -493,7 +493,7 @@ const MdImpexAddTaskModal = ({
                   }`}
                 value={newTask.dueDate}
                 onChange={(e) => onChange('dueDate', e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date().toISOString().split('T')[0]} // prevent select past dates
               />
               {formErrors.dueDate && <p className="mt-1 text-xs text-red-600">{formErrors.dueDate}</p>}
             </div>

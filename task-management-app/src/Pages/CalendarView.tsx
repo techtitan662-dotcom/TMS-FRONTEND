@@ -777,6 +777,8 @@ const CalendarView: React.FC<CalendarViewProps> = (props) => {
         return 'bg-blue-50 text-blue-800 ring-1 ring-inset ring-blue-200';
       case 'pending':
         return 'bg-yellow-50 text-yellow-800 ring-1 ring-inset ring-yellow-200';
+      case 'overdue':
+        return 'bg-red-50 text-red-800 ring-1 ring-inset ring-red-200';
       default:
         return 'bg-gray-50 text-gray-800 ring-1 ring-inset ring-gray-200';
     }
