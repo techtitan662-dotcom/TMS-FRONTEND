@@ -3894,8 +3894,8 @@ const DashboardPage = () => {
             });
         }
         const completedTasks = filtered.filter((t) => t.status === 'completed');
-        const pendingTasks = filtered.filter((t) => t.status !== 'completed');
         const overdueTasks = filtered.filter((t) => t.status !== 'completed' && isOverdueFn(t.dueDate, t.status));
+        const pendingTasks = filtered.filter((t) => t.status !== 'completed' && !isOverdueFn(t.dueDate, t.status));
         return [
             {
                 name: 'Total Tasks',

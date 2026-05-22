@@ -93,7 +93,7 @@ export const useTaskFiltering = ({
         case 'completed':
           return task.status === 'completed';
         case 'pending':
-          return ['pending', 'in-progress', 'reassigned'].includes(task.status);
+          return ['pending', 'in-progress', 'reassigned'].includes(task.status) && !isOverdueFn(task.dueDate, task.status);
         case 'overdue':
           return task.status !== 'completed' && isOverdueFn(task.dueDate, task.status);
         default:
