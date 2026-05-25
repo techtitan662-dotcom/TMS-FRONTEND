@@ -285,8 +285,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             const status = normalizeText(t.status).toLowerCase();
             const isCompleted = status === 'completed' || status === 'done';
             if (isCompleted) userMap[u].completed++;
-            else if (status === 'pending') userMap[u].pending++;
             else if (status === 'reassigned') userMap[u].reassigned++;
+            else userMap[u].pending++;
 
             const isReviewableRole = (userMap[u].role || '').toLowerCase().includes('manager') || (userMap[u].role || '').toLowerCase().includes('assistant');
             if (isReviewableRole && isCompleted && !(t as any).reviewStars) userMap[u].pendingApproval++;
@@ -347,7 +347,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             const isCompleted = status === 'completed' || status === 'done';
 
             if (metricKey === 'completed' && isCompleted) matches.push(t);
-            else if (metricKey === 'pending' && status === 'pending') matches.push(t);
+            else if (metricKey === 'pending' && !isCompleted && status !== 'reassigned') matches.push(t);
             else if (metricKey === 'reassigned' && status === 'reassigned') matches.push(t);
             else if (metricKey === 'pendingApproval') {
                 const isReviewableRole = (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('manager') || (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('assistant');

@@ -74,13 +74,13 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                                         const hid = t.id || t._id || `${idx}`;
                                         const h = historyMap[hid];
                                         const overdue = isOverdue(t.dueDate, t.status);
-                                        const statusColor = 
+                                        const statusColor =
                                             t.status === 'completed' || t.status === 'done' ? 'bg-green-100 text-green-700' :
-                                            overdue ? 'bg-red-100 text-red-700' :
-                                            t.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                                            t.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-gray-100 text-gray-700';
-                                        
+                                                overdue ? 'bg-red-100 text-red-700' :
+                                                    t.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                                                        t.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-gray-100 text-gray-700';
+
                                         return (
                                             <React.Fragment key={hid}>
                                                 <tr className="group hover:bg-gray-50">
@@ -105,12 +105,12 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                                                                 </span>
                                                             )}
                                                         </div>
-                                                     </td>
+                                                    </td>
                                                     <td className="px-3 py-3 text-sm align-top break-words">
                                                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold whitespace-normal break-words ${statusColor}`}>
                                                             {overdue && t.status !== 'completed' && t.status !== 'done' ? 'OVERDUE' : (String(t.status || 'PENDING').toUpperCase())}
                                                         </span>
-                                                     </td>
+                                                    </td>
                                                     <td className="px-3 py-3 text-sm align-top">
                                                         <button
                                                             onClick={() => toggleHistory(hid)}
@@ -118,8 +118,8 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                                                         >
                                                             {h && h.entries.length ? 'Hide History' : (h && h.loading ? 'Loading...' : 'View History')}
                                                         </button>
-                                                     </td>
-                                                 </tr>
+                                                    </td>
+                                                </tr>
                                                 {h && h.entries && h.entries.length > 0 && (
                                                     <tr className="bg-gray-50">
                                                         <td colSpan={7} className="px-4 py-4">
@@ -141,14 +141,14 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                         </td>
-                                                     </tr>
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </React.Fragment>
                                         );
                                     })}
                                 </tbody>
-                             </table>
+                            </table>
                         </div>
                     )}
                 </div>
