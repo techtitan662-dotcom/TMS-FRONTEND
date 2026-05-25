@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    PlusCircle, 
-    Building2, 
-    Calendar, 
+import {
+    PlusCircle,
+    Building2,
+    Calendar,
     CalendarClock,
     Loader2
 } from 'lucide-react';
@@ -67,7 +67,7 @@ export interface AnalyzePageProps {
 
 const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCompanies, currentUserEmail: currentUserEmailProp, currentUserRole }) => {
     const navigate = useNavigate();
-    
+
     // Global Filter State
     const [globalCompany, setGlobalCompany] = useState<string>('all');
     const [globalTimePeriod, setGlobalTimePeriod] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'custom'>('all');
@@ -77,27 +77,27 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
     const [globalMonth, setGlobalMonth] = useState<string>(new Date().toISOString().substring(0, 7));
     const [remoteTasks, setRemoteTasks] = useState<Task[] | null>(null);
     const [isFetchingReport, setIsFetchingReport] = useState(false);
-    
+
     // Local Chart Selection/Filter State
     const [overdueChartCompany, setOverdueChartCompany] = useState<string>('all');
     const [assignByChartType, setAssignByChartType] = useState<ChartType>('bar');
     const [assignedChartType, setAssignedChartType] = useState<ChartType>('pie');
     const [assignedToChartType, setAssignedToChartType] = useState<ChartType>('bar');
-    
+
     const [trendsGranularity, setTrendsGranularity] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const [trendsStartDate, setTrendsStartDate] = useState<string>('');
     const [trendsEndDate, setTrendsEndDate] = useState<string>('');
     const [trendsAssignee, setTrendsAssignee] = useState<string>('all');
     const [trendsCompany, setTrendsCompany] = useState<string>('all');
     const [trendsBrand, setTrendsBrand] = useState<string>('all');
-    
+
     const [leaderboardMetric, setLeaderboardMetric] = useState<'completed' | 'rate'>('completed');
     const [leaderboardStartDate, setLeaderboardStartDate] = useState<string>('');
     const [leaderboardEndDate, setLeaderboardEndDate] = useState<string>('');
     const [leaderboardCompany, setLeaderboardCompany] = useState<string>('all');
     const [leaderboardBrand, setLeaderboardBrand] = useState<string>('all');
     const [leaderboardTopN, setLeaderboardTopN] = useState<number>(5);
-    
+
     const [performanceGroupBy, setPerformanceGroupBy] = useState<'company' | 'brand'>('company');
     const [performanceStartDate, setPerformanceStartDate] = useState<string>('');
     const [performanceEndDate, setPerformanceEndDate] = useState<string>('');
@@ -109,7 +109,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
     const [hiddenCustomWidgetIds, setHiddenCustomWidgetIds] = useState<string[]>([]);
     const [chartsPerRow, setChartsPerRow] = useState<1 | 2 | 3 | 4>(3);
     const [userHasChangedChartsPerRow, setUserHasChangedChartsPerRow] = useState(false);
-    
+
     const [isAddWidgetOpen, setIsAddWidgetOpen] = useState(false);
 
     // New Widget Form State (Simplified)
@@ -117,7 +117,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
     const [newWidgetChartType, setNewWidgetChartType] = useState<ChartType>('bar');
     const [newWidgetXAxis, setNewWidgetXAxis] = useState<DimensionKey>('status');
     const [newWidgetGroupBy, setNewWidgetGroupBy] = useState<DimensionKey | 'none'>('none');
-    
+
     const gridRef = useRef<HTMLDivElement>(null);
 
     const tasks = useMemo(() => remoteTasks || tasksProp, [remoteTasks, tasksProp]);
@@ -137,7 +137,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
     // Data Processing Helpers
     const companies = useMemo(() => {
         const map = new Map<string, string>();
-        
+
         // 1. If apiCompanies provided, deduplicate them case-insensitively
         if (apiCompanies && apiCompanies.length > 0) {
             apiCompanies.forEach(c => {
@@ -146,8 +146,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 const key = raw.toLowerCase();
                 if (!map.has(key)) map.set(key, raw);
             });
-        } 
-        
+        }
+
         // 2. Also incorporate companies from tasks to ensure full coverage (deduplicated)
         (tasks || []).forEach((t: any) => {
             const raw = (t.companyName || t.company || '').toString().trim();
@@ -155,7 +155,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             const key = raw.toLowerCase();
             if (!map.has(key)) map.set(key, raw);
         });
-        
+
         return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
     }, [tasks, apiCompanies]);
 
@@ -284,9 +284,14 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             userMap[u].total++;
             const status = normalizeText(t.status).toLowerCase();
             const isCompleted = status === 'completed' || status === 'done';
+            const isReassigned = status === 'reassigned';
             if (isCompleted) userMap[u].completed++;
-            else if (status === 'reassigned') userMap[u].reassigned++;
-            else userMap[u].pending++;
+            else {
+                // Dashboard counts pending = all non-completed tasks (including reassigned)
+                // so we mirror that here for consistency
+                userMap[u].pending++;
+                if (isReassigned) userMap[u].reassigned++;
+            }
 
             const isReviewableRole = (userMap[u].role || '').toLowerCase().includes('manager') || (userMap[u].role || '').toLowerCase().includes('assistant');
             if (isReviewableRole && isCompleted && !(t as any).reviewStars) userMap[u].pendingApproval++;
@@ -296,7 +301,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 const due = new Date(dueRaw);
                 const cmpRaw = normalizeText((t as any)?.statusUpdatedAt || (t as any)?.completedAt || (t as any)?.updatedAt);
                 const cmp = new Date(cmpRaw);
-                
+
                 if (!isNaN(due.getTime()) && !isNaN(cmp.getTime())) {
                     let finalDueTime = due.getTime();
                     // If dueDate is just a date without specific time (e.g., YYYY-MM-DD or ends with T00:00:00.000Z), default to end of the day.
@@ -347,7 +352,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             const isCompleted = status === 'completed' || status === 'done';
 
             if (metricKey === 'completed' && isCompleted) matches.push(t);
-            else if (metricKey === 'pending' && !isCompleted && status !== 'reassigned') matches.push(t);
+            else if (metricKey === 'pending' && !isCompleted) matches.push(t); // includes reassigned
             else if (metricKey === 'reassigned' && status === 'reassigned') matches.push(t);
             else if (metricKey === 'pendingApproval') {
                 const isReviewableRole = (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('manager') || (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('assistant');
@@ -427,7 +432,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 map.set(cat, (map.get(cat) || 0) + 1);
             }
         });
-        return Array.from(map.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count);
+        return Array.from(map.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
     }, [filteredTasksByGlobalDates, overdueChartCompany]);
 
     const creatorCounts = useMemo(() => {
@@ -469,7 +474,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
         const assigneesMap = new Map<string, string>();
         const companiesMap = new Map<string, string>();
         const brandsMap = new Map<string, string>();
-        
+
         assigneesMap.set('all', 'all');
         companiesMap.set('all', 'all');
         brandsMap.set('all', 'all');
@@ -480,13 +485,13 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 const uk = u.toLowerCase();
                 if (!assigneesMap.has(uk)) assigneesMap.set(uk, u);
             }
-            
+
             const c = (t.companyName || t.company || '').toString().trim();
             if (c) {
                 const ck = c.toLowerCase();
                 if (!companiesMap.has(ck)) companiesMap.set(ck, c);
             }
-            
+
             const b = (t.brand || '').toString().trim();
             if (b) {
                 const bk = b.toLowerCase();
@@ -494,10 +499,10 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
             }
         });
 
-        return { 
-            assignees: Array.from(assigneesMap.values()).sort(), 
-            companies: ['all', ...companies], 
-            brands: Array.from(brandsMap.values()).sort() 
+        return {
+            assignees: Array.from(assigneesMap.values()).sort(),
+            companies: ['all', ...companies],
+            brands: Array.from(brandsMap.values()).sort()
         };
     }, [tasks, companies]);
 
@@ -526,8 +531,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
         const sorted = Array.from(map.entries()).sort();
         return {
             labels: sorted.map(([date]) => date),
-            completed: sorted.map(([,v]) => v.completed),
-            pending: sorted.map(([,v]) => v.total - v.completed)
+            completed: sorted.map(([, v]) => v.completed),
+            pending: sorted.map(([, v]) => v.total - v.completed)
         };
     }, [tasks, trendsGranularity, trendsAssignee, trendsCompany, trendsBrand, trendsStartDate, trendsEndDate]);
 
@@ -549,7 +554,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
         const rows = Array.from(map.entries()).map(([name, vals]) => ({
             name,
             value: leaderboardMetric === 'completed' ? vals.completed : Math.round((vals.completed / vals.total) * 100)
-        })).sort((a,b) => b.value - a.value).slice(0, leaderboardTopN);
+        })).sort((a, b) => b.value - a.value).slice(0, leaderboardTopN);
 
         return { categories: rows.map(r => r.name), values: rows.map(r => r.value), metricLabel: leaderboardMetric === 'completed' ? 'Tasks Completed' : 'Completion Rate (%)' };
     }, [tasks, leaderboardMetric, leaderboardCompany, leaderboardBrand, leaderboardStartDate, leaderboardEndDate, leaderboardTopN]);
@@ -622,7 +627,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
     useEffect(() => {
         const update = () => {
             const w = window.innerWidth;
-            let best: 1|2|3|4 = 1;
+            let best: 1 | 2 | 3 | 4 = 1;
             if (w < 768) best = 1;
             else if (w < 1200) best = 2;
             else if (w < 1600) best = 3;
@@ -944,51 +949,51 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
 
             {isAdminUser && isAddWidgetOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
-                     <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                             <h2 className="text-xl font-bold text-gray-900">Add Custom Perspective</h2>
-                             <button onClick={() => setIsAddWidgetOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-light">×</button>
-                         </div>
-                         <div className="p-6 overflow-y-auto space-y-5">
-                             <div>
-                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Display Title</label>
-                                 <input type="text" value={newWidgetTitle} onChange={e => setNewWidgetTitle(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
-                             </div>
-                             <div>
-                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Primary Dimension (X-Axis)</label>
-                                 <select value={newWidgetXAxis} onChange={e => setNewWidgetXAxis(e.target.value as any)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all">
-                                     {DIMENSION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                 </select>
-                             </div>
-                             <div className="flex gap-4">
-                                 <div className="flex-1">
+                    <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-gray-900">Add Custom Perspective</h2>
+                            <button onClick={() => setIsAddWidgetOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-light">×</button>
+                        </div>
+                        <div className="p-6 overflow-y-auto space-y-5">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Display Title</label>
+                                <input type="text" value={newWidgetTitle} onChange={e => setNewWidgetTitle(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Primary Dimension (X-Axis)</label>
+                                <select value={newWidgetXAxis} onChange={e => setNewWidgetXAxis(e.target.value as any)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all">
+                                    {DIMENSION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Chart Strategy</label>
                                     <select value={newWidgetChartType} onChange={e => setNewWidgetChartType(e.target.value as any)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all">
                                         {ADD_WIDGET_CHART_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                     </select>
-                                 </div>
-                                 <div className="flex-1">
+                                </div>
+                                <div className="flex-1">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Y-Entity</label>
                                     <select value="task" disabled className="w-full bg-gray-200 border border-transparent rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 font-mono">
                                         <option value="task">Tasks</option>
                                     </select>
-                                 </div>
-                             </div>
-                             <div>
-                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Grouping Strategy</label>
-                                 <select value={newWidgetGroupBy} onChange={e => setNewWidgetGroupBy(e.target.value as any)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all">
-                                     <option value="none">None (Individual Bars)</option>
-                                     {DIMENSION_OPTIONS.filter(o => o.value !== newWidgetXAxis).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                 </select>
-                             </div>
-                         </div>
-                         <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
-                             <button onClick={() => setIsAddWidgetOpen(false)} className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 transition-all">Cancel</button>
-                             <button
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Grouping Strategy</label>
+                                <select value={newWidgetGroupBy} onChange={e => setNewWidgetGroupBy(e.target.value as any)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold outline-none transition-all">
+                                    <option value="none">None (Individual Bars)</option>
+                                    {DIMENSION_OPTIONS.filter(o => o.value !== newWidgetXAxis).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-3">
+                            <button onClick={() => setIsAddWidgetOpen(false)} className="px-6 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 transition-all">Cancel</button>
+                            <button
                                 onClick={() => {
                                     const id = `cw_${Date.now()}`;
-                                    setCustomWidgets([...customWidgets, { 
-                                        id, 
+                                    setCustomWidgets([...customWidgets, {
+                                        id,
                                         title: newWidgetTitle || getAutoWidgetTitle({ xAxis: newWidgetXAxis, groupBy: newWidgetGroupBy, metrics: ['count'] }),
                                         chartType: newWidgetChartType,
                                         xAxis: newWidgetXAxis,
@@ -999,9 +1004,9 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                                     setIsAddWidgetOpen(false);
                                 }}
                                 className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95"
-                             > Generate Perspective </button>
-                         </div>
-                     </div>
+                            > Generate Perspective </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
