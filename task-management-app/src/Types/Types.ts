@@ -122,6 +122,7 @@ export interface Task {
     assignedBy?: string | UserType;
     createdAt: string;
     updatedAt?: string;
+    completedAt?: string;
     completedApproval?: boolean;
     history?: TaskHistory[];
     comments?: CommentType[];

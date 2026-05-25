@@ -60,12 +60,14 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                             <table className="w-full table-fixed border-collapse">
                                 <thead className="sticky top-0 bg-white z-10">
                                     <tr className="text-xs text-gray-400 uppercase border-b border-gray-200">
-                                        <th className="px-3 py-2 text-left" style={{ width: '5%' }}>#</th>
-                                        <th className="px-3 py-2 text-left" style={{ width: '18%' }}>Title</th>
-                                        <th className="px-3 py-2 text-left" style={{ width: '15%' }}>Assigned To</th>
-                                        <th className="px-3 py-2 text-left" style={{ width: '15%' }}>Assigned By</th>
-                                        <th className="px-3 py-2 text-left" style={{ width: '17%' }}>Due</th>
-                                        <th className="px-3 py-2 text-left" style={{ width: '15%' }}>Status</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '3%' }}>#</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '12%' }}>Title</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '10%' }}>Assigned To</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '10%' }}>Assigned By</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '12%' }}>Due</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '14%' }}>Created Date</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '14%' }}>Completed Date</th>
+                                        <th className="px-3 py-2 text-left" style={{ width: '10%' }}>Status</th>
                                         <th className="px-3 py-2 text-left" style={{ width: '15%' }}>Actions</th>
                                     </tr>
                                 </thead>
@@ -105,6 +107,12 @@ const TaskListModal: React.FC<Props> = ({ open, onClose, title = 'Tasks', tasks 
                                                                 </span>
                                                             )}
                                                         </div>
+                                                    </td>
+                                                    <td className="px-3 py-3 text-sm text-gray-600 align-top break-words">
+                                                        {t.createdAt ? new Date(t.createdAt).toLocaleString() : 'Unknown'}
+                                                    </td>
+                                                    <td className="px-3 py-3 text-sm text-gray-600 align-top break-words">
+                                                        {t.status === 'completed' || t.status === 'done' ? (t.completedAt ? new Date(t.completedAt).toLocaleString() : (t.updatedAt ? new Date(t.updatedAt).toLocaleString() : 'Unknown')) : '—'}
                                                     </td>
                                                     <td className="px-3 py-3 text-sm align-top break-words">
                                                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold whitespace-normal break-words ${statusColor}`}>

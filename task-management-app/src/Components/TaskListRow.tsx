@@ -85,6 +85,12 @@ const TaskListRow: React.FC<TaskListRowProps> = ({
                 {task.dueDate ? formatDate(task.dueDate) : '—'}
             </td>
             <td className="px-4 py-3 text-xs text-gray-600">
+                {task.createdAt ? formatDate(task.createdAt) : '—'}
+            </td>
+            <td className="px-4 py-3 text-xs text-gray-600">
+                {task.status === 'completed' && task.completedAt ? formatDate(task.completedAt) : task.status === 'completed' && task.updatedAt ? formatDate(task.updatedAt) : '—'}
+            </td>
+            <td className="px-4 py-3 text-xs text-gray-600">
                 {formatBrand(task) || '—'}
             </td>
             <td className="px-4 py-3 text-xs text-gray-600 truncate max-w-[150px]">
