@@ -41,6 +41,7 @@ import {
     getAutoWidgetTitle,
     mapDimensionToFilters
 } from '../Components/Analytics/ChartUtils';
+import TaskListModal from '../Components/Analytics/TaskListModal';
 
 const CUSTOM_WIDGETS_STORAGE_KEY = 'analyze_custom_widgets_v1';
 const HIDDEN_BUILTIN_CHARTS_STORAGE_KEY = 'analyze_hidden_builtin_charts_v1';
@@ -328,6 +329,64 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
         });
         return groups;
     }, [userReportData]);
+
+    // Modal state for metric drill-down
+    const [taskModalOpen, setTaskModalOpen] = useState(false);
+    const [modalTasks, setModalTasks] = useState<any[]>([]);
+    const [modalTitle, setModalTitle] = useState<string>('');
+
+    const handleMetricClick = (userLabel: string, metric: string) => {
+        // Filter tasks for the selected user from the already filtered global tasks
+        const userTasks = filteredTasksByGlobalDates.filter(t => extractUserLabel(t.assignedTo, t.assignedToName) === userLabel);
+
+        const metricKey = (metric || '').toString();
+        const matches: any[] = [];
+
+        userTasks.forEach((t: any) => {
+            const status = normalizeText(t.status).toLowerCase();
+            const isCompleted = status === 'completed' || status === 'done';
+
+            if (metricKey === 'completed' && isCompleted) matches.push(t);
+            else if (metricKey === 'pending' && status === 'pending') matches.push(t);
+            else if (metricKey === 'reassigned' && status === 'reassigned') matches.push(t);
+            else if (metricKey === 'pendingApproval') {
+                const isReviewableRole = (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('manager') || (String((t as any)?.assignedTo?.role || '')).toLowerCase().includes('assistant');
+                if (isReviewableRole && isCompleted && !(t as any).reviewStars) matches.push(t);
+            } else if (metricKey === 'overdue') {
+                if (getCompletionStatus(t) === 'Overdue') matches.push(t);
+            } else if (metricKey === 'overdueCompleted' && isCompleted) {
+                const dueRaw = normalizeText((t as any)?.dueDate);
+                const due = new Date(dueRaw);
+                const cmpRaw = normalizeText((t as any)?.statusUpdatedAt || (t as any)?.completedAt || (t as any)?.updatedAt);
+                const cmp = new Date(cmpRaw);
+                if (!isNaN(due.getTime()) && !isNaN(cmp.getTime())) {
+                    let finalDueTime = due.getTime();
+                    if (dueRaw.length === 10 || dueRaw.includes('T00:00:00.000Z')) {
+                        const dueEndOfDay = new Date(due.getFullYear(), due.getMonth(), due.getDate(), 23, 59, 59, 999);
+                        finalDueTime = dueEndOfDay.getTime();
+                    }
+                    if (cmp.getTime() > finalDueTime) matches.push(t);
+                }
+            } else if (metricKey === 'completedBeforeOverdue' && isCompleted) {
+                const dueRaw = normalizeText((t as any)?.dueDate);
+                const due = new Date(dueRaw);
+                const cmpRaw = normalizeText((t as any)?.statusUpdatedAt || (t as any)?.completedAt || (t as any)?.updatedAt);
+                const cmp = new Date(cmpRaw);
+                if (!isNaN(due.getTime()) && !isNaN(cmp.getTime())) {
+                    let finalDueTime = due.getTime();
+                    if (dueRaw.length === 10 || dueRaw.includes('T00:00:00.000Z')) {
+                        const dueEndOfDay = new Date(due.getFullYear(), due.getMonth(), due.getDate(), 23, 59, 59, 999);
+                        finalDueTime = dueEndOfDay.getTime();
+                    }
+                    if (cmp.getTime() <= finalDueTime) matches.push(t);
+                }
+            }
+        });
+
+        setModalTasks(matches);
+        setModalTitle(`${metricKey} — ${userLabel}`);
+        setTaskModalOpen(true);
+    };
 
     const handleExportReport = () => {
         if (!userReportData.length) return;
@@ -620,6 +679,8 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                 <SummaryCards {...globalSummary} />
             </Suspense>
 
+            <TaskListModal open={taskModalOpen} onClose={() => setTaskModalOpen(false)} title={modalTitle} tasks={modalTasks} />
+
             <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-6">
                 <div className="flex flex-col gap-2 min-w-[220px]">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -714,6 +775,7 @@ const AnalyzePage: FC<AnalyzePageProps> = ({ tasks: tasksProp, users = [], apiCo
                     onExport={handleExportReport}
                     currentMonth={globalMonth}
                     globalCompany={globalCompany}
+                    onMetricClick={handleMetricClick}
                 />
             </Suspense>
 

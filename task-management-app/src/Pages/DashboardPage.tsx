@@ -830,10 +830,8 @@ const DashboardPage = () => {
     }, [currentUser, isAuthReady]);
 
     const canViewAllTasks = useMemo(() => {
-        const role = String((currentUser as any)?.role || '').trim().toLowerCase();
-        if (role === 'ob_manager') return true;
         return hasAccess('view_all_tasks');
-    }, [currentUser, hasAccess]);
+    }, [hasAccess]);
 
     const canCreateTasks = useMemo(() => {
         const role = String((currentUser as any)?.role || '').trim().toLowerCase();

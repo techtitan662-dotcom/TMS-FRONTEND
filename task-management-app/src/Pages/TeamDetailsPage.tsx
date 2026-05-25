@@ -142,11 +142,15 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         const createdTasks = getTasksCreatedByUser(user.id, user.email);
 
         const totalAssigned = assignedTasks.length;
-        const completed = assignedTasks.filter(t => t.status === 'completed').length;
-        const pending = assignedTasks.filter(t =>
-            t.status === 'pending' || t.status === 'in-progress' || t.status === 'reassigned'
-        ).length;
-        const overdue = assignedTasks.filter(t => isOverdue(t.dueDate, t.status)).length;
+        const completed = assignedTasks.filter(t => ((t as any).status || '').toString().toLowerCase() === 'completed').length;
+        const overdue = assignedTasks.filter(t => {
+            const s = ((t as any).status || '').toString().toLowerCase();
+            return s !== 'completed' && isOverdue(t.dueDate, s);
+        }).length;
+        const pending = assignedTasks.filter(t => {
+            const s = ((t as any).status || '').toString().toLowerCase();
+            return s !== 'completed' && !isOverdue(t.dueDate, s);
+        }).length;
 
         return {
             totalAssigned,
@@ -320,11 +324,12 @@ const TeamDetailsPage: React.FC<TeamDetailsPageProps> = ({
         })
         .filter(t => {
             const status = (t.status || '').toString().toLowerCase();
-            const overdue = isOverdue(t.dueDate, t.status);
+            const overdue = isOverdue(t.dueDate, status);
             if (detailsTab === 'all') return true;
             if (detailsTab === 'completed') return status === 'completed';
-            if (detailsTab === 'overdue') return overdue;
-            return status === 'pending' || status === 'in-progress' || status === 'reassigned';
+            if (detailsTab === 'overdue') return status !== 'completed' && overdue;
+            // pending tab: any non-completed, non-overdue task
+            return status !== 'completed' && !overdue;
         })
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 

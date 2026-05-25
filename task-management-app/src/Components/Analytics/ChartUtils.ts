@@ -134,11 +134,14 @@ export const getCompletionStatus = (t: any): string => {
     const status = normalizeText(t?.status || '');
     if (status === 'completed') return 'Completed';
 
-    const due = new Date(normalizeText(t?.dueDate));
+    const dueRaw = normalizeText(t?.dueDate);
+    const due = new Date(dueRaw);
     if (Number.isNaN(due.getTime())) return 'Unscheduled';
 
+    // Treat due date as end of day to avoid timezone truncation issues
+    const dueEndOfDay = new Date(due.getFullYear(), due.getMonth(), due.getDate(), 23, 59, 59, 999);
     const now = new Date();
-    if (due.getTime() < now.getTime()) return 'Overdue';
+    if (now.getTime() > dueEndOfDay.getTime()) return 'Overdue';
     return 'Upcoming';
 };
 

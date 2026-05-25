@@ -631,10 +631,17 @@ const TeamPage: React.FC<TeamPageProps> = (props) => {
                 || (targetEmail && assignedEmailBase && assignedEmailBase === targetEmail);
             if (!matches) continue;
             totalAssigned += 1;
-            const status = ((t as any)?.status || '').toString();
-            if (status === 'completed') completed += 1;
-            if (status === 'pending' || status === 'in-progress' || status === 'reassigned') pending += 1;
-            if (isOverdue((t as any)?.dueDate, status)) overdue += 1;
+            const statusRaw = ((t as any)?.status || '').toString();
+            const status = statusRaw.trim().toLowerCase();
+            if (status === 'completed') {
+                completed += 1;
+            } else if (isOverdue((t as any)?.dueDate, status)) {
+                // count as overdue only for non-completed tasks that are overdue
+                overdue += 1;
+            } else {
+                // any non-completed, non-overdue task is considered pending
+                pending += 1;
+            }
         }
         const completion = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : 0;
         return { totalAssigned, completed, pending, overdue, completion };

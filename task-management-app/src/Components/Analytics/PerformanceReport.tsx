@@ -26,6 +26,7 @@ interface PerformanceReportProps {
     onExport: () => void;
     currentMonth: string;
     globalCompany: string;
+    onMetricClick?: (userLabel: string, metric: string) => void;
 }
 
 const PerformanceReport: React.FC<PerformanceReportProps> = ({
@@ -37,6 +38,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({
     onExport,
     currentMonth,
     globalCompany
+    , onMetricClick
 }) => {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
@@ -132,44 +134,76 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onMetricClick && onMetricClick(row.name, 'completed')}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 hover:opacity-90"
+                                                >
                                                     {row.completed}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onMetricClick && onMetricClick(row.name, 'pending')}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 hover:opacity-90"
+                                                >
                                                     {row.pending}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onMetricClick && onMetricClick(row.name, 'reassigned')}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-50 text-orange-700 hover:opacity-90"
+                                                >
                                                     {row.reassigned}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onMetricClick && onMetricClick(row.name, 'pendingApproval')}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 hover:opacity-90"
+                                                >
                                                     {row.pendingApproval}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 font-mono">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onMetricClick && onMetricClick(row.name, 'overdue')}
+                                                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 font-mono hover:opacity-90"
+                                                >
                                                     {row.overdue}
-                                                </span>
+                                                </button>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 font-mono">
-                                                        {row.overdueCompleted}
-                                                    </span>
-                                                    <span className="text-[9px] font-bold text-purple-400 mt-0.5">{row.overdueCompletedRate}%</span>
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onMetricClick && onMetricClick(row.name, 'overdueCompleted')}
+                                                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 font-mono hover:opacity-90"
+                                                        >
+                                                            {row.overdueCompleted}
+                                                        </button>
+                                                        <div className="text-[9px] font-bold text-purple-400 mt-0.5">{row.overdueCompletedRate}%</div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center whitespace-nowrap">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 font-mono">
-                                                        {row.completedBeforeOverdue}
-                                                    </span>
-                                                    <span className="text-[9px] font-bold text-indigo-400 mt-0.5">{row.completedBeforeOverdueRate}%</span>
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onMetricClick && onMetricClick(row.name, 'completedBeforeOverdue')}
+                                                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 font-mono hover:opacity-90"
+                                                        >
+                                                            {row.completedBeforeOverdue}
+                                                        </button>
+                                                        <div className="text-[9px] font-bold text-indigo-400 mt-0.5">{row.completedBeforeOverdueRate}%</div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap min-w-[160px]">
